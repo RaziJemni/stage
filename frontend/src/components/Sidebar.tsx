@@ -47,17 +47,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'calendar' as ActivePage, 
       label: 'Multi-Calendar', 
       icon: CalendarIcon,
-      badge: hasCalendarConflict ? 'Conflict' : undefined,
-      badgeColor: 'bg-rose-500 text-white'
+      badge: hasCalendarConflict ? 'Conflict Alert' : undefined,
+      badgeColor: 'bg-rose-600 text-white'
     },
-    { id: 'properties' as ActivePage, label: 'Properties', icon: Building2 },
-    { id: 'property-detail' as ActivePage, label: 'Property Knowledge', icon: ShieldCheck, subtext: 'Villa Yasmine' },
+    { id: 'properties' as ActivePage, label: 'Property List', icon: Building2 },
+    { id: 'property-detail' as ActivePage, label: 'Property Knowledge & WiFi', icon: ShieldCheck, subtext: 'Villa Yasmine' },
     { 
       id: 'inbox' as ActivePage, 
       label: 'Guest Inbox', 
       icon: MessageSquare,
-      badge: unreadMessagesCount > 0 ? `${unreadMessagesCount}` : undefined,
-      badgeColor: 'bg-amber-500 text-white'
+      badge: unreadMessagesCount > 0 ? `${unreadMessagesCount} Unread` : undefined,
+      badgeColor: 'bg-amber-600 text-white'
     },
     { 
       id: 'conversation-thread' as ActivePage, 
@@ -67,35 +67,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { 
       id: 'tickets' as ActivePage, 
-      label: 'Operations Kanban', 
+      label: 'Maintenance Board', 
       icon: CheckSquare,
-      badge: openTicketsCount > 0 ? `${openTicketsCount}` : undefined,
+      badge: openTicketsCount > 0 ? `${openTicketsCount} Open` : undefined,
       badgeColor: 'bg-[#0F3D5E] text-white'
     },
     { id: 'settings' as ActivePage, label: 'Settings & Team', icon: Settings },
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-[#EBE6DD] flex flex-col h-screen sticky top-0 z-30 shrink-0 select-none shadow-[2px_0_12px_rgba(28,27,24,0.02)]">
+    <aside className="w-72 bg-white border-r-2 border-[#EBE6DD] flex flex-col h-screen sticky top-0 z-30 shrink-0 select-none shadow-sm">
       {/* Brand Header */}
-      <div className="p-5 border-b border-[#EBE6DD] flex items-center justify-between bg-[#FAF8F5]/50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0F3D5E] flex items-center justify-center text-white shadow-[0_2px_8px_rgba(15,61,94,0.25)]">
-            <Palmtree className="w-5 h-5 text-[#E8A838]" />
+      <div className="p-5 border-b-2 border-[#EBE6DD] flex items-center justify-between bg-[#FAF8F5]">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#0F3D5E] flex items-center justify-center text-white shadow-md">
+            <Palmtree className="w-6 h-6 text-[#E8A838]" />
           </div>
           <div>
-            <h1 className="font-bold text-base text-[#1C1B18] tracking-tight leading-none flex items-center gap-1.5">
-              Vayca <span className="text-[10px] font-semibold tracking-wider text-[#D96B43] bg-[#FDF4F0] px-1.5 py-0.5 rounded border border-[#FBE6DC]">TN</span>
+            <h1 className="font-extrabold text-lg text-[#111827] tracking-tight leading-none flex items-center gap-1.5">
+              Vayca <span className="text-xs font-bold tracking-wider text-[#D96B43] bg-[#FDF4F0] px-2 py-0.5 rounded-lg border border-[#FBE6DC]">TN</span>
             </h1>
-            <p className="text-[11px] text-[#78716C] mt-1 font-medium">Tunisia Property Ops</p>
+            <p className="text-xs text-[#655E59] mt-1 font-semibold">Tunisia Property OS</p>
           </div>
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        <div className="px-3 py-1.5 text-[11px] font-semibold text-[#78716C] uppercase tracking-wider">
-          Property Management
+      <nav className="flex-1 p-3.5 space-y-1.5 overflow-y-auto">
+        <div className="px-3 py-2 text-xs font-bold text-[#655E59] uppercase tracking-wider">
+          Main Operations Menu
         </div>
 
         {navItems.map((item) => {
@@ -105,20 +105,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-bold transition-all group min-h-[46px] ${
                 isActive
-                  ? 'bg-[#0F3D5E] text-white shadow-[0_2px_8px_rgba(15,61,94,0.18)]'
-                  : 'text-[#3B3735] hover:bg-[#FAF8F5] hover:text-[#0F3D5E]'
+                  ? 'bg-[#0F3D5E] text-white shadow-md'
+                  : 'text-[#292524] hover:bg-[#FAF8F5] hover:text-[#0F3D5E]'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <Icon className={`w-4 h-4 transition-colors ${
-                  isActive ? 'text-[#E8A838]' : 'text-[#78716C] group-hover:text-[#0F3D5E]'
+              <div className="flex items-center gap-3">
+                <Icon className={`w-5 h-5 shrink-0 transition-colors ${
+                  isActive ? 'text-[#E8A838]' : 'text-[#655E59] group-hover:text-[#0F3D5E]'
                 }`} />
                 <div className="text-left">
-                  <div>{item.label}</div>
+                  <div className="leading-snug">{item.label}</div>
                   {item.subtext && (
-                    <div className={`text-[10px] ${isActive ? 'text-white/70' : 'text-[#78716C]'}`}>
+                    <div className={`text-xs ${isActive ? 'text-white/80' : 'text-[#655E59]'}`}>
                       {item.subtext}
                     </div>
                   )}
@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {item.badge && (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.badgeColor}`}>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold shrink-0 ${item.badgeColor}`}>
                   {item.badge}
                 </span>
               )}
@@ -137,17 +137,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Alert Notification Card */}
       {hasCalendarConflict && (
-        <div className="p-3 mx-3 mb-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+        <div className="p-3.5 mx-3 mb-3 rounded-xl bg-rose-50 border-2 border-rose-200 text-rose-900 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div>
-              <div className="font-semibold text-[11px]">Booking Overlap Alert</div>
-              <p className="text-[10px] text-rose-700 mt-0.5">Villa Yasmine has a 1-day conflict on Jul 25.</p>
+              <div className="font-extrabold text-xs">Double-Booking Overlap!</div>
+              <p className="text-xs text-rose-800 mt-0.5 leading-snug">Villa Yasmine has a 1-day conflict on Jul 25.</p>
               <button 
                 onClick={() => onNavigate('calendar')}
-                className="mt-1 text-[10px] font-bold text-rose-800 underline hover:text-rose-900"
+                className="mt-1.5 text-xs font-extrabold text-rose-900 underline hover:text-rose-950 block"
               >
-                Resolve in Calendar &rarr;
+                Click to Resolve Conflict &rarr;
               </button>
             </div>
           </div>
@@ -155,25 +155,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* User Profile Footer */}
-      <div className="p-3 border-t border-[#EBE6DD] bg-[#FAF8F5]/70">
-        <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#EBE6DD] shadow-sm">
-          <div className="flex items-center gap-2.5 overflow-hidden">
+      <div className="p-3.5 border-t-2 border-[#EBE6DD] bg-[#FAF8F5]">
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#EBE6DD] shadow-xs">
+          <div className="flex items-center gap-3 overflow-hidden">
             <img 
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" 
               alt="Youssef Ben Salem" 
-              className="w-8 h-8 rounded-full object-cover border border-[#EBE6DD]"
+              className="w-9 h-9 rounded-full object-cover border border-[#EBE6DD] shrink-0"
             />
             <div className="truncate">
-              <div className="font-semibold text-xs text-[#1C1B18] truncate">Youssef B. Salem</div>
-              <div className="text-[10px] text-[#78716C] truncate">Hammamet Prestige</div>
+              <div className="font-bold text-xs text-[#111827] truncate">Youssef B. Salem</div>
+              <div className="text-xs text-[#655E59] truncate font-medium">Hammamet Prestige</div>
             </div>
           </div>
           <button 
             onClick={onLogout}
-            title="Log out"
-            className="p-1.5 rounded-lg text-[#78716C] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            title="Log out of app"
+            className="p-2 rounded-lg text-[#655E59] hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

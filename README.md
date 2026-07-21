@@ -12,12 +12,16 @@ When using AI assistants (Cursor, GitHub Copilot, Antigravity, ChatGPT, Claude, 
 
 ### 📑 Key Instruction Files to Feed Your AI:
 1. **`design_system.md`** (located at root `d:\stage\design_system.md` or `./design_system.md`)  
-   *Contains the locked color palette tokens, typography rules, component patterns, elevation guidelines, and B2B visual identity.*
+   *Contains the locked color palette tokens, senior-friendly typography rules, large touch targets, component patterns, elevation guidelines, and B2B visual identity.*
 2. **`README.md`**  
    *Contains project structure, tech constraints, and workflow rules.*
 
+### 🎯 Senior Audience & UX Directive:
+> **Target Audience**: Older, traditional property owners & staff in Tunisia.  
+> **Rule**: Keep UI layouts **simple, uncluttered, and effortless to navigate**. Use large readable text (15px-16px body min), high contrast text (`#111827`), generous 44px+ button targets, explicit text labels alongside icons, and clear 1-sentence explanations on every page. Avoid complex multi-layered menus or confusing jargon.
+
 ### 💬 Prompt Template to give your AI:
-> *"I'm working on Vayca, a B2B vacation-property operations app in Tunisia. Please read `design_system.md` in the project root before writing or editing any UI components. Ensure all colors use the locked Sidi Bou Said Azure (`#0F3D5E`), Terracotta Clay (`#D96B43`), Warm Sun Amber (`#E8A838`), and Warm Sand (`#FAF8F5`) palette, and use `Plus Jakarta Sans` typography in Light Mode."*
+> *"I'm working on Vayca, a B2B vacation-property operations app in Tunisia designed for non-tech-savvy/older staff. Please read `design_system.md` in the project root before writing or editing any UI components. Ensure all UI elements use large readable text, simple uncluttered layouts, generous button padding (min 44px height), clear text labels on every button, and the locked Sidi Bou Said Azure (`#0F3D5E`), Terracotta Clay (`#D96B43`), and Warm Sand (`#FAF8F5`) color palette in Light Mode."*
 
 ---
 
