@@ -1,10 +1,7 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="VacayOps API")
-
+app = FastAPI(title="Vayca API")
 
 @app.get("/health")
-def health_check():
-    """Used in step 4 of the setup checklist -- everyone should see
-    the exact same response here once their environment is running."""
+def health():
     return {"status": "ok"}
