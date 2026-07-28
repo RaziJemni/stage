@@ -39,7 +39,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const conflictBookings = bookings.filter(b => b.status === 'Conflict');
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBE6DD] pb-6">
         <div>
@@ -53,7 +53,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             Portfolio Operations Command Center
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
-            Real-time status across 5 luxury Tunisian properties in Hammamet, Sidi Bou Said, Tunis & Djerba.
+            Prototype status across 5 Tunisian properties in Hammamet, Sidi Bou Said, Tunis & Djerba.
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Quick Links & Today's Schedule + AI Assistant Status */}
+      {/* Main Grid: Quick Links, Schedule, and Chatbot Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left Column: Properties Overview & Quick Navigation (2 cols wide) */}
@@ -255,7 +255,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         </div>
 
-        {/* Right Column: AI Assistant Status & Recent Operations Feed */}
+        {/* Right Column: Chatbot Status and Recent Operations Feed */}
         <div className="space-y-6">
 
           {/* Chatbot prototype status */}
@@ -267,34 +267,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 </div>
                 <div>
                   <h4 className="font-bold text-xs text-[#1C1B18]">Guest Chatbot Prototype</h4>
-                  <p className="text-[10px] text-emerald-700 font-semibold">Active & Auto-Replying</p>
+                  <p className="text-[10px] text-amber-700 font-semibold">Simulator - Review Mode</p>
                 </div>
               </div>
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             <p className="text-xs text-[#78716C] leading-relaxed mb-3">
-              AI model is trained on Tunisian WiFi rules, check-in policies, and pool/BBQ guidelines. Handled 14 guest inquiries today.
+              Demo replies use mock property information. No chatbot model or WhatsApp provider is connected.
             </p>
 
             <button
               onClick={() => onNavigate('inbox')}
               className="w-full py-2 px-3 rounded-xl bg-[#FAF8F5] hover:bg-[#F0F6FA] border border-[#EBE6DD] text-xs font-semibold text-[#0F3D5E] flex items-center justify-center gap-1.5 transition-colors"
             >
-              Open Inbox & View Automated Responses
+              Open Inbox & View Chatbot Drafts
             </button>
           </div>
 
           {/* Recent Operations Timeline */}
           <div className="p-5 rounded-2xl bg-white border border-[#EBE6DD] shadow-sm">
             <h4 className="font-bold text-xs text-[#1C1B18] mb-3 uppercase tracking-wider text-[#78716C]">
-              Today's Live Ops Activity
+              Today's Prototype Activity
             </h4>
 
             <div className="space-y-3">
               <div className="flex items-start gap-2.5 pb-3 border-b border-[#EBE6DD]">
                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
-                  AI
+                  BOT
                 </div>
                 <div className="text-xs">
                   <div className="font-semibold text-[#1C1B18]">WiFi details provided</div>

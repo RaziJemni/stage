@@ -62,7 +62,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   });
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Top Header & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBE6DD] pb-6">
@@ -79,7 +79,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             Multi-Property Booking Calendar
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
-            Real-time synchronization across Airbnb, Booking.com, VRBO & Direct bookings for Tunisian properties.
+            Prototype calendar across Airbnb, Booking.com, VRBO and direct bookings. Synchronization is not connected.
           </p>
         </div>
 

@@ -27,6 +27,15 @@ From the repository root, prefer Docker:
 docker compose up --build frontend
 ```
 
+The frontend is available at `http://localhost:5173`.
+
+If `package.json` changes and Docker reports a missing package, refresh the
+container-only dependency volume:
+
+```bash
+docker compose up -d --build --force-recreate --renew-anon-volumes frontend
+```
+
 For local frontend tooling:
 
 ```bash

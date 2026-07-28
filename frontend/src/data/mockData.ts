@@ -55,7 +55,7 @@ export interface Conversation {
   lastMessageTime: string;
   unread: boolean;
   status: 'ai_handled' | 'human_action_required' | 'staff_took_over';
-  aiMode: boolean; // true = AI auto-reply active, false = human takeover
+  aiMode: boolean; // true = chatbot simulator active, false = human takeover
   messages: ConversationMessage[];
 }
 
@@ -318,7 +318,7 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
       {
         id: 'msg-2',
         sender: 'ai',
-        senderName: 'Vayca AI Assistant',
+        senderName: 'Vayca Chatbot',
         text: 'Hello Sarah! Welcome to Villa Yasmine Hammamet. 🌴 Your WiFi network is "VillaYasmine_5G_Guests" and the password is "HammametBeach2026!". Let us know if you need anything else!',
         timestamp: '10:31 AM',
         confidenceScore: 0.98
@@ -389,7 +389,7 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
       {
         id: 'msg-302',
         sender: 'ai',
-        senderName: 'Vayca AI Assistant',
+        senderName: 'Vayca Chatbot',
         text: 'Hello Klaus, standard check-in for Villa Yasmine is 15:00. However, our team is currently flagging a booking calendar adjustment for your dates. An operations specialist will message you shortly!',
         timestamp: 'Yesterday 18:21',
         confidenceScore: 0.89

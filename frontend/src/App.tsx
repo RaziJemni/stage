@@ -131,7 +131,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-[#FAF8F5]">
+      <main className="flex-1 overflow-y-auto bg-[#FAF8F5] pb-20 md:pb-0">
         {activePage === 'dashboard' && (
           <DashboardPage
             properties={properties}
