@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Palmtree, KeyRound, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Palmtree, KeyRound, Mail, ArrowRight, FlaskConical } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -7,8 +7,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('youssef@vayca.tn');
-  const [password, setPassword] = useState('••••••••••••');
-  const [companyCode, setCompanyCode] = useState('TN-HAMMAMET-882');
+  const [password, setPassword] = useState('demo-password');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +29,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <Palmtree className="w-7 h-7 text-[#E8A838]" />
           </div>
           <h1 className="text-2xl font-bold text-[#1C1B18] tracking-tight">Vayca Tunisia</h1>
-          <p className="text-sm text-[#78716C] mt-1 font-medium">B2B Vacation Property Management OS</p>
+          <p className="text-sm text-[#78716C] mt-1 font-medium">B2B vacation-property operations</p>
         </div>
 
         {/* Auth Form */}
@@ -68,24 +67,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#3B3735] mb-1.5 uppercase tracking-wider">
-              Agency License Code (Tunisia SARL)
-            </label>
-            <input
-              type="text"
-              value={companyCode}
-              onChange={(e) => setCompanyCode(e.target.value)}
-              required
-              className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2.5 px-3.5 text-sm text-[#1C1B18] font-mono focus:outline-none focus:border-[#0F3D5E] focus:bg-white transition-colors"
-            />
-          </div>
-
           {/* Quick Demo Staff Selector */}
           <div className="pt-2">
             <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EBE6DD]">
               <span className="text-[11px] font-semibold text-[#78716C] block mb-1.5 uppercase tracking-wider">
-                Demo Quick Access (Select Staff Role):
+                Prototype access - select a role
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -97,8 +83,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       : 'bg-white text-[#3B3735] border-[#EBE6DD] hover:border-[#0F3D5E]'
                   }`}
                 >
-                  <div className="font-semibold text-[11px]">Youssef (Owner)</div>
-                  <div className="text-[9px] opacity-80">Portfolio Admin</div>
+                  <div className="font-semibold text-[11px]">Youssef (Manager)</div>
+                  <div className="text-[9px] opacity-80">Company administration</div>
                 </button>
 
                 <button
@@ -110,8 +96,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       : 'bg-white text-[#3B3735] border-[#EBE6DD] hover:border-[#0F3D5E]'
                   }`}
                 >
-                  <div className="font-semibold text-[11px]">Amira (Ops Mgr)</div>
-                  <div className="text-[9px] opacity-80">Guest & Calendar</div>
+                  <div className="font-semibold text-[11px]">Amira (Staff)</div>
+                  <div className="text-[9px] opacity-80">Daily operations</div>
                 </button>
               </div>
             </div>
@@ -121,15 +107,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             type="submit"
             className="w-full mt-4 bg-[#0F3D5E] hover:bg-[#0C324E] text-white font-semibold py-3 px-4 rounded-xl shadow-[0_4px_12px_rgba(15,61,94,0.2)] flex items-center justify-center gap-2 transition-all"
           >
-            Launch Operations Workspace
+            Open Prototype Workspace
             <ArrowRight className="w-4 h-4 text-[#E8A838]" />
           </button>
         </form>
 
         {/* Security badge */}
         <div className="mt-6 pt-4 border-t border-[#EBE6DD] flex items-center justify-center gap-2 text-xs text-[#78716C]">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Tunisian Hospitality Data Encryption Standard</span>
+          <FlaskConical className="w-4 h-4 text-amber-600" />
+          <span>Prototype login - authentication is not implemented yet</span>
         </div>
       </div>
 

@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# Vayca Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React/TypeScript frontend for the Vayca operations platform.
 
-Currently, two official plugins are available:
+## Current State
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The current screens are an interactive prototype backed by `src/data/mockData.ts`. They demonstrate approved navigation and workflows but do not prove authentication, persistence, calendar synchronization, WhatsApp, or chatbot integration.
 
-## React Compiler
+Every simulated or unconfigured integration must be labelled truthfully.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Navigation
 
-## Expanding the Oxlint configuration
+- Dashboard
+- Calendar
+- Messages
+- Maintenance
+- Properties
+- Settings
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+Property detail and conversation thread are drill-down routes.
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Development
+
+From the repository root, prefer Docker:
+
+```bash
+docker compose up --build frontend
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+For local frontend tooling:
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+```
+
+Before UI work, read `docs/design-system.md`, the assigned requirement, and `AGENTS.md`.

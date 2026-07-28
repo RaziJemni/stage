@@ -1,0 +1,69 @@
+name: Feature or implementation task
+description: Implement one reviewable Vayca requirement or technical unit
+title: "[Module] "
+labels: ["phase:mvp"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user value
+      description: Explain the operational problem, not only the technical task.
+      placeholder: A manager or staff member needs...
+    validations:
+      required: true
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement IDs
+      description: Reference docs/academic/05_functional_requirements.md or 06_non_functional_requirements.md.
+      placeholder: FR-CAL-01, NFR-REL-01
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - Foundation
+        - Properties and Calendar
+        - Communication and Chatbot
+        - Maintenance
+        - Supervision
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and exclusions
+      description: State what is included and what this issue must not implement.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and decisions
+      description: Link blocked-by issues, API/schema contracts, and decision records.
+      placeholder: Blocked by #...; depends on Decision 0001
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Include observable success, authorization, failure/empty state, mobile behavior where applicable, and test evidence.
+      value: |
+        - [ ] Normal behavior is implemented and persistent or explicitly simulated.
+        - [ ] Authorization and tenant isolation are enforced where applicable.
+        - [ ] Validation, empty state, and failure behavior are handled.
+        - [ ] Focused tests pass and evidence is recorded.
+        - [ ] Relevant documentation is updated.
+    validations:
+      required: true
+  - type: textarea
+    id: discussion
+    attributes:
+      label: Pre-implementation discussion
+      description: Record unresolved technology, dependency, schema, API, UX, or provider questions before coding.
+  - type: textarea
+    id: demo
+    attributes:
+      label: Demonstration scenario
+      description: Describe how a reviewer can verify the completed behavior.
