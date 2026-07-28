@@ -23,7 +23,7 @@ import { SettingsPage } from './pages/SettingsPage';
 
 export function App() {
   // Navigation & Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
 
   // Application Mock State

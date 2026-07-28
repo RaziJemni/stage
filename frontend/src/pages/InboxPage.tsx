@@ -42,11 +42,11 @@ export const InboxPage: React.FC<InboxPageProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-              <Bot className="w-3.5 h-3.5 text-emerald-600" /> AI Auto-Pilot Concierge Active
+              <Bot className="w-3.5 h-3.5 text-emerald-600" /> Automatic Replies Prototype
             </span>
           </div>
           <h1 className="text-2xl font-bold text-[#1C1B18] mt-1.5 tracking-tight">
-            Guest Messaging & AI Concierge Inbox
+            Guest Messages
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
             Unified inbox across Airbnb, Booking.com, VRBO & Direct WhatsApp guest chats.
@@ -182,7 +182,7 @@ export const InboxPage: React.FC<InboxPageProps> = ({
                 {isAIHandled ? (
                   <div className="px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-1.5">
                     <Bot className="w-4 h-4 text-emerald-600" />
-                    <span>AI Concierge Replied</span>
+                    <span>Chatbot Replied</span>
                   </div>
                 ) : isHumanNeeded ? (
                   <div className="px-3 py-1 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 animate-pulse">

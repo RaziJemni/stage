@@ -1,84 +1,187 @@
-# AGENTS.md -- Instructions for AI Coding Agents
+# AGENTS.md -- Canonical Instructions for AI Coding Agents
 
-This is the canonical instruction file for this repository. GitHub Copilot
-(Chat, code review, and coding agent), Cursor, Gemini CLI, and VS Code Copilot
-Chat all discover this file directly. Claude Code imports it via `CLAUDE.md`.
+This is the canonical instruction file for every AI tool working in this repository. `CLAUDE.md` and `.github/copilot-instructions.md` point here so the workflow does not drift between tools.
 
-Read this file, `docs/architecture.md`, and `docs/design-system.md` in full
-before making any code change -- even if the task looks simple.
+## 1. Required Reading
 
-## 1. What this project is
+Before proposing or changing code, read:
 
-VacayOps -- an AI-powered operations platform for vacation property management
-companies in Tunisia. Full context, actors, workflows, and module boundaries
-live in `docs/architecture.md`. Read it before writing any code that touches
-business logic, the database, or the UI.
+1. `docs/architecture.md`
+2. `docs/design-system.md` for UI work
+3. `docs/academic/00_README.md`
+4. The academic chapters relevant to the assigned requirement/module
+5. The assigned GitHub issue and its dependencies
+6. Applicable decision records in `docs/decisions/`
 
-## 2. Before you write any code
+Weekly reports under `docs/weekly-reports/` are historical logs only. They may help identify what happened, but they are not authoritative requirements and must never override current architecture, requirements, GitHub issues, or accepted decision records.
 
-1. Identify the exact feature or issue you are working on -- the GitHub Issue
-   you were assigned, or the task you were explicitly given. If it's
-   ambiguous, stop and ask. Do not guess and start writing code.
+## 2. Discuss Before Coding
 
-2. Check your current branch:
-   ```
-   git branch --show-current
-   ```
-   - Already on a `feature/*` branch matching this task? Continue.
-   - On `testing`, `main`, or the wrong branch? Create the right one first:
-     ```
-     git checkout testing
-     git pull origin testing
-     git checkout -b feature/<short-task-name>
-     ```
-   - Name it after the task: `feature/airbnb-ical-sync`,
-     `feature/ticket-board-ui`. Never commit directly to `testing` or `main`.
+Do not jump from an issue title directly into implementation.
 
-3. Sync before starting, and again if the session runs long (more than a
-   couple of hours):
-   ```
-   git fetch origin
-   git merge origin/testing
-   ```
-   Sync from `testing`, not `main`. `main` is only updated once a week from
-   `testing` and will be stale for anything built this week.
+Before writing code, briefly state:
 
-## 3. Stay inside the boundary of the assigned feature
+- the problem and requirement IDs being addressed;
+- the affected module and user workflow;
+- the files and API/data contracts likely to change;
+- assumptions or missing information;
+- technology choices already established by the repository;
+- any new dependency, schema change, external service, or architectural pattern being considered;
+- at least one simpler alternative when the proposed approach adds significant complexity;
+- expected tests and failure states.
 
-- Touch only the files the assigned issue actually requires. Notice something
-  unrelated that looks broken? Note it in the PR under "Noticed but out of
-  scope" -- do not fix it inline. Scope creep in one PR is the fastest way to
-  make a 3-person team's reviews unreviewable.
-- If a task needs a decision that isn't already settled in
-  `docs/architecture.md` or `docs/design-system.md` (a new database column, a
-  new page, a new external dependency) -- stop and flag it instead of
-  deciding alone. These are team decisions, not agent decisions.
+If the task requires a decision not settled in current sources, discuss it with the user/team first. Do not silently invent a database field, dependency, role, page, integration behavior, or AI policy.
 
-## 4. Commit messages
+Challenge an unsafe or unnecessarily complex request clearly. Prefer the smallest design that satisfies the approved requirement.
 
-Prefix every commit: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
-Example: `feat: add Airbnb calendar sync endpoint`.
-Small, frequent commits, not one giant commit at the end -- that's what makes
-a PR reviewable by a teammate who wasn't watching you build it.
+## 3. Product Boundaries
 
-## 5. Opening a Pull Request
+Vayca is a B2B operations platform for agencies and independent vacation-property owners. It is not a public marketplace.
 
-Open the PR from your feature branch into `testing` -- never directly into
-`main`. Use `.github/PULL_REQUEST_TEMPLATE.md` (auto-fills on GitHub). Fill in
-every section for real:
+MVP actors:
 
-- **What changed and why** -- understandable by a teammate who's never seen
-  this code, and by you, next week, with no memory of writing it.
-- **Which issue this closes** -- write `Closes #<number>` to auto-close on merge.
-- **How it was tested** -- exactly what you ran and what you saw, not just
-  "tested locally."
+- Manager: authenticated, full company access
+- Staff: authenticated, operational access
+- Guest: no Vayca account; communicates through WhatsApp
+- Contractor: contact record only; no Vayca login
+- Chatbot: controlled system capability that answers safe questions and escalates or suggests actions
 
-## 6. What never to do
+Main navigation:
 
-- Never push directly to `testing` or `main`.
-- Never commit `.env` or any real API key, token, or credential.
-- Never add a new dependency or architectural pattern without flagging it
-  clearly in the PR -- a reviewer needs to know it's new.
-- Never mark something "done" without actually running it and checking: does
-  it work on a small screen (if UI), does it handle a failed API call, does
-  it handle an empty state.
+- Dashboard
+- Calendar
+- Messages
+- Maintenance
+- Properties
+- Settings
+
+The chatbot must use backend data for availability and property facts. It may suggest a ticket, but staff must confirm creation and contractor assignment. It must escalate sensitive, uncertain, complaint, cancellation, refund, payment, emergency, and conflict cases.
+
+## 4. Branch and Sync Rules
+
+Check the branch before editing:
+
+```bash
+git branch --show-current
+```
+
+- Work only on a `feature/*`, `fix/*`, `docs/*`, `test/*`, or `chore/*` branch matching the task.
+- Create branches from current `testing`, never from stale `main`.
+- Never commit or push directly to `testing` or `main`.
+
+```bash
+git checkout testing
+git pull origin testing
+git checkout -b feature/<short-task-name>
+```
+
+For long-running work, refresh from `origin/testing` before final integration.
+
+## 5. Scope and Architecture Discipline
+
+- Touch only files required by the assigned issue.
+- Do not fix unrelated problems inline; report them under “Noticed but out of scope.”
+- Keep module boundaries from `docs/academic/08_module_decomposition.md`.
+- Keep tenant isolation explicit in every data-access path.
+- Use versioned database migrations; never rely on undocumented manual schema changes.
+- Keep external providers behind adapters so simulator/test modes remain possible.
+- Do not display mock or simulated integrations as connected production services.
+- Do not present prototype UI behavior as persistent functionality.
+
+## 6. Technology Decisions
+
+Established baseline:
+
+- React + TypeScript + Vite
+- Tailwind CSS
+- FastAPI + Python 3.12
+- PostgreSQL
+- SQLAlchemy + Alembic for persistence and migrations
+- Redis + Celery for asynchronous work
+- Docker Compose for shared development
+
+Before adding a dependency or changing a major technology:
+
+1. Explain the requirement it solves.
+2. Check whether an existing dependency already solves it.
+3. Compare maintenance, security, licensing, learning cost, and Docker impact.
+4. Record an accepted decision in `docs/decisions/` when the choice affects multiple modules or future development.
+5. Mention the new dependency prominently in the pull request.
+
+## 7. Definition of Done
+
+A feature is not done because the screen exists.
+
+Applicable work must include:
+
+- persistent or explicitly simulated data behavior;
+- authorization and tenant isolation;
+- input validation;
+- loading, empty, success, and failure states;
+- mobile-width behavior for UI work;
+- focused tests for normal and edge cases;
+- updated OpenAPI/data contracts where applicable;
+- documentation and diagram changes when behavior changed;
+- exact verification evidence in the pull request.
+
+## 8. Commits
+
+Use small, reviewable commits with one of these prefixes:
+
+- `feat:` new product behavior
+- `fix:` defect correction
+- `docs:` documentation only
+- `test:` tests only
+- `chore:` tooling or maintenance
+- `refactor:` behavior-preserving restructuring
+
+Commit messages must explain the concrete change. Avoid vague messages such as `update files`, `work`, or `fix stuff`.
+
+Good examples:
+
+```text
+feat: persist manual bookings and validate date ranges
+fix: prevent cancelled bookings from triggering conflicts
+docs: align chatbot escalation requirements with ticket workflow
+test: cover cross-company property access rejection
+```
+
+For a complex commit, include a body describing why the change was needed, important design choices, and tests performed.
+
+## 9. Pull Requests
+
+Open pull requests into `testing`, never directly into `main`. Complete every section in `.github/PULL_REQUEST_TEMPLATE.md` with real evidence.
+
+The PR must identify:
+
+- requirement and issue IDs;
+- design/technology decisions;
+- API or schema impact;
+- tests and observed results;
+- screenshots for UI work;
+- known limitations;
+- documentation updated;
+- unrelated issues noticed but not fixed.
+
+## 10. Weekly Reports
+
+At the end of each development week, add or update one report using `docs/weekly-reports/TEMPLATE.md`.
+
+Reports are factual history:
+
+- completed and merged work;
+- work in progress;
+- tests executed;
+- decisions formally accepted elsewhere;
+- blockers, risks, and next actions.
+
+Do not use weekly reports as requirements, architecture, or authority for future decisions. Link to the relevant issue, PR, requirement, or decision record instead.
+
+## 11. Prohibited Actions
+
+- Never commit `.env`, tokens, API keys, passwords, guest data, or real property access codes.
+- Never weaken authorization to make a test or demo pass.
+- Never let the chatbot directly perform high-impact actions outside approved policy.
+- Never add a marketplace, payment workflow, guest login, or contractor login without an explicit scope decision.
+- Never mark an integration connected when it is a mock, fixture, simulator, or unconfigured card.
+- Never mark work complete without running and recording relevant validation.

@@ -91,11 +91,11 @@ Status: **LOCKED & FINALIZED** (Phase 1 & Phase 2 Complete)
 | **Login** | Authenticate | Email/password auth form + SARL code + role selector |
 | **Dashboard** | Portfolio command center | Occupancy %, Revenue TND, active guests, open maintenance, conflict alert banner |
 | **Calendar** | All bookings, all channels | 14-day multi-property grid, overlap alerts, channel badges, reservation drawer |
-| **Property Detail** | Manage one property | Specs, upcoming bookings, WiFi & House Rules Knowledge Card editor |
+| **Property Detail** | Manage one property | Specs, upcoming bookings, WiFi and property-information editor |
 | **Properties** | Add/manage properties | Directory grid, city filters (Hammamet, Sidi Bou Said, Tunis, Djerba, Sousse), Add Property modal |
-| **Inbox** | Guest conversations | Unified inbox, status filters (AI Replied, Needs Human Staff, Unread) |
-| **Conversation Thread** | Full history, one guest | Guest chat history, AI confidence tags, staff takeover toggle button |
-| **Tickets** | Maintenance board | 4-column Kanban (Open / Assigned / In Progress / Resolved), priority badges, new ticket modal |
-| **Settings** | Team & account | Staff member roles table, Tunisian SARL legal profile, OTA API sync cards |
+| **Messages** | Guest conversations | Unified inbox, status filters (Automatic Reply, Staff Attention, Unread) |
+| **Conversation Thread** | Full history, one guest | Guest chat history, chatbot source, Reply Manually control |
+| **Maintenance** | Maintenance work | Open / Assigned / In Progress / Resolved views, priority badges, new ticket modal |
+| **Settings** | Team & account | Staff roles, company profile, booking-channel connection health |
 
-* **Sidebar navigation**: Persistent left sidebar (`Sidebar.tsx`) with active tab highlights, notification pills, and logged-in user profile pill.
+* **Sidebar navigation**: Dashboard, Calendar, Messages, Maintenance, Properties, and Settings only. Property Detail and Conversation Thread are drill-down routes and must not appear as permanent sidebar items.

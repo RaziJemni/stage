@@ -62,7 +62,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-bold text-[#1C1B18]">
-              {conversation.aiMode ? 'AI Concierge Auto-Pilot' : 'Human Staff Takeover Active'}
+              {conversation.aiMode ? 'Automatic Replies On' : 'Manual Reply Mode'}
             </div>
             <div className="text-[10px] text-[#78716C]">
               {conversation.aiMode ? 'Auto-replying to guest questions' : 'AI paused for manual responses'}
@@ -80,7 +80,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
             {conversation.aiMode ? (
               <>
                 <Bot className="w-4 h-4 text-[#E8A838]" />
-                <span>AI Auto-Pilot ON</span>
+                <span>Automatic Replies On</span>
                 <span className="text-[10px] font-normal underline ml-1">(Click to Take Over)</span>
               </>
             ) : (
@@ -138,7 +138,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
                     {/* Badge header for AI or Staff */}
                     {isAI && (
                       <div className="flex items-center gap-1 text-[10px] font-bold text-[#E8A838] mb-1 pb-1 border-b border-white/20">
-                        <Bot className="w-3.5 h-3.5" /> Vayca Guest AI Concierge ({Math.round((msg.confidenceScore || 0.95)*100)}% Confidence)
+                        <Bot className="w-3.5 h-3.5" /> Vayca Chatbot ({Math.round((msg.confidenceScore || 0.95)*100)}% confidence)
                       </div>
                     )}
                     {isStaff && (
@@ -178,7 +178,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-4 text-xs">
             <h3 className="font-bold text-sm text-[#1C1B18] border-b border-[#EBE6DD] pb-3">
-              Stay Details & Property Knowledge
+              Stay and Property Information
             </h3>
 
             <div>

@@ -1,135 +1,236 @@
 # Vayca
 
-AI-powered operations platform for vacation property management companies in Tunisia.
+Vayca is a B2B operations platform for vacation-property agencies and independent owners. It centralizes property information, booking calendars, guest messages, chatbot assistance, and maintenance follow-up.
 
-> This setup guide is written for **Windows only**. If you're on Mac or Linux, say so before following it — the install steps differ and this version will not work as-is.
+> **Current state:** project skeleton and interactive frontend prototype. Database models, migrations, authentication, APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
 
----
+## Product Boundary
 
-## 🤖 What to Feed Your AI (Crucial for Teammates & AI Coding Agents)
+Vayca is not a public marketplace. Guests find and reserve properties through Airbnb, Booking.com, or direct contact. Guests and contractors do not create Vayca accounts.
 
-When using AI assistants (Cursor, GitHub Copilot, Antigravity, ChatGPT, Claude, Gemini, etc.) to generate or modify code for **Vayca**, **ALWAYS instruct your AI to read the following Markdown files first** before writing any frontend or component code:
+Main application areas:
 
-### 📑 Key Instruction Files to Feed Your AI:
-1. **`design_system.md`** (located at root `d:\stage\design_system.md` or `./design_system.md`)  
-   *Contains the locked color palette tokens, typography rules, component patterns, elevation guidelines, and B2B visual identity.*
-2. **`README.md`**  
-   *Contains project structure, tech constraints, and workflow rules.*
+- Dashboard
+- Calendar
+- Messages
+- Maintenance
+- Properties
+- Settings
 
-### 🎯 Design Identity & Usability Directive:
-> **Brand Identity**: Sidi Bou Said Azure & Warm Sand — Refined B2B Vacation Property Operations.  
-> **Core UX Rule**: Keep UI layouts **sleek, modern, and considered**, while ensuring navigation and workflows are **universally simple, intuitive, and clutter-free** for both tech-savvy and traditional property managers. Use clean hierarchy, explicit labels, and distinct status indicators.
+## Required Project Reading
 
-### 💬 Prompt Template to give your AI:
-> *"I'm working on Vayca, a B2B vacation-property operations app in Tunisia. Please read `design_system.md` in the project root before writing or editing any UI components. Ensure all UI elements follow the locked Sidi Bou Said Azure (`#0F3D5E`), Terracotta Clay (`#D96B43`), and Warm Sand (`#FAF8F5`) color palette in Light Mode, maintaining a modern, premium B2B product feel with simple, intuitive navigation."*
+Before implementation, humans and AI tools must read:
 
----
+1. `AGENTS.md`
+2. `docs/architecture.md`
+3. `docs/design-system.md` for UI work
+4. `docs/academic/00_README.md`
+5. The relevant academic requirements/conception chapters
+6. The assigned GitHub issue and dependencies
 
-## 1. Install these once
+The two existing PDFs are historical project artifacts. Current Markdown documents and accepted decision records are the living source of truth.
 
-| Tool | Download | Verify it worked |
-|---|---|---|
-| Git for Windows | https://git-scm.com/downloads | `git --version` |
-| Docker Desktop | https://www.docker.com/products/docker-desktop/ | `docker --version` |
-| Python 3.12 | https://www.python.org/downloads/ | `python --version` |
-| Node.js LTS | https://nodejs.org/ | `node --version` |
-| VS Code (recommended editor) | https://code.visualstudio.com/ | -- |
-| GitHub Desktop (optional, visual Git) | https://desktop.github.com/ | -- |
+## Repository Structure
 
-Notes:
-
-- **Docker Desktop** needs WSL2 turned on first. Either accept the prompt during Docker's install, or open PowerShell as Administrator, run `wsl --install`, restart your machine, then install Docker.
-- **Python**: run the official installer above and choose the Python install manager during setup. Check **"Add python.exe to PATH"** during install -- this is the step people forget, and then `python` isn't recognized afterward. Once installed, `py install 3.12` also works from a terminal.
-- **Terminal**: use **Git Bash** for every command in this guide, not Command Prompt or PowerShell. It comes bundled with Git for Windows and understands Unix-style commands like `cp`. Right-click any folder in File Explorer -> "Git Bash Here" to open it there.
-- None of this Python/Node install actually runs the app -- the backend and frontend run inside Docker. Local installs exist so your code editor can read and autocomplete your code correctly.
-
----
-
-## 2. Clone the repo and get your environment running
-
-All commands below assume Git Bash.
-
-1. Clone it:
-   ```bash
-   git clone <repo-url>
-   cd vayca
-   ```
-
-2. Create your local environment file from the template:
-   ```bash
-   cp .env.example .env
-   ```
-   If you're using Command Prompt instead of Git Bash: `copy .env.example .env`
-
-   Open `.env` and fill in your own API keys where it says `replace-with-your-own-key`. Never put real keys into `.env.example` -- that file is the shared template and gets committed.
-
-3. First time only -- scaffold the frontend. Skip this if `frontend/package.json` already exists in the repo (a teammate already did it and pushed it):
-   ```bash
-   npm create vite@latest frontend -- --template react-ts
-   ```
-   Then follow Tailwind's Vite setup guide inside `frontend/` before committing, since the dashboard UI depends on it: https://tailwindcss.com/docs/guides/vite
-
-4. Build and start everything:
-   ```bash
-   docker compose up --build
-   ```
-   First run downloads images and installs dependencies inside the containers -- expect a few minutes. After that it's fast.
-
-5. Verify it actually worked -- everyone on the team should see the exact same result:
-   - Containers running: `docker compose ps` -- you should see `backend`, `frontend`, `db`, `redis`, `worker`, all `Up`.
-   - Backend: open http://localhost:8000/health -- should show `{"status": "ok"}`
-   - Frontend: open http://localhost:5173
-   - If something looks wrong: `docker compose logs -f backend` (swap `backend` for whichever service is failing)
-
-If any of this differs between teammates, fix it before anyone starts writing feature code -- different environments waste more time later than fixing this now costs.
-
----
-
-## 3. Daily workflow: branch, push, pull, review, test
-
-### Starting a new feature
-
-1. Make sure you're on `testing` and it's up to date. Never branch off `main` directly:
-   ```bash
-   git checkout testing
-   git pull origin testing
-   ```
-
-2. Create your feature branch:
-   ```bash
-   git checkout -b feature/short-task-name
-   ```
-   Examples: `feature/airbnb-ical-sync`, `feature/whatsapp-webhook`, `feature/ticket-board-ui`
-
-3. Work, then commit in small chunks with a clear prefix:
-   ```bash
-   git add .
-   git commit -m "feat: add Airbnb calendar sync endpoint"
-   ```
-   Prefixes: `feat:` new feature, `fix:` bug fix, `docs:` documentation, `test:` tests, `chore:` config/setup.
-
-### Pushing and opening a Pull Request
-
-4. Push your branch:
-   ```bash
-   git push -u origin feature/short-task-name
-   ```
-
-5. On GitHub, open a Pull Request from your branch **into `testing`** (not `main`). Describe what the PR does and which Issue it closes, e.g. `Closes #14`.
-
-6. Assign one teammate as reviewer.
-
----
-
-## 4. Project structure
-
-```
+```text
 vayca/
-|-- design_system.md  Locked Vayca Design System Rules (Feed this to AI!)
-|-- backend/          FastAPI + Celery worker
-|-- frontend/         React + TypeScript + Tailwind CSS
-|-- docs/             Architecture and API contract docs
+|-- backend/                  FastAPI application and workers
+|-- frontend/                 React/TypeScript prototype and application
+|-- docs/
+|   |-- academic/             Study, requirements, conception, UML, validation
+|   |-- decisions/            Accepted cross-cutting technical/product decisions
+|   |-- weekly-reports/       Historical weekly logs only
+|   |-- architecture.md       Canonical implementation architecture summary
+|   `-- design-system.md      Canonical UI rules
+|-- .github/                  PR and issue templates
 |-- docker-compose.yml
 |-- .env.example
+|-- AGENTS.md
 `-- Makefile
 ```
+
+## Prerequisites
+
+Install once:
+
+- Git
+- Docker Desktop with Docker Compose
+- An editor such as VS Code
+
+Local Python and Node.js are optional for editor support because the shared application runs through Docker.
+
+## First-Time Setup
+
+### 1. Clone and enter the repository
+
+```bash
+git clone <repo-url>
+cd stage
+```
+
+### 2. Create the local environment file
+
+Git Bash:
+
+```bash
+cp .env.example .env
+```
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Never commit `.env`.
+
+### 3. Start infrastructure and application services
+
+```bash
+docker compose up --build
+```
+
+Expected services:
+
+- `db`: PostgreSQL
+- `redis`: Redis
+- `backend`: FastAPI
+- `worker`: Celery worker
+- `frontend`: Vite development server
+
+### 4. Verify services
+
+```bash
+docker compose ps
+```
+
+- Backend health: http://localhost:8000/health
+- API documentation: http://localhost:8000/docs
+- Frontend: http://localhost:5173
+
+## Database Setup
+
+PostgreSQL runs in the `db` Docker service using values from `.env`.
+
+### Start only PostgreSQL and Redis
+
+```bash
+docker compose up -d db redis
+docker compose ps
+```
+
+### Check database readiness
+
+```bash
+docker compose exec db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+
+If your shell does not expand `.env` values, use the default development values from `.env.example` explicitly:
+
+```bash
+docker compose exec db pg_isready -U vayca -d vayca_dev
+```
+
+### Open PostgreSQL
+
+```bash
+docker compose exec db psql -U vayca -d vayca_dev
+```
+
+Useful commands inside `psql`:
+
+```text
+\conninfo
+\dt
+\d table_name
+\q
+```
+
+### Migration workflow
+
+The database owner will establish SQLAlchemy models and Alembic migrations. Once Alembic is configured, the standard workflow should be:
+
+```bash
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic current
+docker compose exec backend alembic history
+```
+
+To create a reviewed migration after changing approved models:
+
+```bash
+docker compose exec backend alembic revision --autogenerate -m "describe schema change"
+```
+
+Always inspect generated migration code before applying it. Do not edit the database manually as a substitute for a migration.
+
+### Resetting local development data
+
+`docker compose down` preserves the PostgreSQL volume. Removing the volume deletes local database data and should only be done intentionally after confirming no needed local data exists.
+
+## Daily Git Workflow
+
+```bash
+git checkout testing
+git pull origin testing
+git checkout -b feature/short-task-name
+```
+
+Work on one issue or reviewable unit. Then:
+
+```bash
+git add <specific-files>
+git commit -m "feat: describe the concrete behavior added"
+git push -u origin feature/short-task-name
+```
+
+Open a pull request into `testing` and request one teammate review. Stable releases are promoted from `testing` to `main` through a separate reviewed pull request.
+
+## AI Onboarding Prompt
+
+Teammates can paste this prompt into an AI assistant before beginning an issue:
+
+```text
+You are helping with Vayca, a three-person internship project for a B2B vacation-property operations platform.
+
+Before proposing or changing code:
+1. Read AGENTS.md completely.
+2. Read docs/architecture.md.
+3. Read docs/academic/00_README.md and the academic chapters relevant to this issue.
+4. For UI work, read docs/design-system.md.
+5. Read the assigned GitHub issue, its requirement IDs, dependencies, and acceptance criteria.
+6. Check the current branch and repository status.
+
+Do not use docs/weekly-reports as requirements or architecture. They are historical logs only.
+
+Then summarize:
+- your understanding of the user problem and approved scope;
+- the affected module and requirements;
+- assumptions or missing decisions;
+- the simplest implementation approach;
+- any technology/dependency/schema/API choice that needs discussion;
+- files likely to change;
+- tests, authorization, tenant-isolation, empty states, and failure states required.
+
+Do not start coding until unresolved product or architecture decisions have been discussed. Do not invent new actors, pages, database entities, dependencies, or external-service behavior. Keep the change limited to the assigned issue and follow the branch, commit, PR, documentation, and weekly-report rules in AGENTS.md.
+```
+
+## Documentation Workflow
+
+- Current product and architecture decisions belong in canonical Markdown files or `docs/decisions/`.
+- Academic analysis and requirements belong in `docs/academic/`.
+- Weekly progress belongs in `docs/weekly-reports/` and is historical only.
+- A behavior-changing PR updates relevant documentation and diagrams.
+- Final PDFs should be generated from the reviewed Markdown baseline, not edited independently.
+
+## Troubleshooting
+
+```bash
+docker compose logs -f backend
+docker compose logs -f worker
+docker compose logs -f db
+docker compose down
+docker compose up --build
+```
+
+After pulling dependency or Dockerfile changes, use `docker compose up --build` to avoid running stale images.

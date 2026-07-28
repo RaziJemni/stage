@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project requirements and conception
+    url: https://github.com/RaziJemni/stage/tree/testing/docs/academic
+    about: Review current requirements before creating an implementation issue.

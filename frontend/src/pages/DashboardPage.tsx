@@ -64,14 +64,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#EBE6DD] text-xs font-semibold text-[#1C1B18] hover:bg-[#FAF8F5] hover:border-[#0F3D5E] transition-all shadow-sm"
           >
             <CalendarIcon className="w-4 h-4 text-[#0F3D5E]" />
-            Multi-Calendar Grid
+            Calendar
           </button>
           <button
             onClick={() => onNavigate('inbox')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F3D5E] text-white text-xs font-semibold hover:bg-[#0C324E] transition-all shadow-[0_2px_8px_rgba(15,61,94,0.2)]"
           >
             <MessageSquare className="w-4 h-4 text-[#E8A838]" />
-            Guest Inbox (AI Active)
+            Messages
           </button>
         </div>
       </div>
@@ -139,7 +139,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#78716C] mt-2">
-            Direct & OTA Channel Bookings
+            Direct and Channel Bookings
           </p>
         </div>
 
@@ -188,7 +188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="p-6 rounded-2xl bg-gradient-to-r from-[#0F3D5E] to-[#1E517B] text-white shadow-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1 z-10">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[#E8A838] text-[11px] font-semibold tracking-wide">
-                <Sparkles className="w-3.5 h-3.5" /> Featured Property Knowledge Base
+                <Sparkles className="w-3.5 h-3.5" /> Featured Property Information
               </div>
               <h3 className="text-lg font-bold">Villa Yasmine — Hammamet</h3>
               <p className="text-xs text-white/80 max-w-md">
@@ -258,7 +258,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         {/* Right Column: AI Assistant Status & Recent Operations Feed */}
         <div className="space-y-6">
 
-          {/* AI Auto-Pilot Status Box */}
+          {/* Chatbot prototype status */}
           <div className="p-5 rounded-2xl bg-white border border-[#EBE6DD] shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-[#1C1B18]">Guest AI Concierge</h4>
+                  <h4 className="font-bold text-xs text-[#1C1B18]">Guest Chatbot Prototype</h4>
                   <p className="text-[10px] text-emerald-700 font-semibold">Active & Auto-Replying</p>
                 </div>
               </div>
@@ -320,7 +320,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               <div className="flex items-start gap-2.5">
                 <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
-                  OTA
+                  Channel
                 </div>
                 <div className="text-xs">
                   <div className="font-semibold text-[#1C1B18]">Conflict Flagged</div>
