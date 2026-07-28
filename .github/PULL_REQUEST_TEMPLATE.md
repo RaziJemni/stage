@@ -1,22 +1,73 @@
-## What changed and why
+## Problem and outcome
 
-<!-- Explain it to a teammate who hasn't seen this code. What problem does
-this solve? Why this approach and not another one? -->
+<!-- Explain the user/system problem and the concrete result. -->
 
-## Which issue this closes
+## Issue and requirements
 
 Closes #
 
+Requirement IDs: `FR-...`, `NFR-...`
+
+## Scope
+
+### Included
+
+-
+
+### Explicitly excluded
+
+-
+
+## Design and technology decisions
+
+<!-- Explain important choices, alternatives considered, and links to docs/decisions records. State "None" if no cross-cutting decision was required. -->
+
+## API, database, and integration impact
+
+- API contract:
+- Schema/migration:
+- External provider:
+- New dependency:
+
 ## How it was tested
 
-<!-- Exactly what you ran and what you observed. Not just "tested locally." -->
+<!-- Exact commands/scenarios and observed results. Do not write only "tested locally." -->
 
-## Screenshots (if UI)
+| Test/scenario | Environment | Result |
+|---|---|---|
+|  |  |  |
+
+## UI evidence
+
+<!-- Screenshots at desktop and small/mobile width when applicable. Include loading, empty, and failure states. -->
+
+## Security and data checks
+
+- [ ] Authentication/authorization enforced where applicable
+- [ ] Cross-company access considered and tested
+- [ ] No secrets, real guest data, or property access credentials committed
+- [ ] External events are idempotent where applicable
+- [ ] Mock/simulator state is labelled truthfully
+
+## Documentation
+
+- [ ] Architecture/requirements/diagrams updated if behavior changed
+- [ ] Decision record added or updated if required
+- [ ] Weekly report link will be added for the relevant week
 
 ## Checklist
 
-- [ ] Follows the branch/commit conventions in AGENTS.md
-- [ ] No secrets or `.env` values committed
-- [ ] Handles a failed API call and an empty state (if applicable)
-- [ ] Works on a small screen (if UI)
-- [ ] Noticed but out of scope: <!-- anything unrelated you spotted but didn't fix -->
+- [ ] Branch targets `testing`
+- [ ] Change stays within the assigned issue
+- [ ] Validation, empty, loading, and failure states handled
+- [ ] Mobile-width behavior checked for UI work
+- [ ] Focused tests pass
+- [ ] Detailed commits use approved prefixes
+
+## Known limitations
+
+-
+
+## Noticed but out of scope
+
+-

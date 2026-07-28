@@ -32,7 +32,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Top Header Navigation & Staff Takeover Control */}
       <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,10 +62,10 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-bold text-[#1C1B18]">
-              {conversation.aiMode ? 'AI Concierge Auto-Pilot' : 'Human Staff Takeover Active'}
+              {conversation.aiMode ? 'Chatbot Simulator On' : 'Manual Reply Mode'}
             </div>
             <div className="text-[10px] text-[#78716C]">
-              {conversation.aiMode ? 'Auto-replying to guest questions' : 'AI paused for manual responses'}
+              {conversation.aiMode ? 'Chatbot simulator active - review mode' : 'Chatbot paused for manual responses'}
             </div>
           </div>
 
@@ -80,14 +80,14 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
             {conversation.aiMode ? (
               <>
                 <Bot className="w-4 h-4 text-[#E8A838]" />
-                <span>AI Auto-Pilot ON</span>
+                <span>Chatbot Simulator On</span>
                 <span className="text-[10px] font-normal underline ml-1">(Click to Take Over)</span>
               </>
             ) : (
               <>
                 <UserCheck className="w-4 h-4 text-white" />
                 <span>Staff Took Over (Manual)</span>
-                <span className="text-[10px] font-normal underline ml-1">(Resume AI)</span>
+                <span className="text-[10px] font-normal underline ml-1">(Resume Chatbot)</span>
               </>
             )}
           </button>
@@ -135,10 +135,10 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
                       ? 'bg-[#0F3D5E] text-white rounded-tr-none border border-[#0C324E]'
                       : 'bg-[#D96B43] text-white rounded-tr-none'
                   }`}>
-                    {/* Badge header for AI or Staff */}
+                    {/* Badge header for Chatbot or Staff */}
                     {isAI && (
                       <div className="flex items-center gap-1 text-[10px] font-bold text-[#E8A838] mb-1 pb-1 border-b border-white/20">
-                        <Bot className="w-3.5 h-3.5" /> Vayca Guest AI Concierge ({Math.round((msg.confidenceScore || 0.95)*100)}% Confidence)
+                        <Bot className="w-3.5 h-3.5" /> Vayca Chatbot ({Math.round((msg.confidenceScore || 0.95)*100)}% confidence)
                       </div>
                     )}
                     {isStaff && (
@@ -158,7 +158,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
           <form onSubmit={handleSend} className="p-4 border-t border-[#EBE6DD] bg-white flex items-center gap-3">
             <input
               type="text"
-              placeholder={conversation.aiMode ? "Send a manual message (AI will remain active unless toggled)..." : "Type staff message..."}
+              placeholder={conversation.aiMode ? "Send a manual message (chatbot simulator remains active unless paused)..." : "Type staff message..."}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               className="flex-1 bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2.5 px-4 text-xs text-[#1C1B18] focus:outline-none focus:border-[#0F3D5E]"
@@ -178,7 +178,7 @@ export const ConversationThreadPage: React.FC<ConversationThreadPageProps> = ({
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-4 text-xs">
             <h3 className="font-bold text-sm text-[#1C1B18] border-b border-[#EBE6DD] pb-3">
-              Stay Details & Property Knowledge
+              Stay and Property Information
             </h3>
 
             <div>

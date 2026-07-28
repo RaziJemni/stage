@@ -1,100 +1,133 @@
-# VacayOps -- Architecture Reference
+# Vayca Architecture Reference
 
-Read this before writing any code that touches business logic, the database,
-or the UI. This is the shared source of truth -- if something here conflicts
-with what you're about to build, stop and flag it rather than guessing.
+**Status:** Canonical implementation summary
+**Detailed study and conception:** `docs/academic/`
 
-## What VacayOps is
+Read this document before changing business logic, APIs, the database, integrations, or navigation. Detailed requirements and provisional models live in the numbered academic chapters. Accepted cross-cutting changes must be recorded in `docs/decisions/`.
 
-An AI-powered SaaS operations platform for vacation-property management
-companies in Tunisia (Hammamet, Sousse, Djerba, Monastir), managing 20-100+
-short-term rental properties across Airbnb, Booking.com, and similar platforms.
+## Product Boundary
 
-## The three problems it solves
+Vayca is a B2B web application for vacation-property agencies and independent owners. It centralizes operations around properties listed through existing booking channels.
 
-1. **Double-bookings** -- manual calendar blocking across multiple platforms.
-2. **Slow guest response** -- multilingual WhatsApp inquiries at all hours,
-   more volume than a small staff can answer fast.
-3. **Maintenance chaos** -- issues relayed through informal chats, no ticket,
-   no tracking, no accountability.
+Vayca is not a marketplace. It does not provide public search, guest checkout, online payments, guest accounts, or contractor accounts during the MVP.
 
 ## Actors
 
-| Actor | Type | Role |
+| Actor | Access | Responsibility |
 |---|---|---|
-| Property Manager | Human, logs in | Oversees properties, dashboard, assigns tickets |
-| Staff Member | Human, logs in | Guest conversations, maintenance coordination |
-| Contractor | Human, logs in (limited) | Ticket assignments and status only |
-| Guest | Human, never logs in | Books and stays; WhatsApp only |
-| AI Assistant | System actor | Auto-replies or escalates guest messages |
-| Booking Platforms | External system | Airbnb / Booking.com -- source of booking data |
+| Manager | Authenticated | Full company, property, staff, integration, and operational access |
+| Staff | Authenticated | Calendar, guest conversation, property-information, and maintenance work |
+| Guest | WhatsApp only | Requests information and reports issues |
+| Contractor | No account | External contact manually selected and contacted by staff |
+| Chatbot | Controlled system capability | Answers safe questions, uses backend tools, escalates or suggests actions |
+| Booking channel | External system | Supplies calendar data through supported feeds/integrations |
 
-Guests never use the app. This is why guest communication runs through
-WhatsApp, not in-app chat -- staff and managers get a real in-app inbox;
-WhatsApp is only the pipe to the guest's side.
+## Main Navigation
 
-## Core workflows
+- Dashboard
+- Calendar
+- Messages
+- Maintenance
+- Properties
+- Settings
 
-**Booking sync**: platform booking -> Booking record created via Channel ->
-conflict check against every other channel for that property -> alert on
-overlap -> portfolio calendar updates in real time.
+Property details and conversation threads are drill-down routes rather than sidebar destinations.
 
-**Guest messaging**: WhatsApp message -> Conversation found/created -> AI
-reads message + property's knowledge card -> auto-reply if routine, escalate
-to staff with full context if not -> every message logged.
+## MVP Workflows
 
-**Maintenance ticket**: issue reported -> Ticket created, linked to property
-and optional Booking -> assigned to a Contractor -> status updates -> guest
-notified automatically -> resolved tickets stay in property history.
+### Property and booking calendar
 
-## Database schema
+Manager creates a property -> adds operational knowledge -> connects a supported calendar feed -> worker imports events -> bookings/blocks are updated idempotently -> availability and conflicts are recalculated -> users see calendar and alerts.
 
-Every entity belongs to a `Company` (multi-tenant from day one).
+Manual/direct bookings are supported for reservations received outside a platform.
 
-| Table | Key fields | Relationships |
-|---|---|---|
-| `company` | id, name | -- |
-| `app_user` | id, company_id, email, role | belongs to Company |
-| `property` | id, company_id, name, city, wifi_password, house_rules | belongs to Company |
-| `channel` | id, property_id, platform, ical_url | belongs to Property |
-| `booking` | id, channel_id, check_in, check_out, status | belongs to Channel |
-| `conversation` | id, property_id, guest_contact, status | belongs to Property |
-| `message` | id, conversation_id, sender, content | belongs to Conversation |
-| `ticket` | id, property_id, booking_id (nullable), priority, status | belongs to Property, optional Booking |
-| `contractor` | id, company_id, specialty | belongs to Company |
-| `ticket_assignment` | id, ticket_id, contractor_id, status | links Ticket + Contractor |
+### Guest communication
 
-Note: the user table is named `app_user` in SQL -- `user` is a reserved word
-in PostgreSQL. Full runnable `CREATE TABLE` statements are in
-`VacayOps_Conception_and_Database_Design.pdf`; ask for them in full if you
-need the exact DDL rather than this summary.
+WhatsApp event -> webhook verifies and stores message -> conversation/property context is resolved -> chatbot classifies request -> safe questions use property data or backend availability -> sensitive/uncertain cases escalate -> staff may take over and reply.
 
-## Technology stack
+### Maintenance
 
-- Frontend: React 18 + TypeScript + Vite, TailwindCSS + shadcn/ui
+Issue reported -> chatbot may suggest ticket -> staff confirms or creates ticket -> staff selects contractor contact -> assignment is recorded -> staff contacts contractor manually -> ticket progresses -> history is preserved.
+
+## Chatbot Safety Boundary
+
+The chatbot may:
+
+- answer approved property questions;
+- check availability through backend logic;
+- provide an owner-configured external booking link;
+- suggest ticket category, priority, and description.
+
+The chatbot must escalate or require confirmation for:
+
+- refunds, payments, cancellations, date changes, complaints, emergencies, conflicts, missing data, and uncertain requests;
+- creating a ticket from a suggestion;
+- assigning a contractor;
+- any high-impact operational action.
+
+## Module Boundaries
+
+1. **Foundation:** company, users, authentication, authorization, configuration, migrations, deployment
+2. **Properties and Calendar:** property knowledge, channels, bookings, manual bookings, availability, synchronization, conflicts
+3. **Communication and Chatbot:** webhooks, conversations, messages, language, grounded answers, escalation, takeover
+4. **Maintenance:** tickets, contractor contacts, assignment history, status lifecycle
+5. **Supervision:** dashboard, alerts, team/settings, integration health
+
+See `docs/academic/08_module_decomposition.md` for dependencies.
+
+## Technical Baseline
+
+- Frontend: React + TypeScript + Vite + Tailwind CSS
 - Backend: Python 3.12 + FastAPI
-- Jobs: Celery + Redis
-- Database: PostgreSQL 15+
-- AI: OpenAI GPT-4o + LangChain (RAG grounded in each property's knowledge card)
-- Messaging: WhatsApp Business API (Meta Cloud) via 360dialog/Twilio
-- Infra: Docker + Docker Compose, Railway or Fly.io
-- Auth: JWT + OAuth2, role-based (multi-tenant per Company)
+- Persistence: PostgreSQL + SQLAlchemy
+- Migrations: Alembic
+- Background work: Celery + Redis
+- Calendar baseline: RFC 5545 iCalendar feeds
+- Messaging baseline: WhatsApp adapter with simulator/test/production modes
+- Chatbot: configurable multilingual model selected through evaluation
+- Development: Docker Compose
+- Authentication proposal: email/password, Argon2 hashing, signed JWT credentials
 
-## MVP scope boundary
+## Provisional Core Data
 
-In scope: Airbnb + Booking.com sync, portfolio calendar, conflict detection,
-WhatsApp inbox, AI auto-reply (French/English for MVP) + escalation,
-maintenance tickets end to end, management dashboard, property setup,
-auth with manager/staff roles.
+The database owner must review `docs/academic/10_data_conception.md` before writing the final schema. Candidate entities are:
 
-Explicitly out of scope for MVP -- do not build these without a team decision
-first: Expedia/Vrbo integration, dynamic pricing, owner PDF reports, Italian/
-German AI language support, a direct booking website, a native mobile app,
-advanced analytics, automated review requests, and 360-degree virtual tours.
+- Company
+- AppUser
+- Property
+- Channel
+- Booking
+- CalendarSyncRun
+- BookingConflict
+- Conversation
+- Message
+- Contractor
+- Ticket
+- TicketAssignment
 
-## Team roles
+This list is provisional domain guidance, not final DDL.
 
-- **Backend & Infra Lead** -- database, API, calendar sync engine, auth, deployment
-- **Frontend & UI/UX Lead** -- React dashboard, all visual/UX decisions, mobile layout
-- **AI & Integrations Lead** -- GPT-4o, WhatsApp Business API, RAG setup, testing
-  coordination during the WhatsApp approval wait
+## Multi-Tenant Rule
+
+Every authenticated request resolves the user and company from trusted server-side state. Every tenant-owned query is scoped to that company. Client-supplied company identifiers are never treated as authorization.
+
+## Integration Rules
+
+- External events must be idempotent.
+- Failures must preserve last-known valid data and expose truthful health status.
+- Provider-specific logic belongs behind adapters.
+- Development must support deterministic simulator or fixture modes.
+- iCalendar import is not described as unrestricted real-time two-way channel management.
+
+## Source-of-Truth Order
+
+When documents conflict, use:
+
+1. Explicit current user/team instruction
+2. `AGENTS.md`
+3. Accepted records in `docs/decisions/`
+4. This architecture reference
+5. Requirement and conception chapters in `docs/academic/`
+6. `docs/design-system.md` for UI rules
+7. GitHub issue acceptance criteria
+8. Weekly reports and old PDFs as historical context only

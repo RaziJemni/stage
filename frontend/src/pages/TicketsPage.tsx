@@ -57,18 +57,18 @@ export const TicketsPage: React.FC<TicketsPageProps> = ({
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBE6DD] pb-6">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-1 rounded-lg border border-[#B6DAEA]">
-              Operations Kanban ({tickets.length} Total Tickets)
+              Maintenance ({tickets.length} Total Tickets)
             </span>
           </div>
           <h1 className="text-2xl font-bold text-[#1C1B18] mt-1.5 tracking-tight">
-            Property Maintenance & Operations Kanban
+            Property Maintenance
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
             Track housekeeping requests, maintenance tasks, and urgent guest tickets.

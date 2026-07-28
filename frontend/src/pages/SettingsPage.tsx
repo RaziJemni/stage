@@ -5,7 +5,7 @@ import {
   Building, 
   Globe, 
   Plus, 
-  Check
+  FlaskConical
 } from 'lucide-react';
 
 interface SettingsPageProps {
@@ -16,7 +16,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
   const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels'>('team');
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Header */}
       <div className="border-b border-[#EBE6DD] pb-6">
@@ -29,7 +29,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
           Company Settings & Team Permissions
         </h1>
         <p className="text-sm text-[#78716C] mt-0.5">
-          Configure property management staff, OTA channel sync APIs, and notification rules.
+          Configure team access, company information, and booking-channel connections.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
               : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
           }`}
         >
-          <Globe className="w-4 h-4" /> OTA API Integrations
+          <Globe className="w-4 h-4" /> Booking Channels
         </button>
       </div>
 
@@ -207,17 +207,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
           {/* Airbnb Integration */}
           <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#FF5A5F] text-white">Airbnb API</span>
-              <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Connected
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#FF5A5F] text-white">Airbnb Calendar</span>
+              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
+                <FlaskConical className="w-3 h-3" /> Not configured
               </span>
             </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Official Airbnb Sync</h4>
+            <h4 className="font-bold text-xs text-[#1C1B18]">Calendar Feed</h4>
             <p className="text-[11px] text-[#78716C]">
-              2-way iCal & messaging sync. Auto-syncs reservations every 2 minutes.
+              Planned iCalendar import for reservation and blocked-date visibility.
             </p>
             <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>Last Sync: 1 min ago</span>
+              <span>No feed added</span>
               <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
             </div>
           </div>
@@ -225,17 +225,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
           {/* Booking.com Integration */}
           <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#003580] text-white">Booking.com</span>
-              <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Connected
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#003580] text-white">Booking.com Calendar</span>
+              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
+                <FlaskConical className="w-3 h-3" /> Not configured
               </span>
             </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Booking XML Connectivity</h4>
+            <h4 className="font-bold text-xs text-[#1C1B18]">Calendar Feed</h4>
             <p className="text-[11px] text-[#78716C]">
-              Rates & availability channel manager feed for Tunisian boutique stay suites.
+              Planned iCalendar import for reservation and blocked-date visibility.
             </p>
             <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>Last Sync: Just now</span>
+              <span>No feed added</span>
               <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
             </div>
           </div>
@@ -244,16 +244,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
           <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white">WhatsApp Business</span>
-              <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                <Check className="w-3 h-3" /> Active
+              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
+                <FlaskConical className="w-3 h-3" /> Simulator
               </span>
             </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Tunisia Guest WhatsApp Bot</h4>
+            <h4 className="font-bold text-xs text-[#1C1B18]">Guest Messaging</h4>
             <p className="text-[11px] text-[#78716C]">
-              Direct guest check-in links and automated house rule delivery via WhatsApp API.
+              Prototype message flow. Provider test and production connections are not configured.
             </p>
             <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>Status: Active (+216 98)</span>
+              <span>Mode: Prototype simulator</span>
               <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
             </div>
           </div>

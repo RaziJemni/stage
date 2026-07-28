@@ -38,7 +38,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
   const propertyBookings = bookings.filter(b => b.propertyId === property.id);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       
       {/* Property Hero Banner & Specs Header */}
       <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm flex flex-col lg:flex-row gap-6">
@@ -96,7 +96,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                 </div>
                 <div>
                   <h2 className="font-bold text-base text-[#1C1B18]">WiFi & House Rules Knowledge Card</h2>
-                  <p className="text-xs text-[#78716C]">Staff Operations & Guest AI Assistant Knowledge Base</p>
+                  <p className="text-xs text-[#78716C]">Staff Operations & Guest Chatbot Knowledge Base</p>
                 </div>
               </div>
 

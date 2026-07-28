@@ -1,0 +1,44 @@
+name: Bug report
+description: Report reproducible incorrect Vayca behavior
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Reference a requirement or accepted decision when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and evidence
+      description: Branch/commit, browser, container logs, screenshots, and relevant data conditions without secrets.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Critical - security/data loss/core workflow blocked
+        - High - major workflow broken
+        - Medium - workaround exists
+        - Low - minor behavior or presentation
+    validations:
+      required: true

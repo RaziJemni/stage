@@ -35,18 +35,18 @@ export const InboxPage: React.FC<InboxPageProps> = ({
   });
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBE6DD] pb-6">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-              <Bot className="w-3.5 h-3.5 text-emerald-600" /> AI Auto-Pilot Concierge Active
+              <Bot className="w-3.5 h-3.5 text-emerald-600" /> Chatbot Replies Prototype
             </span>
           </div>
           <h1 className="text-2xl font-bold text-[#1C1B18] mt-1.5 tracking-tight">
-            Guest Messaging & AI Concierge Inbox
+            Guest Messages
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
             Unified inbox across Airbnb, Booking.com, VRBO & Direct WhatsApp guest chats.
@@ -57,7 +57,7 @@ export const InboxPage: React.FC<InboxPageProps> = ({
         <div className="flex items-center gap-2 text-xs">
           <div className="px-3 py-1.5 bg-white rounded-xl border border-[#EBE6DD] shadow-xs flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="font-semibold text-[#1C1B18]">AI Automated: 12</span>
+            <span className="font-semibold text-[#1C1B18]">Chatbot Simulated: 12</span>
           </div>
           <div className="px-3 py-1.5 bg-white rounded-xl border border-[#EBE6DD] shadow-xs flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -89,7 +89,7 @@ export const InboxPage: React.FC<InboxPageProps> = ({
                 : 'text-emerald-700 hover:bg-emerald-50'
             }`}
           >
-            <Bot className="w-3.5 h-3.5" /> AI Replied
+            <Bot className="w-3.5 h-3.5" /> Chatbot Drafted
           </button>
           <button
             onClick={() => setFilterTab('Human_Action')}
@@ -177,12 +177,12 @@ export const InboxPage: React.FC<InboxPageProps> = ({
                 </div>
               </div>
 
-              {/* Right Column: AI vs Human Tag & Action */}
+              {/* Right Column: Chatbot vs Human Tag and Action */}
               <div className="flex items-center gap-3 shrink-0">
                 {isAIHandled ? (
                   <div className="px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-1.5">
                     <Bot className="w-4 h-4 text-emerald-600" />
-                    <span>AI Concierge Replied</span>
+                    <span>Chatbot Drafted</span>
                   </div>
                 ) : isHumanNeeded ? (
                   <div className="px-3 py-1 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 animate-pulse">

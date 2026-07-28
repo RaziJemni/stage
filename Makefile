@@ -5,7 +5,7 @@ setup:
 	docker compose up --build
 
 pull-latest:
-	git pull origin main
+	git pull origin testing
 	docker compose up --build
 
 down:

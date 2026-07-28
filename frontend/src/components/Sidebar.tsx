@@ -8,8 +8,6 @@ import {
   Settings, 
   LogOut, 
   Palmtree, 
-  UserCheck,
-  ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
 
@@ -45,38 +43,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard' as ActivePage, label: 'Dashboard', icon: LayoutDashboard },
     { 
       id: 'calendar' as ActivePage, 
-      label: 'Multi-Calendar', 
+      label: 'Calendar',
       icon: CalendarIcon,
       badge: hasCalendarConflict ? 'Conflict' : undefined,
       badgeColor: 'bg-rose-500 text-white'
     },
-    { id: 'properties' as ActivePage, label: 'Properties', icon: Building2 },
-    { id: 'property-detail' as ActivePage, label: 'Property Knowledge', icon: ShieldCheck, subtext: 'Villa Yasmine' },
     { 
       id: 'inbox' as ActivePage, 
-      label: 'Guest Inbox', 
+      label: 'Messages',
       icon: MessageSquare,
       badge: unreadMessagesCount > 0 ? `${unreadMessagesCount}` : undefined,
       badgeColor: 'bg-amber-500 text-white'
     },
     { 
-      id: 'conversation-thread' as ActivePage, 
-      label: 'Live Guest Chat', 
-      icon: UserCheck, 
-      subtext: 'Sarah Jenkins' 
-    },
-    { 
       id: 'tickets' as ActivePage, 
-      label: 'Operations Kanban', 
+      label: 'Maintenance',
       icon: CheckSquare,
       badge: openTicketsCount > 0 ? `${openTicketsCount}` : undefined,
       badgeColor: 'bg-[#0F3D5E] text-white'
     },
-    { id: 'settings' as ActivePage, label: 'Settings & Team', icon: Settings },
+    { id: 'properties' as ActivePage, label: 'Properties', icon: Building2 },
+    { id: 'settings' as ActivePage, label: 'Settings', icon: Settings },
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-[#EBE6DD] flex flex-col h-screen sticky top-0 z-30 shrink-0 select-none shadow-[2px_0_12px_rgba(28,27,24,0.02)]">
+    <>
+    <aside className="hidden w-64 bg-white border-r border-[#EBE6DD] md:flex flex-col h-screen sticky top-0 z-30 shrink-0 select-none shadow-[2px_0_12px_rgba(28,27,24,0.02)]">
       {/* Brand Header */}
       <div className="p-5 border-b border-[#EBE6DD] flex items-center justify-between bg-[#FAF8F5]/50">
         <div className="flex items-center gap-3">
@@ -95,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation Items */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <div className="px-3 py-1.5 text-[11px] font-semibold text-[#78716C] uppercase tracking-wider">
-          Property Management
+          Operations
         </div>
 
         {navItems.map((item) => {
@@ -115,14 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Icon className={`w-4 h-4 transition-colors ${
                   isActive ? 'text-[#E8A838]' : 'text-[#78716C] group-hover:text-[#0F3D5E]'
                 }`} />
-                <div className="text-left">
-                  <div>{item.label}</div>
-                  {item.subtext && (
-                    <div className={`text-[10px] ${isActive ? 'text-white/70' : 'text-[#78716C]'}`}>
-                      {item.subtext}
-                    </div>
-                  )}
-                </div>
+                <div className="text-left">{item.label}</div>
               </div>
 
               {item.badge && (
@@ -134,6 +119,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
+
+      <div className="mx-3 mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800">
+        Prototype data - integrations are not connected
+      </div>
 
       {/* Alert Notification Card */}
       {hasCalendarConflict && (
@@ -178,5 +167,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
     </aside>
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-[#EBE6DD] bg-white/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(28,27,24,0.08)] backdrop-blur md:hidden"
+    >
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = activePage === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onNavigate(item.id)}
+            aria-current={isActive ? 'page' : undefined}
+            className={`relative flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[8px] font-semibold tracking-tight transition-colors ${
+              isActive ? 'bg-[#F0F6FA] text-[#0F3D5E]' : 'text-[#78716C]'
+            }`}
+          >
+            <Icon className={`h-4 w-4 ${isActive ? 'text-[#0F3D5E]' : 'text-[#78716C]'}`} />
+            <span className="whitespace-nowrap">{item.label}</span>
+            {item.badge && (
+              <span className={`absolute right-1 top-0 h-2 w-2 rounded-full ${item.badgeColor.split(' ')[0]}`} />
+            )}
+          </button>
+        );
+      })}
+    </nav>
+    </>
   );
 };

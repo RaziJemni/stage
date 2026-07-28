@@ -39,7 +39,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const conflictBookings = bookings.filter(b => b.status === 'Conflict');
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#EBE6DD] pb-6">
         <div>
@@ -53,7 +53,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             Portfolio Operations Command Center
           </h1>
           <p className="text-sm text-[#78716C] mt-0.5">
-            Real-time status across 5 luxury Tunisian properties in Hammamet, Sidi Bou Said, Tunis & Djerba.
+            Prototype status across 5 Tunisian properties in Hammamet, Sidi Bou Said, Tunis & Djerba.
           </p>
         </div>
 
@@ -64,14 +64,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#EBE6DD] text-xs font-semibold text-[#1C1B18] hover:bg-[#FAF8F5] hover:border-[#0F3D5E] transition-all shadow-sm"
           >
             <CalendarIcon className="w-4 h-4 text-[#0F3D5E]" />
-            Multi-Calendar Grid
+            Calendar
           </button>
           <button
             onClick={() => onNavigate('inbox')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F3D5E] text-white text-xs font-semibold hover:bg-[#0C324E] transition-all shadow-[0_2px_8px_rgba(15,61,94,0.2)]"
           >
             <MessageSquare className="w-4 h-4 text-[#E8A838]" />
-            Guest Inbox (AI Active)
+            Messages
           </button>
         </div>
       </div>
@@ -139,7 +139,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </span>
           </div>
           <p className="text-xs text-[#78716C] mt-2">
-            Direct & OTA Channel Bookings
+            Direct and Channel Bookings
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Quick Links & Today's Schedule + AI Assistant Status */}
+      {/* Main Grid: Quick Links, Schedule, and Chatbot Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left Column: Properties Overview & Quick Navigation (2 cols wide) */}
@@ -188,7 +188,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="p-6 rounded-2xl bg-gradient-to-r from-[#0F3D5E] to-[#1E517B] text-white shadow-md relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1 z-10">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[#E8A838] text-[11px] font-semibold tracking-wide">
-                <Sparkles className="w-3.5 h-3.5" /> Featured Property Knowledge Base
+                <Sparkles className="w-3.5 h-3.5" /> Featured Property Information
               </div>
               <h3 className="text-lg font-bold">Villa Yasmine — Hammamet</h3>
               <p className="text-xs text-white/80 max-w-md">
@@ -255,10 +255,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         </div>
 
-        {/* Right Column: AI Assistant Status & Recent Operations Feed */}
+        {/* Right Column: Chatbot Status and Recent Operations Feed */}
         <div className="space-y-6">
 
-          {/* AI Auto-Pilot Status Box */}
+          {/* Chatbot prototype status */}
           <div className="p-5 rounded-2xl bg-white border border-[#EBE6DD] shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -266,35 +266,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-[#1C1B18]">Guest AI Concierge</h4>
-                  <p className="text-[10px] text-emerald-700 font-semibold">Active & Auto-Replying</p>
+                  <h4 className="font-bold text-xs text-[#1C1B18]">Guest Chatbot Prototype</h4>
+                  <p className="text-[10px] text-amber-700 font-semibold">Simulator - Review Mode</p>
                 </div>
               </div>
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             <p className="text-xs text-[#78716C] leading-relaxed mb-3">
-              AI model is trained on Tunisian WiFi rules, check-in policies, and pool/BBQ guidelines. Handled 14 guest inquiries today.
+              Demo replies use mock property information. No chatbot model or WhatsApp provider is connected.
             </p>
 
             <button
               onClick={() => onNavigate('inbox')}
               className="w-full py-2 px-3 rounded-xl bg-[#FAF8F5] hover:bg-[#F0F6FA] border border-[#EBE6DD] text-xs font-semibold text-[#0F3D5E] flex items-center justify-center gap-1.5 transition-colors"
             >
-              Open Inbox & View Automated Responses
+              Open Inbox & View Chatbot Drafts
             </button>
           </div>
 
           {/* Recent Operations Timeline */}
           <div className="p-5 rounded-2xl bg-white border border-[#EBE6DD] shadow-sm">
             <h4 className="font-bold text-xs text-[#1C1B18] mb-3 uppercase tracking-wider text-[#78716C]">
-              Today's Live Ops Activity
+              Today's Prototype Activity
             </h4>
 
             <div className="space-y-3">
               <div className="flex items-start gap-2.5 pb-3 border-b border-[#EBE6DD]">
                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
-                  AI
+                  BOT
                 </div>
                 <div className="text-xs">
                   <div className="font-semibold text-[#1C1B18]">WiFi details provided</div>
@@ -320,7 +320,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               <div className="flex items-start gap-2.5">
                 <div className="w-6 h-6 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold">
-                  OTA
+                  Channel
                 </div>
                 <div className="text-xs">
                   <div className="font-semibold text-[#1C1B18]">Conflict Flagged</div>
