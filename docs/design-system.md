@@ -1,6 +1,6 @@
 # Vayca / VacayOps -- Design System Specification
 
-Status: **LOCKED & FINALIZED** (Phase 1 & Phase 2 Complete)
+Status: **APPROVED BASELINE** -- changes require team review and documentation updates.
 
 > **Identity**: Sidi Bou Said Azure & Warm Sand — B2B Vacation Property Management Platform for Tunisia.  
 > **Aesthetic**: Warm Mediterranean Luxury Hospitality (inspired by Airbnb Luxe & Sidi Bou Said coastal architecture) meets modern B2B operational clarity.  
@@ -88,7 +88,7 @@ Status: **LOCKED & FINALIZED** (Phase 1 & Phase 2 Complete)
 
 | Page | Purpose | Key elements |
 |---|---|---|
-| **Login** | Authenticate | Email/password auth form + SARL code + role selector |
+| **Login** | Authenticate | Email/password form; prototype may expose a clearly labelled manager/staff demo selector; no agency code |
 | **Dashboard** | Portfolio command center | Occupancy %, Revenue TND, active guests, open maintenance, conflict alert banner |
 | **Calendar** | All bookings, all channels | 14-day multi-property grid, overlap alerts, channel badges, reservation drawer |
 | **Property Detail** | Manage one property | Specs, upcoming bookings, WiFi and property-information editor |
@@ -99,3 +99,17 @@ Status: **LOCKED & FINALIZED** (Phase 1 & Phase 2 Complete)
 | **Settings** | Team & account | Staff roles, company profile, booking-channel connection health |
 
 * **Sidebar navigation**: Dashboard, Calendar, Messages, Maintenance, Properties, and Settings only. Property Detail and Conversation Thread are drill-down routes and must not appear as permanent sidebar items.
+
+## Responsive Behavior
+
+* At desktop widths, use the persistent left sidebar in the approved navigation order.
+* Below the `md` breakpoint, replace the sidebar with a fixed bottom navigation containing the same six destinations.
+* Page padding reduces from `32px` to `16px` on small screens.
+* Wide operational content, such as the portfolio calendar, must scroll inside its own labelled container rather than forcing the entire page wider than the viewport.
+* Primary actions and status text must remain readable without hover interactions.
+
+## Prototype Truthfulness
+
+* Prototype screens must display a visible mock or simulator notice.
+* Do not describe mock data as real-time, live, connected, trained, or automatically sent.
+* Integration cards must distinguish unconfigured, simulator, test, healthy, stale, and failed states.

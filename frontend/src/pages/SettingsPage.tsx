@@ -16,7 +16,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
   const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels'>('team');
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       
       {/* Header */}
       <div className="border-b border-[#EBE6DD] pb-6">
