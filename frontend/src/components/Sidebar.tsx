@@ -106,14 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Icon className={`w-4 h-4 transition-colors ${
                   isActive ? 'text-[#E8A838]' : 'text-[#78716C] group-hover:text-[#0F3D5E]'
                 }`} />
-                <div className="text-left">
-                  <div>{item.label}</div>
-                  {item.subtext && (
-                    <div className={`text-[10px] ${isActive ? 'text-white/70' : 'text-[#78716C]'}`}>
-                      {item.subtext}
-                    </div>
-                  )}
-                </div>
+                <div className="text-left">{item.label}</div>
               </div>
 
               {item.badge && (
