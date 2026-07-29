@@ -2,7 +2,7 @@
 
 Vayca is a B2B operations platform for vacation-property agencies and independent owners. It centralizes property information, booking calendars, guest messages, chatbot assistance, and maintenance follow-up.
 
-> **Current state:** project skeleton and interactive frontend prototype. Database models, migrations, authentication, APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
+> **Current state:** project skeleton and interactive frontend prototype. The Docker PostgreSQL connection, initial domain models, and Alembic migration baseline are implemented; authentication, feature APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
 
 ## Product Boundary
 
@@ -93,6 +93,7 @@ docker compose up --build
 Expected services:
 
 - `db`: PostgreSQL
+- `pgadmin`: PostgreSQL administration panel
 - `redis`: Redis
 - `backend`: FastAPI
 - `worker`: Celery worker
@@ -104,13 +105,33 @@ Expected services:
 docker compose ps
 ```
 
-- Backend health: http://localhost:8000/health
+- Backend readiness (including PostgreSQL): http://localhost:8000/health
+- Backend liveness: http://localhost:8000/health/live
 - API documentation: http://localhost:8000/docs
 - Frontend: http://localhost:5173
 
 ## Database Setup
 
 PostgreSQL runs in the `db` Docker service using values from `.env`.
+
+The application containers connect to PostgreSQL through the Docker service name
+`db`. From the host machine, use `localhost` and the `POSTGRES_PORT` value from
+`.env` (default `5432`).
+
+### First-time setup on Windows
+
+Run these commands from the repository root, meaning the folder that contains
+`docker-compose.yml`. If Docker reports `no configuration file provided`, the
+terminal is in the wrong folder.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build db redis backend worker pgadmin
+docker compose ps
+```
+
+Never commit `.env`. Each teammate can use the same `.env.example` while keeping
+their local database volume and credentials on their own machine.
 
 ### Start only PostgreSQL and Redis
 
@@ -131,6 +152,8 @@ If your shell does not expand `.env` values, use the default development values 
 docker compose exec db pg_isready -U vayca -d vayca_dev
 ```
 
+The expected result is `accepting connections`.
+
 ### Open PostgreSQL
 
 ```bash
@@ -146,9 +169,53 @@ Useful commands inside `psql`:
 \q
 ```
 
+To inspect the schema directly:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+\d+ companies
+\d+ properties
+\d+ bookings
+\d+ tickets
+```
+
+### Open pgAdmin
+
+Start the administration panel with the database:
+
+```bash
+docker compose up -d db pgadmin
+```
+
+Open http://localhost:5050 and sign in with `PGADMIN_DEFAULT_EMAIL` and
+`PGADMIN_DEFAULT_PASSWORD` from `.env` (the local defaults are shown in
+`.env.example`). Add a PostgreSQL server using:
+
+```text
+Host: db
+Port: 5432
+Database: vayca_dev
+Username: vayca
+Password: POSTGRES_PASSWORD from .env
+```
+
+Use `db`, not `localhost`, as the host because pgAdmin runs inside Docker.
+
+If pgAdmin is unavailable, check its status and logs:
+
+```powershell
+docker compose ps pgadmin
+docker compose logs --tail=50 pgadmin
+```
+
 ### Migration workflow
 
-The database owner will establish SQLAlchemy models and Alembic migrations. Once Alembic is configured, the standard workflow should be:
+Alembic is configured in `backend/alembic.ini` and the initial operational schema
+is available as migration `0001_initial_schema`. The standard workflow is:
 
 ```bash
 docker compose exec backend alembic upgrade head
@@ -164,9 +231,54 @@ docker compose exec backend alembic revision --autogenerate -m "describe schema 
 
 Always inspect generated migration code before applying it. Do not edit the database manually as a substitute for a migration.
 
+### Database and API contract tests
+
+Run the isolated backend test profile with a temporary PostgreSQL database:
+
+```bash
+docker compose --profile test run --rm backend_test
+docker compose --profile test down
+```
+
+The test database uses an in-memory Docker filesystem and a database name ending
+in `_test`. The migration tests refuse to run against any other database name,
+which protects normal development data from downgrade/reset operations.
+
+Shared API routing, pagination, errors, OpenAPI rules, and integration modes are
+documented in `docs/api-conventions.md`.
+
+### Team migration workflow
+
+The schema is shared through migration files, not through manually edited local
+databases:
+
+1. Pull the latest branch.
+2. Start PostgreSQL and the backend with Docker Compose.
+3. Run `docker compose exec backend alembic upgrade head`.
+4. Make model changes and generate a migration on your feature branch.
+5. Review the migration in the pull request before applying it to shared data.
+
+The current baseline migration creates the operational tables in
+`backend/alembic/versions/0001_initial_schema.py`. A future managed PostgreSQL
+provider can use the same `DATABASE_URL` and migration workflow.
+
 ### Resetting local development data
 
 `docker compose down` preserves the PostgreSQL volume. Removing the volume deletes local database data and should only be done intentionally after confirming no needed local data exists.
+
+To remove local PostgreSQL and pgAdmin data intentionally:
+
+```powershell
+docker compose down -v
+```
+
+This permanently deletes the local database volume. Run the migration again
+afterward to recreate the schema:
+
+```powershell
+docker compose up -d db redis backend worker pgadmin
+docker compose exec backend alembic upgrade head
+```
 
 ## Daily Git Workflow
 

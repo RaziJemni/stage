@@ -1,0 +1,38 @@
+name: Backend contract and database tests
+
+on:
+  pull_request:
+    branches:
+      - testing
+      - main
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/backend-tests.yml"
+  push:
+    branches:
+      - testing
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/backend-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create development environment file
+        run: cp .env.example .env
+
+      - name: Run isolated API and PostgreSQL tests
+        run: docker compose --profile test run --rm --build backend_test
+
+      - name: Clean test containers
+        if: always()
+        run: docker compose --profile test down -v --remove-orphans

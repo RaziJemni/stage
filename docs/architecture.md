@@ -88,6 +88,10 @@ See `docs/academic/08_module_decomposition.md` for dependencies.
 - Development: Docker Compose
 - Authentication proposal: email/password, Argon2 hashing, signed JWT credentials
 
+Shared API versioning, pagination, error responses, OpenAPI rules, and integration
+modes are defined in `docs/api-conventions.md` and accepted in
+`docs/decisions/0002-api-conventions.md`.
+
 ## Provisional Core Data
 
 The database owner must review `docs/academic/10_data_conception.md` before writing the final schema. Candidate entities are:
@@ -105,7 +109,11 @@ The database owner must review `docs/academic/10_data_conception.md` before writ
 - Ticket
 - TicketAssignment
 
-This list is provisional domain guidance, not final DDL.
+The initial approved baseline is implemented in
+`backend/alembic/versions/0001_initial_schema.py` and documented in
+`docs/decisions/0001-initial-database-schema.md`. This list remains provisional
+domain guidance for future workflow decisions, not an immutable final DDL
+contract.
 
 ## Multi-Tenant Rule
 

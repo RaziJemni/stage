@@ -1,0 +1,52 @@
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.core.enums import CompanyStatus, UserRole, UserStatus, enum_type
+
+
+class Company(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "companies"
+    __table_args__ = (CheckConstraint("char_length(default_currency) = 3", name="companies_currency_length"),)
+
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[CompanyStatus] = mapped_column(
+        enum_type(CompanyStatus, "company_status"),
+        default=CompanyStatus.ACTIVE,
+        server_default=CompanyStatus.ACTIVE.value,
+        nullable=False,
+    )
+    timezone: Mapped[str] = mapped_column(
+        String(64), default="Africa/Tunis", server_default="Africa/Tunis", nullable=False
+    )
+    default_currency: Mapped[str] = mapped_column(
+        String(3), default="TND", server_default="TND", nullable=False
+    )
+
+
+class AppUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "app_users"
+    __table_args__ = (
+        UniqueConstraint("company_id", "id", name="uq_app_users_company_id_id"),
+        UniqueConstraint("email", name="uq_app_users_email"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        enum_type(UserRole, "user_role"), default=UserRole.STAFF, nullable=False
+    )
+    status: Mapped[UserStatus] = mapped_column(
+        enum_type(UserStatus, "user_status"),
+        default=UserStatus.INVITED,
+        server_default=UserStatus.INVITED.value,
+        nullable=False,
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
