@@ -1,6 +1,6 @@
 # Data Conception
 
-**Status:** Provisional domain model for database-team review; not final DDL
+**Status:** Provisional domain model; initial schema baseline implemented, final DDL and workflow semantics remain subject to team review
 
 ## Modeling Goals
 
@@ -249,5 +249,5 @@ The first migration should create only approved entities and constraints. Every 
 - [ ] Unique constraints and indexes identified
 - [ ] Audit fields consistent
 - [ ] Sensitive-data and retention policy documented
-- [ ] Initial migration runs against a clean database
+- [x] Initial migration runs against a clean database
 - [ ] Cross-company tests pass

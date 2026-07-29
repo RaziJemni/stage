@@ -2,7 +2,7 @@
 
 Vayca is a B2B operations platform for vacation-property agencies and independent owners. It centralizes property information, booking calendars, guest messages, chatbot assistance, and maintenance follow-up.
 
-> **Current state:** project skeleton and interactive frontend prototype. Database models, migrations, authentication, APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
+> **Current state:** project skeleton and interactive frontend prototype. The Docker PostgreSQL connection, initial domain models, and Alembic migration baseline are implemented; authentication, feature APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
 
 ## Product Boundary
 
@@ -104,13 +104,18 @@ Expected services:
 docker compose ps
 ```
 
-- Backend health: http://localhost:8000/health
+- Backend readiness (including PostgreSQL): http://localhost:8000/health
+- Backend liveness: http://localhost:8000/health/live
 - API documentation: http://localhost:8000/docs
 - Frontend: http://localhost:5173
 
 ## Database Setup
 
 PostgreSQL runs in the `db` Docker service using values from `.env`.
+
+The application containers connect to PostgreSQL through the Docker service name
+`db`. From the host machine, use `localhost` and the `POSTGRES_PORT` value from
+`.env` (default `5432`).
 
 ### Start only PostgreSQL and Redis
 
@@ -148,7 +153,8 @@ Useful commands inside `psql`:
 
 ### Migration workflow
 
-The database owner will establish SQLAlchemy models and Alembic migrations. Once Alembic is configured, the standard workflow should be:
+Alembic is configured in `backend/alembic.ini` and the initial operational schema
+is available as migration `0001_initial_schema`. The standard workflow is:
 
 ```bash
 docker compose exec backend alembic upgrade head

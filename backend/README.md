@@ -1,6 +1,8 @@
 # Vayca Backend
 
-The backend is a FastAPI modular monolith. The current code is a skeleton; domain models, migrations, authentication, APIs, and integrations are implemented through requirement-linked feature issues.
+The backend is a FastAPI modular monolith. The initial domain models and
+Alembic migration baseline are implemented; authentication, feature APIs, and
+integrations remain requirement-linked implementation work.
 
 ## Planned Boundaries
 
@@ -24,6 +26,28 @@ Before creating models or migrations, review:
 - `docs/architecture.md`
 
 The data conception is provisional. Record accepted cross-module database decisions in `docs/decisions/`.
+
+## PostgreSQL and Migrations
+
+The Docker Compose `db` service provides the local PostgreSQL instance. The
+backend reads `DATABASE_URL` from the environment and exposes a SQLAlchemy
+engine/session through `app.core.database`.
+
+Alembic is configured in `alembic.ini` and uses the same `DATABASE_URL` as the
+application. The initial schema is defined by migration
+`0001_initial_schema`; later changes must use reviewed migrations.
+
+From the repository root:
+
+```bash
+docker compose up -d db backend
+docker compose exec db pg_isready -U vayca -d vayca_dev
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic current
+```
+
+The upgrade command creates the initial domain tables. Inspect every generated
+or hand-written migration before applying it to shared or production data.
 
 ## Worker
 
