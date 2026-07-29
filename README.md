@@ -93,6 +93,7 @@ docker compose up --build
 Expected services:
 
 - `db`: PostgreSQL
+- `pgadmin`: PostgreSQL administration panel
 - `redis`: Redis
 - `backend`: FastAPI
 - `worker`: Celery worker
@@ -150,6 +151,28 @@ Useful commands inside `psql`:
 \d table_name
 \q
 ```
+
+### Open pgAdmin
+
+Start the administration panel with the database:
+
+```bash
+docker compose up -d db pgadmin
+```
+
+Open http://localhost:5050 and sign in with `PGADMIN_DEFAULT_EMAIL` and
+`PGADMIN_DEFAULT_PASSWORD` from `.env` (the local defaults are shown in
+`.env.example`). Add a PostgreSQL server using:
+
+```text
+Host: db
+Port: 5432
+Database: vayca_dev
+Username: vayca
+Password: POSTGRES_PASSWORD from .env
+```
+
+Use `db`, not `localhost`, as the host because pgAdmin runs inside Docker.
 
 ### Migration workflow
 
