@@ -118,6 +118,21 @@ The application containers connect to PostgreSQL through the Docker service name
 `db`. From the host machine, use `localhost` and the `POSTGRES_PORT` value from
 `.env` (default `5432`).
 
+### First-time setup on Windows
+
+Run these commands from the repository root, meaning the folder that contains
+`docker-compose.yml`. If Docker reports `no configuration file provided`, the
+terminal is in the wrong folder.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build db redis backend worker pgadmin
+docker compose ps
+```
+
+Never commit `.env`. Each teammate can use the same `.env.example` while keeping
+their local database volume and credentials on their own machine.
+
 ### Start only PostgreSQL and Redis
 
 ```bash
@@ -137,6 +152,8 @@ If your shell does not expand `.env` values, use the default development values 
 docker compose exec db pg_isready -U vayca -d vayca_dev
 ```
 
+The expected result is `accepting connections`.
+
 ### Open PostgreSQL
 
 ```bash
@@ -150,6 +167,20 @@ Useful commands inside `psql`:
 \dt
 \d table_name
 \q
+```
+
+To inspect the schema directly:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+\d+ companies
+\d+ properties
+\d+ bookings
+\d+ tickets
 ```
 
 ### Open pgAdmin
@@ -174,6 +205,13 @@ Password: POSTGRES_PASSWORD from .env
 
 Use `db`, not `localhost`, as the host because pgAdmin runs inside Docker.
 
+If pgAdmin is unavailable, check its status and logs:
+
+```powershell
+docker compose ps pgadmin
+docker compose logs --tail=50 pgadmin
+```
+
 ### Migration workflow
 
 Alembic is configured in `backend/alembic.ini` and the initial operational schema
@@ -193,9 +231,38 @@ docker compose exec backend alembic revision --autogenerate -m "describe schema 
 
 Always inspect generated migration code before applying it. Do not edit the database manually as a substitute for a migration.
 
+### Team migration workflow
+
+The schema is shared through migration files, not through manually edited local
+databases:
+
+1. Pull the latest branch.
+2. Start PostgreSQL and the backend with Docker Compose.
+3. Run `docker compose exec backend alembic upgrade head`.
+4. Make model changes and generate a migration on your feature branch.
+5. Review the migration in the pull request before applying it to shared data.
+
+The current baseline migration creates the operational tables in
+`backend/alembic/versions/0001_initial_schema.py`. A future managed PostgreSQL
+provider can use the same `DATABASE_URL` and migration workflow.
+
 ### Resetting local development data
 
 `docker compose down` preserves the PostgreSQL volume. Removing the volume deletes local database data and should only be done intentionally after confirming no needed local data exists.
+
+To remove local PostgreSQL and pgAdmin data intentionally:
+
+```powershell
+docker compose down -v
+```
+
+This permanently deletes the local database volume. Run the migration again
+afterward to recreate the schema:
+
+```powershell
+docker compose up -d db redis backend worker pgadmin
+docker compose exec backend alembic upgrade head
+```
 
 ## Daily Git Workflow
 
