@@ -88,6 +88,10 @@ See `docs/academic/08_module_decomposition.md` for dependencies.
 - Development: Docker Compose
 - Authentication proposal: email/password, Argon2 hashing, signed JWT credentials
 
+Shared API versioning, pagination, error responses, OpenAPI rules, and integration
+modes are defined in `docs/api-conventions.md` and accepted in
+`docs/decisions/0002-api-conventions.md`.
+
 ## Provisional Core Data
 
 The database owner must review `docs/academic/10_data_conception.md` before writing the final schema. Candidate entities are:
