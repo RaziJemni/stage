@@ -86,6 +86,37 @@ services:
       - /app/node_modules
     command: npm run dev -- --host
 
+  db_test:
+    image: postgres:15
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
+
+  backend_test:
+    build:
+      context: ./backend
+      target: test
+    profiles: ["test"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_test:5432/${POSTGRES_DB}_test
+      PYTHONPATH: /app
+    depends_on:
+      db_test:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: pytest -q
+
 volumes:
   postgres_data:
   pgadmin_data:

@@ -61,7 +61,11 @@ Candidate fields:
 - `last_login_at`
 - audit timestamps
 
-Open decision for the database lead: whether email is globally unique or unique per company. Global uniqueness simplifies login; company-scoped uniqueness supports the same email in several companies but requires company selection.
+The accepted MVP baseline uses globally unique app-user email addresses, as
+recorded in `docs/decisions/0001-initial-database-schema.md`. This simplifies
+login because a user does not need to select a company before authentication.
+If one person must later belong to several companies, the team will review this
+choice and introduce the required account-membership migration.
 
 ### Property
 
@@ -218,12 +222,16 @@ Preserves assignment history:
 
 ## Tenant-Isolation Strategy
 
-The database lead should choose and document one consistent strategy:
+The accepted MVP baseline stores `company_id` on every tenant-owned table and
+includes it in composite foreign keys between tenant-owned records, as recorded
+in `docs/decisions/0001-initial-database-schema.md`. This makes tenant filtering
+explicit and lets PostgreSQL reject relationships that cross company boundaries.
 
-1. Direct `company_id` on all tenant-owned tables, with validation against parent relationships; or
-2. Company ownership derived through mandatory parent relationships, with repository-level scoping and selected direct keys for high-risk queries.
-
-The first option simplifies filtering but creates redundant consistency obligations. The second is more normalized but can make authorization joins easier to omit. Whichever is chosen must be enforced through tests and repository patterns.
+Application repositories and services must still derive the company from the
+authenticated server-side context and scope every query by that company. The
+database constraints provide defense in depth; they do not replace application
+authorization. Cross-company persistence tests are required before dependent
+feature modules are considered complete.
 
 ## Data Lifecycle
 
@@ -239,15 +247,15 @@ The first migration should create only approved entities and constraints. Every 
 
 ## Database Review Checklist
 
-- [ ] Final entity names approved
-- [ ] Tenant-isolation strategy approved
-- [ ] Email uniqueness decision approved
-- [ ] Booking date and timezone semantics approved
-- [ ] iCalendar cancellation policy approved
-- [ ] Conversation identity rule approved
-- [ ] Ticket status transitions approved
-- [ ] Unique constraints and indexes identified
-- [ ] Audit fields consistent
+- [x] Final entity names approved for the initial MVP baseline
+- [x] Tenant-isolation strategy approved
+- [x] Email uniqueness decision approved
+- [x] Booking date and timezone semantics approved
+- [x] iCalendar cancellation policy approved
+- [x] Conversation identity rule approved
+- [x] Ticket status transitions approved
+- [x] Unique constraints and indexes identified
+- [x] Audit fields consistent for the initial MVP baseline
 - [ ] Sensitive-data and retention policy documented
-- [x] Initial migration runs against a clean database
-- [ ] Cross-company tests pass
+- [x] Initial migration upgrade, downgrade, and re-upgrade run against clean PostgreSQL
+- [x] Cross-company foreign-key and booking date-range integrity checks pass

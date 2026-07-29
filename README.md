@@ -231,6 +231,22 @@ docker compose exec backend alembic revision --autogenerate -m "describe schema 
 
 Always inspect generated migration code before applying it. Do not edit the database manually as a substitute for a migration.
 
+### Database and API contract tests
+
+Run the isolated backend test profile with a temporary PostgreSQL database:
+
+```bash
+docker compose --profile test run --rm backend_test
+docker compose --profile test down
+```
+
+The test database uses an in-memory Docker filesystem and a database name ending
+in `_test`. The migration tests refuse to run against any other database name,
+which protects normal development data from downgrade/reset operations.
+
+Shared API routing, pagination, errors, OpenAPI rules, and integration modes are
+documented in `docs/api-conventions.md`.
+
 ### Team migration workflow
 
 The schema is shared through migration files, not through manually edited local
