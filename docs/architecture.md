@@ -105,7 +105,11 @@ The database owner must review `docs/academic/10_data_conception.md` before writ
 - Ticket
 - TicketAssignment
 
-This list is provisional domain guidance, not final DDL.
+The initial approved baseline is implemented in
+`backend/alembic/versions/0001_initial_schema.py` and documented in
+`docs/decisions/0001-initial-database-schema.md`. This list remains provisional
+domain guidance for future workflow decisions, not an immutable final DDL
+contract.
 
 ## Multi-Tenant Rule
 

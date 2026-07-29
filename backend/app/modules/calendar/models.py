@@ -1,0 +1,174 @@
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.core.enums import (
+    BookingRecordType,
+    BookingSource,
+    BookingStatus,
+    ConflictStatus,
+    SyncStatus,
+    enum_type,
+)
+
+
+class CalendarSyncRun(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "calendar_sync_runs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "channel_id"],
+            ["channels.company_id", "channels.id"],
+            name="fk_calendar_sync_runs_company_channel",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("company_id", "id", name="uq_calendar_sync_runs_company_id_id"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    channel_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    status: Mapped[SyncStatus] = mapped_column(
+        enum_type(SyncStatus, "sync_status"),
+        default=SyncStatus.RUNNING,
+        server_default=SyncStatus.RUNNING.value,
+        nullable=False,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    updated_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    cancelled_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    rejected_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    error_summary: Mapped[str | None] = mapped_column(Text)
+    correlation_id: Mapped[str | None] = mapped_column(String(100))
+
+
+class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "bookings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "property_id"],
+            ["properties.company_id", "properties.id"],
+            name="fk_bookings_company_property",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["company_id", "channel_id"],
+            ["channels.company_id", "channels.id"],
+            name="fk_bookings_company_channel",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("check_out > check_in", name="booking_date_range"),
+        UniqueConstraint("company_id", "id", name="uq_bookings_company_id_id"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    channel_id: Mapped[UUID | None] = mapped_column(index=True)
+    source_type: Mapped[BookingSource] = mapped_column(
+        enum_type(BookingSource, "booking_source"), nullable=False
+    )
+    external_event_id: Mapped[str | None] = mapped_column(String(255))
+    guest_name: Mapped[str | None] = mapped_column(String(160))
+    guest_contact: Mapped[str | None] = mapped_column(String(255))
+    check_in: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    check_out: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[BookingStatus] = mapped_column(
+        enum_type(BookingStatus, "booking_status"),
+        default=BookingStatus.CONFIRMED,
+        server_default=BookingStatus.CONFIRMED.value,
+        nullable=False,
+    )
+    record_type: Mapped[BookingRecordType] = mapped_column(
+        enum_type(BookingRecordType, "booking_record_type"), nullable=False
+    )
+    external_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+Index(
+    "uq_bookings_channel_external_event",
+    Booking.company_id,
+    Booking.channel_id,
+    Booking.external_event_id,
+    unique=True,
+    postgresql_where=(Booking.channel_id.is_not(None) & Booking.external_event_id.is_not(None)),
+)
+
+
+class BookingConflict(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "booking_conflicts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "property_id"],
+            ["properties.company_id", "properties.id"],
+            name="fk_booking_conflicts_company_property",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["company_id", "resolved_by_user_id"],
+            ["app_users.company_id", "app_users.id"],
+            name="fk_booking_conflicts_company_resolved_by_user",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("company_id", "id", name="uq_booking_conflicts_company_id_id"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    status: Mapped[ConflictStatus] = mapped_column(
+        enum_type(ConflictStatus, "conflict_status"),
+        default=ConflictStatus.OPEN,
+        server_default=ConflictStatus.OPEN.value,
+        nullable=False,
+    )
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by_user_id: Mapped[UUID | None] = mapped_column()
+
+
+class BookingConflictBooking(Base):
+    __tablename__ = "booking_conflict_bookings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "conflict_id"],
+            ["booking_conflicts.company_id", "booking_conflicts.id"],
+            name="fk_conflict_bookings_company_conflict",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["company_id", "booking_id"],
+            ["bookings.company_id", "bookings.id"],
+            name="fk_conflict_bookings_company_booking",
+            ondelete="CASCADE",
+        ),
+        PrimaryKeyConstraint("company_id", "conflict_id", "booking_id"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False)
+    conflict_id: Mapped[UUID] = mapped_column(nullable=False)
+    booking_id: Mapped[UUID] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
