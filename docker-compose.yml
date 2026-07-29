@@ -21,7 +21,7 @@ services:
     image: dpage/pgadmin4:8
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@vayca.local}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-changeme_pgadmin_local_only}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
