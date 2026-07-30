@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -32,6 +32,7 @@ class AppUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("company_id", "id", name="uq_app_users_company_id_id"),
         UniqueConstraint("email", name="uq_app_users_email"),
+        CheckConstraint("email = lower(btrim(email))", name="email_normalized"),
     )
 
     company_id: Mapped[UUID] = mapped_column(
@@ -50,3 +51,48 @@ class AppUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuthSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "auth_sessions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "user_id"],
+            ["app_users.company_id", "app_users.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    csrf_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class UserInvitation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "user_invitations"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "user_id"],
+            ["app_users.company_id", "app_users.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["company_id", "created_by_user_id"],
+            ["app_users.company_id", "app_users.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    created_by_user_id: Mapped[UUID] = mapped_column(nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

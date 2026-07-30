@@ -103,7 +103,7 @@ Status: **APPROVED BASELINE** -- changes require team review and documentation u
 ## Responsive Behavior
 
 * At desktop widths, use the persistent left sidebar in the approved navigation order.
-* Below the `md` breakpoint, replace the sidebar with a fixed bottom navigation containing the same six destinations.
+* Below the `md` breakpoint, replace the sidebar with a fixed bottom navigation containing the five operational destinations and a Profile action. The Profile sheet exposes identity, logout, and manager-only access to Settings without overcrowding the bottom bar.
 * Page padding reduces from `32px` to `16px` on small screens.
 * Wide operational content, such as the portfolio calendar, must scroll inside its own labelled container rather than forcing the entire page wider than the viewport.
 * Primary actions and status text must remain readable without hover interactions.

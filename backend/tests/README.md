@@ -16,8 +16,11 @@ Add tests alongside implementation using the strategy in
 
 Critical early coverage:
 
-- authentication and role authorization
-- cross-company isolation
+- company registration, Argon2id passwords, and normalized-email uniqueness
+- manager/staff login, session expiry, logout, and immediate deactivation revocation
+- one-time invitation acceptance, manager authorization, and CSRF rejection
+- cross-company isolation and trusted session company context
+- Redis login-rate limiting behavior
 - database migration from a clean PostgreSQL instance
 - booking date and overlap rules
 - external-event idempotency

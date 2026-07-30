@@ -1,80 +1,45 @@
 # Vayca
 
-Vayca is a B2B operations platform for vacation-property agencies and independent owners. It centralizes property information, booking calendars, guest messages, chatbot assistance, and maintenance follow-up.
+Vayca is a B2B operations platform for vacation-property agencies and independent owners. It brings property information, booking calendars, guest messages, chatbot assistance, maintenance follow-up, and team access into one workspace.
 
-> **Current state:** project skeleton and interactive frontend prototype. The Docker PostgreSQL connection, initial domain models, and Alembic migration baseline are implemented; authentication, feature APIs, and external integrations remain implementation work unless their GitHub issues are marked Done with test evidence.
+Vayca is not a public booking marketplace. Guests continue to book through services such as Airbnb, Booking.com, or direct contact, while managers and staff use Vayca for daily operations.
 
-## Product Boundary
+## Current State
 
-Vayca is not a public marketplace. Guests find and reserve properties through Airbnb, Booking.com, or direct contact. Guests and contractors do not create Vayca accounts.
+The repository currently provides:
 
-Main application areas:
+- a Docker-based React, FastAPI, PostgreSQL, Redis, Celery, and pgAdmin environment;
+- versioned PostgreSQL migrations through Alembic;
+- manager and staff registration, login, sessions, invitations, roles, and protected pages;
+- an interactive frontend for the planned operational modules;
+- automated backend, database, and frontend tests;
+- architecture, design-system, academic, and workflow documentation.
 
-- Dashboard
-- Calendar
-- Messages
-- Maintenance
-- Properties
-- Settings
+Properties, calendars, messages, maintenance workflows, chatbot behavior, and external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
 
-## Required Project Reading
+## Install the Required Software
 
-Before implementation, humans and AI tools must read:
+Only Git and Docker Desktop are required to run the complete project. An editor is optional.
 
-1. `AGENTS.md`
-2. `docs/architecture.md`
-3. `docs/design-system.md` for UI work
-4. `docs/academic/00_README.md`
-5. The relevant academic requirements/conception chapters
-6. The assigned GitHub issue and dependencies
+1. Install [Git](https://git-scm.com/downloads/).
+2. Install [Docker Desktop](https://docs.docker.com/desktop/).
+3. Optional: install [Visual Studio Code](https://code.visualstudio.com/download).
+4. Open Docker Desktop and wait until the Docker engine is running.
 
-The two existing PDFs are historical project artifacts. Current Markdown documents and accepted decision records are the living source of truth.
+Local Python, Node.js, PostgreSQL, and Redis installations are not required.
 
-## Repository Structure
+## Quick Setup
 
-```text
-vayca/
-|-- backend/                  FastAPI application and workers
-|-- frontend/                 React/TypeScript prototype and application
-|-- docs/
-|   |-- academic/             Study, requirements, conception, UML, validation
-|   |-- decisions/            Accepted cross-cutting technical/product decisions
-|   |-- weekly-reports/       Historical weekly logs only
-|   |-- architecture.md       Canonical implementation architecture summary
-|   `-- design-system.md      Canonical UI rules
-|-- .github/                  PR and issue templates
-|-- docker-compose.yml
-|-- .env.example
-|-- AGENTS.md
-`-- Makefile
-```
-
-## Prerequisites
-
-Install once:
-
-- Git
-- Docker Desktop with Docker Compose
-- An editor such as VS Code
-
-Local Python and Node.js are optional for editor support because the shared application runs through Docker.
-
-## First-Time Setup
-
-### 1. Clone and enter the repository
+Open PowerShell, Git Bash, or a terminal and run:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/RaziJemni/stage.git
 cd stage
+git checkout testing
+git pull origin testing
 ```
 
-### 2. Create the local environment file
-
-Git Bash:
-
-```bash
-cp .env.example .env
-```
+Create your local environment file.
 
 PowerShell:
 
@@ -82,267 +47,159 @@ PowerShell:
 Copy-Item .env.example .env
 ```
 
-Never commit `.env`.
-
-### 3. Start infrastructure and application services
+Git Bash, macOS, or Linux:
 
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
 
-Expected services:
+Start the whole project:
 
-- `db`: PostgreSQL
-- `pgadmin`: PostgreSQL administration panel
-- `redis`: Redis
-- `backend`: FastAPI
-- `worker`: Celery worker
-- `frontend`: Vite development server
+```bash
+docker compose up -d --build
+```
 
-### 4. Verify services
+That single command builds the application, starts every service, and applies all database migrations automatically.
+
+## Confirm Everything Works
+
+Check the containers:
 
 ```bash
 docker compose ps
 ```
 
-- Backend readiness (including PostgreSQL): http://localhost:8000/health
-- Backend liveness: http://localhost:8000/health/live
-- API documentation: http://localhost:8000/docs
+The `db`, `redis`, `backend`, `worker`, `frontend`, and `pgadmin` services should be running. PostgreSQL and Redis should show as healthy.
+
+Open these pages:
+
 - Frontend: http://localhost:5173
+- Backend health: http://localhost:8000/health
+- API documentation: http://localhost:8000/docs
+- pgAdmin: http://localhost:5050
 
-## Database Setup
+The backend health response should report that both the application and database are healthy. On the frontend, open `/register` and create a local company manager to test the authenticated workspace.
 
-PostgreSQL runs in the `db` Docker service using values from `.env`.
-
-The application containers connect to PostgreSQL through the Docker service name
-`db`. From the host machine, use `localhost` and the `POSTGRES_PORT` value from
-`.env` (default `5432`).
-
-### First-time setup on Windows
-
-Run these commands from the repository root, meaning the folder that contains
-`docker-compose.yml`. If Docker reports `no configuration file provided`, the
-terminal is in the wrong folder.
-
-```powershell
-Copy-Item .env.example .env
-docker compose up -d --build db redis backend worker pgadmin
-docker compose ps
-```
-
-Never commit `.env`. Each teammate can use the same `.env.example` while keeping
-their local database volume and credentials on their own machine.
-
-### Start only PostgreSQL and Redis
-
-```bash
-docker compose up -d db redis
-docker compose ps
-```
-
-### Check database readiness
-
-```bash
-docker compose exec db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-```
-
-If your shell does not expand `.env` values, use the default development values from `.env.example` explicitly:
-
-```bash
-docker compose exec db pg_isready -U vayca -d vayca_dev
-```
-
-The expected result is `accepting connections`.
-
-### Open PostgreSQL
-
-```bash
-docker compose exec db psql -U vayca -d vayca_dev
-```
-
-Useful commands inside `psql`:
-
-```text
-\conninfo
-\dt
-\d table_name
-\q
-```
-
-To inspect the schema directly:
-
-```sql
-SELECT table_name
-FROM information_schema.tables
-WHERE table_schema = 'public'
-ORDER BY table_name;
-
-\d+ companies
-\d+ properties
-\d+ bookings
-\d+ tickets
-```
-
-### Open pgAdmin
-
-Start the administration panel with the database:
-
-```bash
-docker compose up -d db pgadmin
-```
-
-Open http://localhost:5050 and sign in with `PGADMIN_DEFAULT_EMAIL` and
-`PGADMIN_DEFAULT_PASSWORD` from `.env` (the local defaults are shown in
-`.env.example`). Add a PostgreSQL server using:
+pgAdmin credentials come from `.env`. When adding the PostgreSQL server inside pgAdmin, use:
 
 ```text
 Host: db
 Port: 5432
-Database: vayca_dev
-Username: vayca
-Password: POSTGRES_PASSWORD from .env
+Database: value of POSTGRES_DB
+Username: value of POSTGRES_USER
+Password: value of POSTGRES_PASSWORD
 ```
 
-Use `db`, not `localhost`, as the host because pgAdmin runs inside Docker.
+Use `db`, not `localhost`, because pgAdmin runs inside Docker.
 
-If pgAdmin is unavailable, check its status and logs:
+## Run the Tests
 
-```powershell
-docker compose ps pgadmin
-docker compose logs --tail=50 pgadmin
-```
-
-### Migration workflow
-
-Alembic is configured in `backend/alembic.ini` and the initial operational schema
-is available as migration `0001_initial_schema`. The standard workflow is:
+Backend, API, PostgreSQL migration, and Redis tests:
 
 ```bash
-docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current
-docker compose exec backend alembic history
+docker compose --profile test run --rm --build backend_test
+docker compose --profile test stop db_test redis_test
+docker compose --profile test rm -f db_test redis_test
 ```
 
-To create a reviewed migration after changing approved models:
+Frontend tests, lint, and production build:
 
 ```bash
-docker compose exec backend alembic revision --autogenerate -m "describe schema change"
+docker compose run --rm frontend npm test
+docker compose run --rm frontend npm run lint
+docker compose run --rm frontend npm run build
 ```
 
-Always inspect generated migration code before applying it. Do not edit the database manually as a substitute for a migration.
+If all commands pass, the checkout is ready for development.
 
-### Database and API contract tests
+## Daily Commands
 
-Run the isolated backend test profile with a temporary PostgreSQL database:
+Start or refresh the project after pulling changes:
 
 ```bash
-docker compose --profile test run --rm backend_test
-docker compose --profile test down
+docker compose up -d --build
 ```
 
-The test database uses an in-memory Docker filesystem and a database name ending
-in `_test`. The migration tests refuse to run against any other database name,
-which protects normal development data from downgrade/reset operations.
+View logs:
 
-Shared API routing, pagination, errors, OpenAPI rules, and integration modes are
-documented in `docs/api-conventions.md`.
-
-### Team migration workflow
-
-The schema is shared through migration files, not through manually edited local
-databases:
-
-1. Pull the latest branch.
-2. Start PostgreSQL and the backend with Docker Compose.
-3. Run `docker compose exec backend alembic upgrade head`.
-4. Make model changes and generate a migration on your feature branch.
-5. Review the migration in the pull request before applying it to shared data.
-
-The current baseline migration creates the operational tables in
-`backend/alembic/versions/0001_initial_schema.py`. A future managed PostgreSQL
-provider can use the same `DATABASE_URL` and migration workflow.
-
-### Resetting local development data
-
-`docker compose down` preserves the PostgreSQL volume. Removing the volume deletes local database data and should only be done intentionally after confirming no needed local data exists.
-
-To remove local PostgreSQL and pgAdmin data intentionally:
-
-```powershell
-docker compose down -v
+```bash
+docker compose logs -f backend frontend worker
 ```
 
-This permanently deletes the local database volume. Run the migration again
-afterward to recreate the schema:
+Stop the project without deleting database data:
 
-```powershell
-docker compose up -d db redis backend worker pgadmin
-docker compose exec backend alembic upgrade head
+```bash
+docker compose down
 ```
 
-## Daily Git Workflow
+Do not use `docker compose down -v` unless you intentionally want to delete the local PostgreSQL and pgAdmin data.
+
+## Contribution Workflow
+
+Create every feature branch from the latest `testing` branch:
 
 ```bash
 git checkout testing
 git pull origin testing
-git checkout -b feature/short-task-name
+git checkout -b feature/short-feature-name
 ```
 
-Work on one issue or reviewable unit. Then:
+Keep each branch focused on one issue. Use detailed commits and open pull requests into `testing`, not `main`. Complete every section of `.github/PULL_REQUEST_TEMPLATE.md` with real test evidence.
 
-```bash
-git add <specific-files>
-git commit -m "feat: describe the concrete behavior added"
-git push -u origin feature/short-task-name
-```
+Never commit `.env`, passwords, API keys, tokens, real guest information, or property access codes.
 
-Open a pull request into `testing` and request one teammate review. Stable releases are promoted from `testing` to `main` through a separate reviewed pull request.
+## Important Documentation
+
+Read these files before changing code:
+
+1. `AGENTS.md` — canonical rules for humans and AI coding tools.
+2. `docs/architecture.md` — approved technology and module architecture.
+3. `docs/design-system.md` — required UI styles and responsive behavior.
+4. `docs/api-conventions.md` — API routes, errors, pagination, and integration modes.
+5. `docs/academic/00_README.md` — academic documentation map.
+6. The academic chapters relevant to the assigned module.
+7. The assigned GitHub issue and applicable files in `docs/decisions/`.
+
+`docs/weekly-reports/` contains historical logs only. Reports can explain what happened, but they must not override current requirements, architecture, issues, or accepted decisions.
 
 ## AI Onboarding Prompt
 
-Teammates can paste this prompt into an AI assistant before beginning an issue:
+Paste this prompt into an AI coding assistant before starting an issue:
 
 ```text
-You are helping with Vayca, a three-person internship project for a B2B vacation-property operations platform.
+You are working on Vayca, a three-person B2B vacation-property operations project.
 
 Before proposing or changing code:
-1. Read AGENTS.md completely.
-2. Read docs/architecture.md.
-3. Read docs/academic/00_README.md and the academic chapters relevant to this issue.
-4. For UI work, read docs/design-system.md.
-5. Read the assigned GitHub issue, its requirement IDs, dependencies, and acceptance criteria.
-6. Check the current branch and repository status.
+1. Scan the repository structure and check the current branch and git status.
+2. Read AGENTS.md completely and follow it as the canonical workflow.
+3. Read docs/architecture.md and docs/api-conventions.md.
+4. Read docs/design-system.md for any frontend work.
+5. Read docs/academic/00_README.md and the chapters relevant to the assigned module.
+6. Read the assigned GitHub issue, its requirement IDs, dependencies, acceptance criteria, and applicable decision records in docs/decisions/.
+7. Inspect the existing implementation and tests before suggesting changes.
 
-Do not use docs/weekly-reports as requirements or architecture. They are historical logs only.
+Do not treat docs/weekly-reports as requirements. Do not assume prototype UI or mock data is implemented backend behavior.
 
-Then summarize:
-- your understanding of the user problem and approved scope;
-- the affected module and requirements;
-- assumptions or missing decisions;
-- the simplest implementation approach;
-- any technology/dependency/schema/API choice that needs discussion;
-- files likely to change;
-- tests, authorization, tenant-isolation, empty states, and failure states required.
+Then report:
+- the repository's current verified state;
+- the problem, requirement IDs, module, and user workflow involved;
+- files and API/database contracts likely to change;
+- assumptions, missing information, and decisions that need discussion;
+- the simplest suitable implementation and any meaningful alternative;
+- authorization, tenant isolation, validation, loading, empty, success, and failure states;
+- tests and documentation required for completion.
 
-Do not start coding until unresolved product or architecture decisions have been discussed. Do not invent new actors, pages, database entities, dependencies, or external-service behavior. Keep the change limited to the assigned issue and follow the branch, commit, PR, documentation, and weekly-report rules in AGENTS.md.
+Discuss unresolved technology, schema, dependency, external-service, or product decisions before coding. Do not invent actors, pages, fields, integrations, or permissions. Work only on a task-specific branch created from current testing, keep the change focused, use detailed commits, and prepare a factual pull request into testing.
 ```
-
-## Documentation Workflow
-
-- Current product and architecture decisions belong in canonical Markdown files or `docs/decisions/`.
-- Academic analysis and requirements belong in `docs/academic/`.
-- Weekly progress belongs in `docs/weekly-reports/` and is historical only.
-- A behavior-changing PR updates relevant documentation and diagrams.
-- Final PDFs should be generated from the reviewed Markdown baseline, not edited independently.
 
 ## Troubleshooting
 
+If a service is not running:
+
 ```bash
-docker compose logs -f backend
-docker compose logs -f worker
-docker compose logs -f db
-docker compose down
-docker compose up --build
+docker compose ps
+docker compose logs --tail=100 backend frontend db redis
+docker compose up -d --build
 ```
 
-After pulling dependency or Dockerfile changes, use `docker compose up --build` to avoid running stale images.
+If Docker says no configuration file was found, run the command from the repository folder containing `docker-compose.yml`. If a port is already in use, stop the conflicting local application or change the corresponding port in `.env` or `docker-compose.yml`.

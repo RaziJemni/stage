@@ -86,7 +86,7 @@ See `docs/academic/08_module_decomposition.md` for dependencies.
 - Messaging baseline: WhatsApp adapter with simulator/test/production modes
 - Chatbot: configurable multilingual model selected through evaluation
 - Development: Docker Compose
-- Authentication proposal: email/password, Argon2 hashing, signed JWT credentials
+- Authentication: email/password, Argon2id hashing, opaque PostgreSQL-backed sessions in secure cookies, CSRF protection, and Redis login limiting
 
 Shared API versioning, pagination, error responses, OpenAPI rules, and integration
 modes are defined in `docs/api-conventions.md` and accepted in
@@ -98,6 +98,8 @@ The database owner must review `docs/academic/10_data_conception.md` before writ
 
 - Company
 - AppUser
+- AuthSession
+- UserInvitation
 - Property
 - Channel
 - Booking

@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
 import { 
   INITIAL_PROPERTIES, 
   INITIAL_BOOKINGS, 
   INITIAL_CONVERSATIONS, 
-  INITIAL_TICKETS, 
-  INITIAL_TEAM
+  INITIAL_TICKETS
 } from './data/mockData';
 import type { Property, Booking, Conversation, Ticket } from './data/mockData';
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
+import { useAuth } from './auth/useAuth';
+import { ProtectedRoute } from './auth/ProtectedRoute';
 
 // 9 Pages Imports
 import { LoginPage } from './pages/LoginPage';
@@ -20,10 +22,11 @@ import { InboxPage } from './pages/InboxPage';
 import { ConversationThreadPage } from './pages/ConversationThreadPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { AcceptInvitePage } from './pages/AcceptInvitePage';
 
-export function App() {
-  // Navigation & Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+function WorkspaceApp() {
+  const { identity, logout } = useAuth();
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
 
   // Application Mock State
@@ -31,7 +34,6 @@ export function App() {
   const [bookings] = useState<Booking[]>(INITIAL_BOOKINGS);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
-  const [team] = useState(INITIAL_TEAM);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('prop-1'); // Villa Yasmine default
@@ -100,18 +102,6 @@ export function App() {
     setTickets(prev => [newTicket, ...prev]);
   };
 
-  // Render Login page if not authenticated or if login page selected
-  if (!isAuthenticated || activePage === 'login') {
-    return (
-      <LoginPage 
-        onLoginSuccess={() => {
-          setIsAuthenticated(true);
-          setActivePage('dashboard');
-        }} 
-      />
-    );
-  }
-
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
   // Selected Conversation Object
@@ -124,7 +114,9 @@ export function App() {
       <Sidebar
         activePage={activePage}
         onNavigate={setActivePage}
-        onLogout={() => setIsAuthenticated(false)}
+        onLogout={() => void logout()}
+        user={identity!.user}
+        company={identity!.company}
         unreadMessagesCount={unreadMessagesCount}
         openTicketsCount={openTicketsCount}
         hasCalendarConflict={hasCalendarConflict}
@@ -188,14 +180,24 @@ export function App() {
           />
         )}
 
-        {activePage === 'settings' && (
-          <SettingsPage
-            team={team}
-          />
-        )}
+        {activePage === 'settings' && identity!.user.role === 'manager' && <SettingsPage />}
       </main>
 
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/*" element={<WorkspaceApp />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
