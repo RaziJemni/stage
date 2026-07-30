@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { AuthCompany, AuthUser } from '../auth/types';
 import { 
   LayoutDashboard, 
@@ -9,7 +9,9 @@ import {
   Settings, 
   LogOut, 
   Palmtree, 
-  AlertTriangle
+  AlertTriangle,
+  UserRound,
+  X
 } from 'lucide-react';
 
 export type ActivePage = 
@@ -44,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   user,
   company,
 }) => {
+  const [isMobileProfileOpen, setIsMobileProfileOpen] = useState(false);
   const navItems = [
     { id: 'dashboard' as ActivePage, label: 'Dashboard', icon: LayoutDashboard },
     { 
@@ -70,6 +73,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'properties' as ActivePage, label: 'Properties', icon: Building2 },
     ...(user.role === 'manager' ? [{ id: 'settings' as ActivePage, label: 'Settings', icon: Settings }] : []),
   ];
+  const mobileNavItems = navItems.filter((item) => item.id !== 'settings');
+
+  const handleMobileNavigate = (page: ActivePage) => {
+    setIsMobileProfileOpen(false);
+    onNavigate(page);
+  };
 
   return (
     <>
@@ -171,16 +180,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <nav
       aria-label="Mobile navigation"
       className="fixed inset-x-0 bottom-0 z-40 grid border-t border-[#EBE6DD] bg-white/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(28,27,24,0.08)] backdrop-blur md:hidden"
-      style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${mobileNavItems.length + 1}, minmax(0, 1fr))` }}
     >
-      {navItems.map((item) => {
+      {mobileNavItems.map((item) => {
         const Icon = item.icon;
         const isActive = activePage === item.id;
         return (
           <button
             key={item.id}
             type="button"
-            onClick={() => onNavigate(item.id)}
+            onClick={() => handleMobileNavigate(item.id)}
             aria-current={isActive ? 'page' : undefined}
             className={`relative flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[8px] font-semibold tracking-tight transition-colors ${
               isActive ? 'bg-[#F0F6FA] text-[#0F3D5E]' : 'text-[#78716C]'
@@ -194,7 +203,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         );
       })}
+      <button
+        type="button"
+        onClick={() => setIsMobileProfileOpen(true)}
+        aria-expanded={isMobileProfileOpen}
+        aria-controls="mobile-profile-sheet"
+        className={`relative flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[8px] font-semibold tracking-tight transition-colors ${
+          isMobileProfileOpen ? 'bg-[#F0F6FA] text-[#0F3D5E]' : 'text-[#78716C]'
+        }`}
+      >
+        <UserRound className={`h-4 w-4 ${isMobileProfileOpen ? 'text-[#0F3D5E]' : 'text-[#78716C]'}`} />
+        <span>Profile</span>
+      </button>
     </nav>
+
+    {isMobileProfileOpen && (
+      <div className="fixed inset-0 z-50 flex items-end md:hidden">
+        <button
+          type="button"
+          aria-label="Close profile menu"
+          onClick={() => setIsMobileProfileOpen(false)}
+          className="absolute inset-0 bg-[#1C1B18]/35"
+        />
+        <section
+          id="mobile-profile-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-profile-title"
+          className="relative w-full rounded-t-3xl border border-[#EBE6DD] bg-white px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-16px_50px_rgba(28,27,24,0.18)]"
+        >
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0F3D5E] text-sm font-bold text-white">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h2 id="mobile-profile-title" className="truncate text-base font-bold text-[#1C1B18]">{user.name}</h2>
+                <p className="truncate text-xs text-[#78716C]">{user.email}</p>
+                <p className="mt-0.5 truncate text-[11px] font-medium capitalize text-[#0F3D5E]">{company.name} · {user.role}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Close profile menu"
+              onClick={() => setIsMobileProfileOpen(false)}
+              className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5] hover:text-[#1C1B18]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-2">
+            {user.role === 'manager' && (
+              <button
+                type="button"
+                onClick={() => handleMobileNavigate('settings')}
+                className="flex w-full items-center gap-3 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] px-4 py-3 text-left text-sm font-semibold text-[#1C1B18]"
+              >
+                <Settings className="h-4 w-4 text-[#0F3D5E]" />
+                Company Settings
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Log out from mobile profile"
+              onClick={onLogout}
+              className="flex w-full items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-semibold text-rose-700"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
     </>
   );
 };

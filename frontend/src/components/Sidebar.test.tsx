@@ -19,6 +19,31 @@ describe('Sidebar authorization', () => {
     fireEvent.click(screen.getAllByTitle('Log out')[0]);
     expect(onLogout).toHaveBeenCalledOnce();
   });
+
+  it('opens the mobile profile sheet and supports logout', () => {
+    const onLogout = vi.fn();
+    renderSidebar({ id: 'staff-1', name: 'Amira', email: 'amira@example.com', role: 'staff', status: 'active' }, onLogout);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+
+    expect(screen.getByRole('dialog', { name: 'Amira' })).toBeInTheDocument();
+    expect(screen.getByText('amira@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Company Settings' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log out from mobile profile' }));
+    expect(onLogout).toHaveBeenCalledOnce();
+  });
+
+  it('keeps company settings available to managers from the mobile profile', () => {
+    const onNavigate = vi.fn();
+    render(<Sidebar activePage="dashboard" onNavigate={onNavigate} onLogout={vi.fn()} unreadMessagesCount={0} openTicketsCount={0} hasCalendarConflict={false} user={{ id: 'manager-1', name: 'Youssef', email: 'manager@example.com', role: 'manager', status: 'active' }} company={company} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profile' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Company Settings' }));
+
+    expect(onNavigate).toHaveBeenCalledWith('settings');
+    expect(screen.queryByRole('dialog', { name: 'Youssef' })).not.toBeInTheDocument();
+  });
 });
 
 function renderSidebar(user: AuthUser, onLogout = vi.fn()) {
