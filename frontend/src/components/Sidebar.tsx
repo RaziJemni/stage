@@ -1,4 +1,5 @@
 import React from 'react';
+import type { AuthCompany, AuthUser } from '../auth/types';
 import { 
   LayoutDashboard, 
   Calendar as CalendarIcon, 
@@ -29,6 +30,8 @@ interface SidebarProps {
   unreadMessagesCount: number;
   openTicketsCount: number;
   hasCalendarConflict: boolean;
+  user: AuthUser;
+  company: AuthCompany;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,7 +40,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   unreadMessagesCount,
   openTicketsCount,
-  hasCalendarConflict
+  hasCalendarConflict,
+  user,
+  company,
 }) => {
   const navItems = [
     { id: 'dashboard' as ActivePage, label: 'Dashboard', icon: LayoutDashboard },
@@ -63,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeColor: 'bg-[#0F3D5E] text-white'
     },
     { id: 'properties' as ActivePage, label: 'Properties', icon: Building2 },
-    { id: 'settings' as ActivePage, label: 'Settings', icon: Settings },
+    ...(user.role === 'manager' ? [{ id: 'settings' as ActivePage, label: 'Settings', icon: Settings }] : []),
   ];
 
   return (
@@ -147,14 +152,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-[#EBE6DD] bg-[#FAF8F5]/70">
         <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#EBE6DD] shadow-sm">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" 
-              alt="Youssef Ben Salem" 
-              className="w-8 h-8 rounded-full object-cover border border-[#EBE6DD]"
-            />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0F3D5E] text-xs font-bold text-white">{user.name.charAt(0).toUpperCase()}</div>
             <div className="truncate">
-              <div className="font-semibold text-xs text-[#1C1B18] truncate">Youssef B. Salem</div>
-              <div className="text-[10px] text-[#78716C] truncate">Hammamet Prestige</div>
+              <div className="font-semibold text-xs text-[#1C1B18] truncate">{user.name}</div>
+              <div className="text-[10px] text-[#78716C] truncate">{company.name} · {user.role}</div>
             </div>
           </div>
           <button 
@@ -169,7 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-[#EBE6DD] bg-white/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(28,27,24,0.08)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid border-t border-[#EBE6DD] bg-white/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_30px_rgba(28,27,24,0.08)] backdrop-blur md:hidden"
+      style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
     >
       {navItems.map((item) => {
         const Icon = item.icon;

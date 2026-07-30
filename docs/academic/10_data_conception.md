@@ -67,6 +67,19 @@ login because a user does not need to select a company before authentication.
 If one person must later belong to several companies, the team will review this
 choice and introduce the required account-membership migration.
 
+### AuthSession
+
+Represents one revocable browser session. It stores the company and user
+identity, a unique hash of the opaque token, a hash of the CSRF token, expiry,
+revocation, and audit timestamps. Raw session and CSRF secrets are never stored.
+
+### UserInvitation
+
+Represents one manager-created staff invitation. It stores the company, invited
+user, inviter, a unique hash of the one-time token, expiry, acceptance, and audit
+timestamps. The development adapter may display the activation URL once; a
+production adapter must deliver it through an approved email provider.
+
 ### Property
 
 Represents one managed accommodation.

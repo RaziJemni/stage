@@ -17,6 +17,7 @@
 - **REF-FASTAPI-SECURITY:** FastAPI documentation, “OAuth2 with Password (and hashing), Bearer with JWT tokens.” https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/
 - **REF-ALEMBIC:** SQLAlchemy project, Alembic documentation. https://alembic.sqlalchemy.org/en/latest/
 - **REF-OWASP-ASVS:** OWASP Foundation, Application Security Verification Standard. https://owasp.org/www-project-application-security-verification-standard/
+- **REF-OWASP-SESSION:** OWASP Foundation, Session Management Cheat Sheet. https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
 - **REF-OPENAI-EVALS:** OpenAI API documentation, Evals. https://platform.openai.com/docs/api-reference/evals
 
 ### Project sources
@@ -79,7 +80,7 @@
 | DEC-010 | 2026-07-28 | Accepted | Ticket creation/assignment from chatbot output requires staff confirmation. | Preserves human responsibility |
 | DEC-011 | 2026-07-28 | Accepted | MVP chatbot languages are French, English, and Arabic, with Tunisian Arabic evaluation. | Matches current target while controlling scope |
 | DEC-012 | 2026-07-28 | Accepted | Manual/direct bookings are included without creating a marketplace. | Owners can block dates received through phone or WhatsApp |
-| DEC-013 | 2026-07-28 | Proposed | Authentication uses FastAPI security, Argon2 password hashing, and JWT credentials. | Simple, documented, and compatible with the selected stack |
+| DEC-013 | 2026-07-30 | Accepted | Authentication uses Argon2id passwords and revocable opaque server-backed sessions in secure cookies. | Avoids browser-stored credentials and supports immediate revocation |
 | DEC-014 | 2026-07-28 | Accepted | Academic documentation is written in English. | Team decision |
 | DEC-015 | 2026-07-28 | Accepted | These documents are a living baseline, not immutable final decisions. | Implementation and validation may reveal necessary changes |
 
@@ -87,7 +88,7 @@
 
 | ID | Decision needed | Responsible discussion |
 |---|---|---|
-| OPEN-001 | Exact access/refresh-token storage strategy | Platform/auth implementation review |
+| OPEN-001 | Resolved by Decision 0003: opaque session tokens, hashed server-side storage, and secure cookies | Closed 2026-07-30 |
 | OPEN-002 | Global or company-scoped user email uniqueness | Database and UX review |
 | OPEN-003 | Final tenant-key strategy on child tables | Database review |
 | OPEN-004 | Exact booking date/time and timezone semantics | Calendar/database review |

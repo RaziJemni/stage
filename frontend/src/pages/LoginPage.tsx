@@ -1,128 +1,118 @@
-import React, { useState } from 'react';
-import { Palmtree, KeyRound, Mail, ArrowRight, FlaskConical } from 'lucide-react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { ArrowRight, KeyRound, Mail, Palmtree } from 'lucide-react';
+import { Link, Navigate, useLocation } from 'react-router';
+import { ApiError } from '../auth/api';
+import { useAuth } from '../auth/useAuth';
 
-interface LoginPageProps {
-  onLoginSuccess: () => void;
-}
+export function LoginPage() {
+  const { identity, login } = useAuth();
+  const location = useLocation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('youssef@vayca.tn');
-  const [password, setPassword] = useState('demo-password');
+  if (identity) {
+    const state = location.state as { from?: string } | null;
+    return <Navigate to={state?.from ?? '/'} replace />;
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onLoginSuccess();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(email, password);
+    } catch (caught: unknown) {
+      setError(loginErrorMessage(caught));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Background Subtle Mediterranean Accent Decorations */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#0F3D5E]/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#D96B43]/5 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Main Container */}
-      <div className="w-full max-w-md bg-white rounded-2xl border border-[#EBE6DD] shadow-[0_8px_30px_rgba(28,27,24,0.06)] p-8 relative z-10">
-        
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0F3D5E] text-white shadow-[0_4px_14px_rgba(15,61,94,0.25)] mb-4">
-            <Palmtree className="w-7 h-7 text-[#E8A838]" />
-          </div>
-          <h1 className="text-2xl font-bold text-[#1C1B18] tracking-tight">Vayca Tunisia</h1>
-          <p className="text-sm text-[#78716C] mt-1 font-medium">B2B vacation-property operations</p>
-        </div>
-
-        {/* Auth Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-[#3B3735] mb-1.5 uppercase tracking-wider">
-              Work Email
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-[#78716C] absolute left-3.5 top-3.5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#1C1B18] focus:outline-none focus:border-[#0F3D5E] focus:bg-white transition-colors"
-                placeholder="manager@agency.tn"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#3B3735] mb-1.5 uppercase tracking-wider">
-              Password
-            </label>
-            <div className="relative">
-              <KeyRound className="w-4 h-4 text-[#78716C] absolute left-3.5 top-3.5" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#1C1B18] focus:outline-none focus:border-[#0F3D5E] focus:bg-white transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Quick Demo Staff Selector */}
-          <div className="pt-2">
-            <div className="p-3 bg-[#FAF8F5] rounded-xl border border-[#EBE6DD]">
-              <span className="text-[11px] font-semibold text-[#78716C] block mb-1.5 uppercase tracking-wider">
-                Prototype access - select a role
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEmail('youssef@vayca.tn')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border transition-all ${
-                    email === 'youssef@vayca.tn'
-                      ? 'bg-[#0F3D5E] text-white border-[#0F3D5E]'
-                      : 'bg-white text-[#3B3735] border-[#EBE6DD] hover:border-[#0F3D5E]'
-                  }`}
-                >
-                  <div className="font-semibold text-[11px]">Youssef (Manager)</div>
-                  <div className="text-[9px] opacity-80">Company administration</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setEmail('amira@vayca.tn')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium text-left border transition-all ${
-                    email === 'amira@vayca.tn'
-                      ? 'bg-[#0F3D5E] text-white border-[#0F3D5E]'
-                      : 'bg-white text-[#3B3735] border-[#EBE6DD] hover:border-[#0F3D5E]'
-                  }`}
-                >
-                  <div className="font-semibold text-[11px]">Amira (Staff)</div>
-                  <div className="text-[9px] opacity-80">Daily operations</div>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full mt-4 bg-[#0F3D5E] hover:bg-[#0C324E] text-white font-semibold py-3 px-4 rounded-xl shadow-[0_4px_12px_rgba(15,61,94,0.2)] flex items-center justify-center gap-2 transition-all"
-          >
-            Open Prototype Workspace
-            <ArrowRight className="w-4 h-4 text-[#E8A838]" />
-          </button>
-        </form>
-
-        {/* Security badge */}
-        <div className="mt-6 pt-4 border-t border-[#EBE6DD] flex items-center justify-center gap-2 text-xs text-[#78716C]">
-          <FlaskConical className="w-4 h-4 text-amber-600" />
-          <span>Prototype login - authentication is not implemented yet</span>
-        </div>
-      </div>
-
-      {/* Footer text */}
-      <p className="mt-6 text-xs text-[#78716C]">
-        © 2026 Vayca TN — Multi-channel property operations platform (Hammamet • Sidi Bou Said • Djerba)
+    <AuthLayout>
+      <h1 className="text-2xl font-bold text-[#1C1B18] tracking-tight">Welcome back</h1>
+      <p className="mt-1 text-sm font-medium text-[#78716C]">Sign in to your Vayca workspace</p>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <AuthField label="Work email" icon={<Mail className="h-4 w-4" />}>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            className={inputClass}
+            placeholder="manager@agency.tn"
+          />
+        </AuthField>
+        <AuthField label="Password" icon={<KeyRound className="h-4 w-4" />}>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            className={inputClass}
+          />
+        </AuthField>
+        {error && <AuthError message={error} />}
+        <button type="submit" disabled={submitting} className={buttonClass}>
+          {submitting ? 'Signing in…' : 'Sign in'}
+          {!submitting && <ArrowRight className="h-4 w-4 text-[#E8A838]" />}
+        </button>
+      </form>
+      <p className="mt-6 text-center text-xs text-[#78716C]">
+        Creating a new company?{' '}
+        <Link to="/register" className="font-bold text-[#0F3D5E] hover:underline">Create workspace</Link>
       </p>
+    </AuthLayout>
+  );
+}
+
+export function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#0F3D5E]/5 blur-3xl" />
+      <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-[#D96B43]/5 blur-3xl" />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#EBE6DD] bg-white p-8 shadow-[0_8px_30px_rgba(28,27,24,0.06)]">
+        <div className="mb-6 text-center">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F3D5E] text-white shadow-[0_4px_14px_rgba(15,61,94,0.25)]">
+            <Palmtree className="h-7 w-7 text-[#E8A838]" />
+          </div>
+          <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#0F3D5E]">Vayca Tunisia</div>
+        </div>
+        {children}
+      </div>
     </div>
   );
-};
+}
+
+export function AuthField({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#3B3735]">{label}</span>
+      <span className="relative block">
+        <span className="pointer-events-none absolute left-3.5 top-3.5 text-[#78716C]">{icon}</span>
+        {children}
+      </span>
+    </label>
+  );
+}
+
+export function AuthError({ message }: { message: string }) {
+  return <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">{message}</div>;
+}
+
+export const inputClass = 'w-full rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] py-2.5 pl-10 pr-4 text-sm text-[#1C1B18] outline-none transition-colors focus:border-[#0F3D5E] focus:bg-white';
+export const buttonClass = 'flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D5E] px-4 py-3 font-semibold text-white shadow-[0_4px_12px_rgba(15,61,94,0.2)] transition-colors hover:bg-[#0C324E] disabled:cursor-not-allowed disabled:opacity-60';
+
+function loginErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return 'Vayca could not reach the authentication service.';
+  if (error.code === 'invalid_credentials') return 'The email address or password is incorrect.';
+  if (error.code === 'account_inactive') return 'This account is inactive. Contact your company manager.';
+  if (error.code === 'invitation_pending') return 'Accept your invitation before signing in.';
+  if (error.code === 'login_rate_limited') return 'Too many attempts. Wait fifteen minutes before trying again.';
+  return error.message;
+}

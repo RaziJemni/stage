@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 EXPECTED_TABLES = {
     "alembic_version",
     "app_users",
+    "auth_sessions",
     "booking_conflict_bookings",
     "booking_conflicts",
     "bookings",
@@ -25,6 +26,7 @@ EXPECTED_TABLES = {
     "ticket_assignments",
     "ticket_status_history",
     "tickets",
+    "user_invitations",
 }
 
 EXPECTED_PARTIAL_INDEXES = {

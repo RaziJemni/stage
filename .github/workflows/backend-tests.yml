@@ -1,4 +1,4 @@
-name: Backend contract and database tests
+name: Foundation backend and frontend tests
 
 on:
   pull_request:
@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - "backend/**"
+      - "frontend/**"
+      - ".env.example"
       - "docker-compose.yml"
       - ".github/workflows/backend-tests.yml"
   push:
@@ -14,6 +16,8 @@ on:
       - testing
     paths:
       - "backend/**"
+      - "frontend/**"
+      - ".env.example"
       - "docker-compose.yml"
       - ".github/workflows/backend-tests.yml"
 
@@ -36,3 +40,31 @@ jobs:
       - name: Clean test containers
         if: always()
         run: docker compose --profile test down -v --remove-orphans
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build

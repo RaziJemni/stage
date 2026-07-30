@@ -34,7 +34,7 @@ Traceability connects stakeholder needs to requirements, modules, implementation
 
 | Quality concern | Requirements | Design response | Verification |
 |---|---|---|---|
-| Authentication and authorization | NFR-SEC-01, 03, 05, 07 | FastAPI security, Argon2, JWT, HTTPS | Security tests and deployment review |
+| Authentication and authorization | NFR-SEC-01, 03, 05, 07 | Argon2id, revocable opaque sessions, CSRF, Redis rate limiting, HTTPS | Security tests and deployment review |
 | Tenant isolation | NFR-SEC-02, 06 | Company-scoped repositories and role checks | Cross-company tests |
 | Secret protection | NFR-SEC-04 | Environment configuration and Git exclusions | Secret scan |
 | Idempotency and recovery | NFR-REL-01..04 | External IDs, sync runs, transactions, retries | Duplicate and outage tests |
