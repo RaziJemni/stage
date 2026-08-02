@@ -152,6 +152,8 @@ For a complex commit, include a body describing why the change was needed, impor
 
 Open pull requests into `testing`, never directly into `main`. Complete every section in `.github/PULL_REQUEST_TEMPLATE.md` with real evidence.
 
+Before opening **any** pull request into `testing`, review `README.md` → **Current State**. If the pull request adds, changes, removes, or materially connects implemented behavior, setup, or development capability, update that section in the same pull request. If there is no current-state impact, state `README current-state: no change` and give the reason in the pull request's Documentation section. Do not let README claims get ahead of merged, verified behavior.
+
 The PR must identify:
 
 - requirement and issue IDs;

@@ -144,7 +144,7 @@ git pull origin testing
 git checkout -b feature/short-feature-name
 ```
 
-Keep each branch focused on one issue. Use detailed commits and open pull requests into `testing`, not `main`. Complete every section of `.github/PULL_REQUEST_TEMPLATE.md` with real test evidence.
+Keep each branch focused on one issue. Use detailed commits and open pull requests into `testing`, not `main`. Before opening a pull request, review **Current State** above and update it in the same pull request whenever implemented behavior, setup, or development capability changed. If it did not change, record the reason in the PR documentation section. Complete every section of `.github/PULL_REQUEST_TEMPLATE.md` with real test evidence.
 
 Never commit `.env`, passwords, API keys, tokens, real guest information, or property access codes.
 

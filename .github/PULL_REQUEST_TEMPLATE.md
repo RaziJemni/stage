@@ -53,6 +53,7 @@ Requirement IDs: `FR-...`, `NFR-...`
 
 - [ ] Architecture/requirements/diagrams updated if behavior changed
 - [ ] Decision record added or updated if required
+- [ ] README **Current State** reviewed and updated if implemented behavior or setup changed; otherwise explain why no update is needed
 - [ ] Weekly report link will be added for the relevant week
 
 ## Checklist
