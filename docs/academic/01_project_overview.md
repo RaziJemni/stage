@@ -64,4 +64,10 @@ The project's value is the integration of several operational workflows into a l
 
 ## Current Maturity
 
-At this documentation baseline, the repository includes project governance, a Docker-oriented skeleton, an initial frontend prototype, architecture notes, a design system, and a GitHub backlog. The database, production APIs, authentication, integrations, and end-to-end validation remain implementation work. Prototype behavior and mock data must not be reported as completed production functionality.
+At this documentation baseline, the repository includes project governance, a
+Docker-oriented skeleton, a migrated PostgreSQL domain, manager/staff
+authentication APIs, protected frontend routes, architecture notes, a design
+system, and a GitHub backlog. Operational feature APIs, external integrations,
+and end-to-end MVP validation remain implementation work. Prototype behavior
+and mock operational data must not be reported as completed production
+functionality.

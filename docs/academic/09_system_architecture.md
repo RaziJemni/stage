@@ -134,21 +134,28 @@ Property details and conversation threads are drill-down routes, not main naviga
 
 ## Authentication Architecture
 
-The proposed MVP uses email/password authentication with:
+The accepted MVP uses email/password authentication with:
 
-- password hashing through `pwdlib` and Argon2;
-- signed JWT access tokens through `PyJWT`;
-- FastAPI security dependencies;
+- password hashing through `pwdlib` and Argon2id;
+- random opaque session tokens with only token hashes stored in PostgreSQL;
+- an `HttpOnly`, `SameSite=Lax` session cookie and a separate CSRF token;
+- eight-hour configurable expiration and immediate revocation on logout or deactivation;
+- Redis-backed failed-login limiting by normalized email and client IP;
+- reusable FastAPI dependencies for active user, manager role, company context, and CSRF validation;
 - manager and staff role checks;
 - company context resolved for every authenticated request.
 
-FastAPI's official security guidance demonstrates OAuth2 password flow, `PyJWT`, and secure password hashing [REF-FASTAPI-SECURITY]. The exact refresh-token or secure-cookie strategy should be selected during implementation and documented before deployment.
+FastAPI's security guidance supports the selected Argon2 password-hashing
+library [REF-FASTAPI-SECURITY]. Vayca deliberately uses revocable server-backed
+sessions instead of browser-stored JWT credentials. Decision 0003 records this
+choice. Production requires HTTPS, secure cookies, and a real invitation-email
+adapter.
 
 ## Multi-Tenant Request Rule
 
 For every authenticated operation:
 
-1. Decode and verify the authentication credential.
+1. Hash the presented session token and load its unexpired, unrevoked record.
 2. Load the active user.
 3. Resolve `company_id` and role from trusted database state.
 4. Apply role authorization.

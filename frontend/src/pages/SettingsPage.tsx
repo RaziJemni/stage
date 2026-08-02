@@ -1,266 +1,48 @@
-import React, { useState } from 'react';
-import type { TeamMember } from '../data/mockData';
-import { 
-  Users, 
-  Building, 
-  Globe, 
-  Plus, 
-  FlaskConical
-} from 'lucide-react';
+import { useState } from 'react';
+import { Building, FlaskConical, Globe, Users } from 'lucide-react';
+import { useAuth } from '../auth/useAuth';
+import { TeamManagementPanel } from '../components/TeamManagementPanel';
 
-interface SettingsPageProps {
-  team: TeamMember[];
-}
-
-export const SettingsPage: React.FC<SettingsPageProps> = ({ team }) => {
+export function SettingsPage() {
+  const { identity } = useAuth();
   const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels'>('team');
+  if (!identity || identity.user.role !== 'manager') return null;
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      
-      {/* Header */}
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
       <div className="border-b border-[#EBE6DD] pb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-1 rounded-lg border border-[#B6DAEA]">
-            System Administration
-          </span>
-        </div>
-        <h1 className="text-2xl font-bold text-[#1C1B18] mt-1.5 tracking-tight">
-          Company Settings & Team Permissions
-        </h1>
-        <p className="text-sm text-[#78716C] mt-0.5">
-          Configure team access, company information, and booking-channel connections.
-        </p>
+        <span className="rounded-lg border border-[#B6DAEA] bg-[#F0F6FA] px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#0F3D5E]">System administration</span>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">Company Settings & Team Access</h1>
+        <p className="mt-0.5 text-sm text-[#78716C]">Manage authenticated staff and review truthful integration status.</p>
       </div>
-
-      {/* Tabs Bar */}
-      <div className="flex items-center gap-2 border-b border-[#EBE6DD]">
-        <button
-          onClick={() => setActiveTab('team')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'team'
-              ? 'border-[#0F3D5E] text-[#0F3D5E]'
-              : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
-          }`}
-        >
-          <Users className="w-4 h-4" /> Team Members & Roles ({team.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('company')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'company'
-              ? 'border-[#0F3D5E] text-[#0F3D5E]'
-              : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
-          }`}
-        >
-          <Building className="w-4 h-4" /> Tunisian Agency Profile
-        </button>
-
-        <button
-          onClick={() => setActiveTab('channels')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'channels'
-              ? 'border-[#0F3D5E] text-[#0F3D5E]'
-              : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
-          }`}
-        >
-          <Globe className="w-4 h-4" /> Booking Channels
-        </button>
+      <div className="flex gap-2 overflow-x-auto border-b border-[#EBE6DD]">
+        <Tab active={activeTab === 'team'} onClick={() => setActiveTab('team')}><Users className="h-4 w-4" /> Team</Tab>
+        <Tab active={activeTab === 'company'} onClick={() => setActiveTab('company')}><Building className="h-4 w-4" /> Company</Tab>
+        <Tab active={activeTab === 'channels'} onClick={() => setActiveTab('channels')}><Globe className="h-4 w-4" /> Integrations</Tab>
       </div>
-
-      {/* TAB 1: Team Members */}
-      {activeTab === 'team' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-[#78716C]">
-              Staff roles control access to guest chat takeover, calendar edits, and property rules.
-            </p>
-            <button className="px-3.5 py-2 rounded-xl bg-[#0F3D5E] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm">
-              <Plus className="w-4 h-4 text-[#E8A838]" /> Invite Team Member
-            </button>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-[#EBE6DD] shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#FAF8F5] border-b border-[#EBE6DD] text-[#78716C] font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-5">Staff Member</th>
-                  <th className="py-3 px-5">Email Address</th>
-                  <th className="py-3 px-5">Assigned Role</th>
-                  <th className="py-3 px-5">Status</th>
-                  <th className="py-3 px-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EBE6DD]">
-                {team.map((member) => (
-                  <tr key={member.id} className="hover:bg-[#FAF8F5]/50 transition-colors">
-                    <td className="py-4 px-5">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={member.avatarUrl} 
-                          alt={member.name}
-                          className="w-9 h-9 rounded-full object-cover border border-[#EBE6DD]"
-                        />
-                        <div>
-                          <div className="font-bold text-[#1C1B18]">{member.name}</div>
-                          <div className="text-[10px] text-[#78716C]">Tunisia Workspace</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-5 font-mono text-[#3B3735]">
-                      {member.email}
-                    </td>
-
-                    <td className="py-4 px-5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        member.role === 'Owner' ? 'bg-[#0F3D5E] text-[#E8A838]' :
-                        member.role === 'Ops Manager' ? 'bg-amber-100 text-amber-900' :
-                        member.role === 'Housekeeping Lead' ? 'bg-blue-100 text-blue-900' :
-                        'bg-emerald-100 text-emerald-900'
-                      }`}>
-                        {member.role}
-                      </span>
-                    </td>
-
-                    <td className="py-4 px-5">
-                      <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Active
-                      </span>
-                    </td>
-
-                    <td className="py-4 px-5 text-right">
-                      <button className="text-xs font-semibold text-[#0F3D5E] hover:underline">
-                        Edit Permissions
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: Company Profile */}
+      {activeTab === 'team' && <TeamManagementPanel />}
       {activeTab === 'company' && (
-        <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm max-w-2xl space-y-4 text-xs">
-          <h3 className="font-bold text-sm text-[#1C1B18] border-b border-[#EBE6DD] pb-3">
-            Tunisian Property Operations Legal Identity
-          </h3>
-
-          <div className="space-y-3">
-            <div>
-              <label className="block font-semibold text-[#3B3735] mb-1">Company Registered Name</label>
-              <input 
-                type="text" 
-                defaultValue="Vayca Tunisia S.A.R.L."
-                className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 text-[#1C1B18] font-bold"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">Matricule Fiscal (Tunisia)</label>
-                <input 
-                  type="text" 
-                  defaultValue="1849201/A/M/000"
-                  className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">Headquarters City</label>
-                <input 
-                  type="text" 
-                  defaultValue="Hammamet, Nabeul Governorate"
-                  className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 font-semibold"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-[#3B3735] mb-1">Primary Currency</label>
-              <input 
-                type="text" 
-                disabled
-                value="TND — Tunisian Dinar"
-                className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 font-bold text-[#0F3D5E]"
-              />
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-[#EBE6DD]">
-            <button className="px-4 py-2 rounded-xl bg-[#0F3D5E] text-white font-bold shadow-sm">
-              Save Company Profile
-            </button>
-          </div>
+        <div className="max-w-2xl space-y-4 rounded-2xl border border-[#EBE6DD] bg-white p-6 shadow-sm">
+          <div><div className="text-xs font-semibold text-[#78716C]">Company</div><div className="mt-1 font-bold text-[#1C1B18]">{identity.company.name}</div></div>
+          <div className="grid gap-4 sm:grid-cols-2"><div><div className="text-xs font-semibold text-[#78716C]">Timezone</div><div className="mt-1 text-sm">{identity.company.timezone}</div></div><div><div className="text-xs font-semibold text-[#78716C]">Currency</div><div className="mt-1 text-sm">{identity.company.default_currency}</div></div></div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Company profile editing belongs to the later Settings workflow. These values come from the authenticated company record.</div>
         </div>
       )}
-
-      {/* TAB 3: Channel Integrations */}
       {activeTab === 'channels' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* Airbnb Integration */}
-          <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#FF5A5F] text-white">Airbnb Calendar</span>
-              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
-                <FlaskConical className="w-3 h-3" /> Not configured
-              </span>
-            </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Calendar Feed</h4>
-            <p className="text-[11px] text-[#78716C]">
-              Planned iCalendar import for reservation and blocked-date visibility.
-            </p>
-            <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>No feed added</span>
-              <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
-            </div>
-          </div>
-
-          {/* Booking.com Integration */}
-          <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#003580] text-white">Booking.com Calendar</span>
-              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
-                <FlaskConical className="w-3 h-3" /> Not configured
-              </span>
-            </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Calendar Feed</h4>
-            <p className="text-[11px] text-[#78716C]">
-              Planned iCalendar import for reservation and blocked-date visibility.
-            </p>
-            <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>No feed added</span>
-              <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
-            </div>
-          </div>
-
-          {/* Direct WhatsApp Gateway */}
-          <div className="bg-white rounded-2xl border border-[#EBE6DD] p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white">WhatsApp Business</span>
-              <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
-                <FlaskConical className="w-3 h-3" /> Simulator
-              </span>
-            </div>
-            <h4 className="font-bold text-xs text-[#1C1B18]">Guest Messaging</h4>
-            <p className="text-[11px] text-[#78716C]">
-              Prototype message flow. Provider test and production connections are not configured.
-            </p>
-            <div className="pt-2 border-t border-[#EBE6DD] text-[10px] text-[#78716C] flex justify-between">
-              <span>Mode: Prototype simulator</span>
-              <span className="text-[#0F3D5E] font-bold hover:underline cursor-pointer">Configure &rarr;</span>
-            </div>
-          </div>
-
+        <div className="grid gap-5 md:grid-cols-3">
+          <IntegrationCard name="Airbnb Calendar" detail="No feed configured" />
+          <IntegrationCard name="Booking.com Calendar" detail="No feed configured" />
+          <IntegrationCard name="WhatsApp Business" detail="Simulator mode" />
         </div>
       )}
-
     </div>
   );
-};
+}
+
+function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return <button onClick={onClick} className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 pb-3 text-xs font-bold ${active ? 'border-[#0F3D5E] text-[#0F3D5E]' : 'border-transparent text-[#78716C]'}`}>{children}</button>;
+}
+
+function IntegrationCard({ name, detail }: { name: string; detail: string }) {
+  return <div className="space-y-3 rounded-2xl border border-[#EBE6DD] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><span className="font-bold text-[#1C1B18]">{name}</span><span className="flex items-center gap-1 text-[10px] font-bold text-amber-700"><FlaskConical className="h-3 w-3" /> Not production</span></div><p className="text-xs text-[#78716C]">{detail}</p></div>;
+}

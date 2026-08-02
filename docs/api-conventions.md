@@ -71,6 +71,21 @@ Errors use `application/problem+json` and a stable RFC 9457-style structure:
 - `errors` is optional and used for field-level validation details.
 - Authentication and authorization failures use the same structure.
 
+## Authentication and Request Protection
+
+- Authentication uses opaque server-backed sessions sent in an `HttpOnly`,
+  `SameSite=Lax` cookie. Only a token hash is stored in PostgreSQL.
+- Browser credentials or session tokens must never be stored in `localStorage`.
+- The backend derives the active user, role, and `company_id` from the session;
+  request data never supplies authorization context.
+- Authenticated state-changing requests require the CSRF cookie value in the
+  `X-CSRF-Token` header. Login, registration, and invitation acceptance are
+  unauthenticated entry points and do not use this session CSRF check.
+- Production uses HTTPS and secure cookies. Trusted frontend origins are
+  configured explicitly and CORS credentials are enabled only for them.
+- Invalid login responses remain generic. Explicit inactive-account errors are
+  returned only after the submitted password has been verified.
+
 ## OpenAPI Rules
 
 - Every endpoint declares a response model and meaningful status code.
