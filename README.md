@@ -15,7 +15,7 @@ The repository currently provides:
 - automated backend, database, and frontend tests;
 - architecture, design-system, academic, and workflow documentation.
 
-Properties, calendars, messages, maintenance workflows, chatbot behavior, and external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
+Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Calendar, messages, maintenance workflows, chatbot behavior, and external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
 
 ## Install the Required Software
 

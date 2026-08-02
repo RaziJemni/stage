@@ -2,7 +2,7 @@ export interface Property {
   id: string;
   name: string;
   location: string;
-  city: 'Hammamet' | 'Sidi Bou Said' | 'Tunis' | 'Djerba' | 'Sousse';
+  city: string;
   bedrooms: number;
   bathrooms: number;
   maxGuests: number;

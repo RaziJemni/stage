@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { 
-  INITIAL_PROPERTIES, 
+import {
   INITIAL_BOOKINGS, 
   INITIAL_CONVERSATIONS, 
   INITIAL_TICKETS
 } from './data/mockData';
 import type { Property, Booking, Conversation, Ticket } from './data/mockData';
+import {
+  fetchProperties,
+  createProperty,
+  updateProperty,
+  archiveProperty,
+  unarchiveProperty,
+  mapApiPropertyToProperty,
+  type PropertyCreatePayload,
+  type PropertyUpdatePayload
+} from './api/properties';
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
@@ -29,15 +38,45 @@ function WorkspaceApp() {
   const { identity, logout } = useAuth();
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
 
-  // Application Mock State
-  const [properties, setProperties] = useState<Property[]>(INITIAL_PROPERTIES);
+  // Application State
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loadingProperties, setLoadingProperties] = useState<boolean>(false);
+  const [propertiesError, setPropertiesError] = useState<string | null>(null);
+  const [showingArchived, setShowingArchived] = useState<boolean>(false);
+
   const [bookings] = useState<Booking[]>(INITIAL_BOOKINGS);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
 
   // Selection states for detail views
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('prop-1'); // Villa Yasmine default
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [selectedConversationId, setSelectedConversationId] = useState<string>('conv-1');
+
+  const isManager = identity?.user?.role === 'manager';
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoadingProperties(true);
+        setPropertiesError(null);
+        const res = await fetchProperties({ include_archived: showingArchived });
+        const mapped = (res.items || []).map(mapApiPropertyToProperty);
+        setProperties(mapped);
+        setSelectedPropertyId(prev => prev || (mapped.length > 0 ? mapped[0].id : ''));
+      } catch (err: any) {
+        console.error('API property request failed:', err);
+        setProperties([]);
+        setPropertiesError(err.message || 'Failed to load property listings from API server.');
+      } finally {
+        setLoadingProperties(false);
+      }
+    };
+    void load();
+  }, [showingArchived]);
+
+  const handleToggleIncludeArchived = (include: boolean) => {
+    setShowingArchived(include);
+  };
 
   // Derived indicator counts for sidebar badges
   const unreadMessagesCount = conversations.filter(c => c.unread).length;
@@ -74,7 +113,7 @@ function WorkspaceApp() {
         const newMsg = {
           id: `msg-${Date.now()}`,
           sender: 'staff' as const,
-          senderName: 'Youssef Ben Salem (Staff)',
+          senderName: `${identity?.user?.name || 'Staff'}`,
           text: text,
           timestamp: 'Just now'
         };
@@ -94,8 +133,30 @@ function WorkspaceApp() {
     setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: newStatus } : t));
   };
 
-  const handleAddProperty = (newProp: Property) => {
-    setProperties(prev => [newProp, ...prev]);
+  const handleCreateProperty = async (payload: PropertyCreatePayload) => {
+    const createdApiProp = await createProperty(payload);
+    const mapped = mapApiPropertyToProperty(createdApiProp);
+    setProperties(prev => [mapped, ...prev]);
+    setSelectedPropertyId(mapped.id);
+  };
+
+  const handleUpdateProperty = async (propertyId: string, payload: PropertyUpdatePayload) => {
+    const updatedApiProp = await updateProperty(propertyId, payload);
+    const mapped = mapApiPropertyToProperty(updatedApiProp);
+    setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, ...mapped } : p));
+  };
+
+  const handleArchiveProperty = async (propertyId: string) => {
+    const archivedApiProp = await archiveProperty(propertyId);
+    const mapped = mapApiPropertyToProperty(archivedApiProp);
+    setProperties(prev => prev.map(p => p.id === propertyId ? mapped : p));
+    setActivePage('properties');
+  };
+
+  const handleUnarchiveProperty = async (propertyId: string) => {
+    const restoredApiProp = await unarchiveProperty(propertyId);
+    const mapped = mapApiPropertyToProperty(restoredApiProp);
+    setProperties(prev => prev.map(p => p.id === propertyId ? mapped : p));
   };
 
   const handleAddTicket = (newTicket: Ticket) => {
@@ -141,10 +202,14 @@ function WorkspaceApp() {
           />
         )}
 
-        {activePage === 'property-detail' && (
+        {activePage === 'property-detail' && selectedProperty && (
           <PropertyDetailPage
             property={selectedProperty}
             bookings={bookings}
+            onUpdateProperty={handleUpdateProperty}
+            onArchiveProperty={handleArchiveProperty}
+            onUnarchiveProperty={handleUnarchiveProperty}
+            isManager={isManager}
           />
         )}
 
@@ -152,7 +217,12 @@ function WorkspaceApp() {
           <PropertiesPage
             properties={properties}
             onSelectProperty={handleSelectProperty}
-            onAddProperty={handleAddProperty}
+            onCreateProperty={handleCreateProperty}
+            onToggleIncludeArchived={handleToggleIncludeArchived}
+            isManager={isManager}
+            loading={loadingProperties}
+            error={propertiesError}
+            showingArchived={showingArchived}
           />
         )}
 
