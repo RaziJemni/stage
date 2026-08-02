@@ -15,7 +15,7 @@ The repository currently provides:
 - automated backend, database, and frontend tests;
 - architecture, design-system, academic, and workflow documentation.
 
-Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Calendar, messages, maintenance workflows, chatbot behavior, and external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
+Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Staff and managers can also create, update, and cancel persistent manual/direct bookings for active company properties; the backend availability service uses active reservation and blocked-period data. The calendar interface, messages, maintenance workflows, chatbot behavior, and external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
 
 ## Install the Required Software
 
