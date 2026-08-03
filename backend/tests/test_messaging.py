@@ -174,6 +174,31 @@ def test_inbound_messages_are_deduplicated_and_manual_takeover_blocks_automation
         assert len(service.list_messages(db, company_id, UUID(context["conversation_id"]))) == 1
 
 
+def test_risky_inbound_message_switches_conversation_to_manual(client: TestClient) -> None:
+    manager = register_manager(client)
+    property_data = create_property(client)
+
+    with SessionLocal() as db:
+        result = service.record_inbound_message(
+            db,
+            company_id=UUID(manager["company"]["id"]),
+            property_id=UUID(property_data["id"]),
+            guest_contact_identifier="+21699887766",
+            content="I need a refund now",
+            external_message_id="provider-event-refund-001",
+        )
+        conversation = service.get_conversation(
+            db,
+            company_id=UUID(manager["company"]["id"]),
+            conversation_id=result.message.conversation_id,
+        )
+
+    assert result.created
+    assert conversation is not None
+    assert conversation.handling_mode is HandlingMode.MANUAL
+    assert conversation.escalation_reason == "payment_or_refund"
+
+
 def test_other_company_cannot_read_or_change_conversation(client: TestClient) -> None:
     _, context = create_inbound_conversation(client)
     other_client = TestClient(client.app)

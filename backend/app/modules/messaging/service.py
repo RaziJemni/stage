@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
 from app.api.pagination import PageParams
+from app.modules.chatbot.policy import apply_escalation, classify_message
 from app.core.enums import (
     ConversationStatus,
     DeliveryStatus,
@@ -134,6 +135,7 @@ def record_inbound_message(
     external_message_id: str,
     provider_timestamp: datetime | None = None,
     language: str | None = None,
+    facts_available: bool = True,
 ) -> InboundMessageResult:
     _get_property(db, company_id=company_id, property_id=property_id)
     existing = db.scalar(
@@ -175,6 +177,10 @@ def record_inbound_message(
         provider_timestamp=provider_timestamp,
     )
     db.add(message)
+    apply_escalation(
+        conversation,
+        classify_message(content, facts_available=facts_available),
+    )
     conversation.last_message_at = provider_timestamp or datetime.now(UTC)
     try:
         db.commit()
