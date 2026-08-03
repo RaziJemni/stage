@@ -136,7 +136,7 @@ def sync_channel(
     db.refresh(sync_run)
 
     try:
-        events = parse_calendar_events(
+        events, rejected_count = parse_calendar_events_with_rejections(
             (fetcher or fetch_calendar_bytes)(channel.calendar_url),
             timezone_name=_property_timezone(db, company_id, channel.property_id),
         )
@@ -151,11 +151,22 @@ def sync_channel(
             else:
                 sync_run.rejected_count += 1
 
+        sync_run.rejected_count += rejected_count
+        if rejected_count == 0:
+            sync_run.cancelled_count += _cancel_missing_events(
+                db,
+                channel=channel,
+                external_event_ids={event.external_event_id for event in events},
+            )
+
         completed_at = datetime.now(timezone.utc)
-        sync_run.status = SyncStatus.SUCCEEDED
+        sync_run.status = SyncStatus.PARTIAL if rejected_count else SyncStatus.SUCCEEDED
         sync_run.completed_at = completed_at
-        channel.last_successful_sync_at = completed_at
-        channel.last_error_summary = None
+        if sync_run.status is SyncStatus.SUCCEEDED:
+            channel.last_successful_sync_at = completed_at
+            channel.last_error_summary = None
+        else:
+            channel.last_error_summary = "Calendar feed contained unsupported or invalid events."
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -193,6 +204,12 @@ def fetch_calendar_bytes(calendar_url: str) -> bytes:
 
 
 def parse_calendar_events(content: bytes, *, timezone_name: str) -> list[ImportedEvent]:
+    return parse_calendar_events_with_rejections(content, timezone_name=timezone_name)[0]
+
+
+def parse_calendar_events_with_rejections(
+    content: bytes, *, timezone_name: str
+) -> tuple[list[ImportedEvent], int]:
     try:
         calendar = Calendar.from_ical(content)
     except Exception as exc:
@@ -201,6 +218,7 @@ def parse_calendar_events(content: bytes, *, timezone_name: str) -> list[Importe
         raise CalendarImportError("Calendar feed is not valid iCalendar content")
 
     events: list[ImportedEvent] = []
+    rejected_count = 0
     for component in calendar.walk("VEVENT"):
         uid = _as_text(component.get("UID"))
         start = _component_datetime(component.get("DTSTART"), timezone_name)
@@ -208,6 +226,7 @@ def parse_calendar_events(content: bytes, *, timezone_name: str) -> list[Importe
         if _is_same_day_all_day_event(component) and start is not None and end == start:
             end = start + timedelta(days=1)
         if not uid or start is None or end is None or end <= start:
+            rejected_count += 1
             continue
         summary = _as_text(component.get("SUMMARY"))
         event_status = BookingStatus.CANCELLED if _as_text(component.get("STATUS")).upper() == "CANCELLED" else BookingStatus.CONFIRMED
@@ -223,7 +242,7 @@ def parse_calendar_events(content: bytes, *, timezone_name: str) -> list[Importe
                 raw_payload={"uid": uid, "summary": summary, "status": _as_text(component.get("STATUS"))},
             )
         )
-    return events
+    return events, rejected_count
 
 
 def _upsert_event(db: Session, *, channel: Channel, event: ImportedEvent) -> str:
@@ -250,6 +269,27 @@ def _upsert_event(db: Session, *, channel: Channel, event: ImportedEvent) -> str
     booking.guest_name, booking.check_in, booking.check_out = event.guest_name, event.check_in, event.check_out
     booking.status, booking.record_type, booking.external_updated_at, booking.raw_payload = event.status, event.record_type, event.external_updated_at, event.raw_payload
     return "cancelled" if event.status is BookingStatus.CANCELLED else "updated"
+
+
+def _cancel_missing_events(
+    db: Session,
+    *,
+    channel: Channel,
+    external_event_ids: set[str],
+) -> int:
+    statement = select(Booking).where(
+        Booking.company_id == channel.company_id,
+        Booking.channel_id == channel.id,
+        Booking.external_event_id.is_not(None),
+        Booking.status != BookingStatus.CANCELLED,
+    )
+    if external_event_ids:
+        statement = statement.where(Booking.external_event_id.not_in(external_event_ids))
+    cancelled_count = 0
+    for booking in db.scalars(statement):
+        booking.status = BookingStatus.CANCELLED
+        cancelled_count += 1
+    return cancelled_count
 
 
 def _property_timezone(db: Session, company_id: UUID, property_id: UUID) -> str:

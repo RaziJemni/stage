@@ -43,6 +43,33 @@ END:VEVENT
 END:VCALENDAR
 """
 
+MISSING_EVENTS_FEED = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:reservation-1@example.test
+DTSTART:20260810T140000Z
+DTEND:20260813T100000Z
+SUMMARY:Guest reservation
+END:VEVENT
+END:VCALENDAR
+"""
+
+PARTIAL_FEED = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:reservation-1@example.test
+DTSTART:20260810T140000Z
+DTEND:20260813T100000Z
+SUMMARY:Guest reservation
+END:VEVENT
+BEGIN:VEVENT
+UID:invalid-event@example.test
+DTSTART:20260815T140000Z
+SUMMARY:Missing end date
+END:VEVENT
+END:VCALENDAR
+"""
+
 
 def alembic_config() -> Config:
     database_url = os.environ["DATABASE_URL"]
@@ -188,6 +215,41 @@ def test_sync_persists_events_idempotently_and_records_failures(client: TestClie
         )
         assert failed_run.status is SyncStatus.FAILED
         assert db.scalar(sa.select(sa.func.count()).select_from(service.Booking)) == 3
+
+
+def test_complete_sync_cancels_missing_events_but_partial_and_failed_syncs_preserve_them(
+    client: TestClient,
+) -> None:
+    identity = register_manager(client)
+    property_id = create_property(client)
+    feed = configure_feed(client, property_id)
+
+    with SessionLocal() as db:
+        first_run = service.sync_channel(
+            db, company_id=identity["company"]["id"], channel_id=feed["id"], fetcher=lambda _: VALID_FEED
+        )
+        assert first_run.status is SyncStatus.SUCCEEDED
+
+        partial_run = service.sync_channel(
+            db, company_id=identity["company"]["id"], channel_id=feed["id"], fetcher=lambda _: PARTIAL_FEED
+        )
+        assert partial_run.status is SyncStatus.PARTIAL
+        assert partial_run.rejected_count == 1
+        assert partial_run.cancelled_count == 0
+        assert db.scalar(sa.select(sa.func.count()).select_from(service.Booking).where(service.Booking.status != BookingStatus.CANCELLED)) == 3
+
+        failed_run = service.sync_channel(
+            db, company_id=identity["company"]["id"], channel_id=feed["id"], fetcher=lambda _: b"not a calendar"
+        )
+        assert failed_run.status is SyncStatus.FAILED
+        assert db.scalar(sa.select(sa.func.count()).select_from(service.Booking).where(service.Booking.status != BookingStatus.CANCELLED)) == 3
+
+        complete_run = service.sync_channel(
+            db, company_id=identity["company"]["id"], channel_id=feed["id"], fetcher=lambda _: MISSING_EVENTS_FEED
+        )
+        assert complete_run.status is SyncStatus.SUCCEEDED
+        assert complete_run.cancelled_count == 2
+        assert db.scalar(sa.select(sa.func.count()).select_from(service.Booking).where(service.Booking.status != BookingStatus.CANCELLED)) == 1
 
 
 def test_sync_request_queues_background_task(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
