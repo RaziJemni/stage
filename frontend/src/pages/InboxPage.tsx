@@ -32,7 +32,7 @@ export function InboxPage({
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       <header className="border-b border-[#EBE6DD] pb-6">
         <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
-          <Bot className="h-3.5 w-3.5" /> WhatsApp and chatbot delivery are not connected yet
+          <Bot className="h-3.5 w-3.5" /> Local message simulator available; production delivery is not connected
         </span>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">Guest Messages</h1>
         <p className="mt-1 text-sm text-[#78716C]">Conversation records and manual replies are saved to your company workspace.</p>
@@ -54,7 +54,7 @@ export function InboxPage({
 
       {loading && <StateCard text="Loading conversations..." />}
       {!loading && error && <StateCard text={error} retry={onRetry} error />}
-      {!loading && !error && filtered.length === 0 && <StateCard text="No conversations match this view. Incoming messages will appear here once the messaging simulator or provider is configured." />}
+      {!loading && !error && filtered.length === 0 && <StateCard text="No conversations match this view. Signed local simulator messages will appear here; production WhatsApp is not configured." />}
       {!loading && !error && filtered.length > 0 && (
         <section className="divide-y divide-[#EBE6DD] overflow-hidden rounded-2xl border border-[#EBE6DD] bg-white shadow-sm">
           {filtered.map((conversation) => {

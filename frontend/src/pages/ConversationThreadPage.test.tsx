@@ -4,6 +4,30 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConversationThreadPage } from './ConversationThreadPage';
 
 describe('ConversationThreadPage', () => {
+  it('shows the persisted escalation reason to staff', () => {
+    render(<ConversationThreadPage
+      conversation={{
+        id: 'conversation-1',
+        property_id: 'property-1',
+        guest_contact_identifier: '+21699887766',
+        status: 'open',
+        handling_mode: 'manual',
+        last_message_at: '2026-08-03T12:00:00Z',
+        escalation_reason: 'payment_or_refund',
+      }}
+      messages={[]}
+      loading={false}
+      error={null}
+      sending={false}
+      propertyName="Villa Yasmine"
+      onBackToInbox={vi.fn()}
+      onRetry={vi.fn()}
+      onToggleHandlingMode={vi.fn()}
+      onSendMessage={vi.fn()}
+    />);
+    expect(screen.getByRole('status')).toHaveTextContent('Escalated: Payment or refund');
+  });
+
   it('sends a manual reply and exposes the delivery state', () => {
     const onSendMessage = vi.fn();
     render(<ConversationThreadPage

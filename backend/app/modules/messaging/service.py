@@ -39,6 +39,18 @@ def get_conversation(
     )
 
 
+def get_property_for_inbound_event(db: Session, *, property_id: UUID) -> Property:
+    property_obj = db.scalar(select(Property).where(Property.id == property_id))
+    if property_obj is None:
+        raise ApiProblem(
+            status=404,
+            title="Property not found",
+            detail="The inbound event references an unknown property.",
+            code="property_not_found",
+        )
+    return property_obj
+
+
 def list_messages(
     db: Session,
     company_id: UUID,
