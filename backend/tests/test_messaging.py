@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import json
 import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -96,6 +99,19 @@ def create_inbound_conversation(client: TestClient) -> tuple[dict, dict]:
         )
     assert result.created
     return manager, {"property": property_data, "conversation_id": str(result.message.conversation_id)}
+
+
+def signed_simulator_event(payload: dict) -> tuple[bytes, dict[str, str]]:
+    raw_body = json.dumps(payload, separators=(",", ":")).encode()
+    signature = hmac.new(
+        settings.whatsapp_simulator_webhook_secret.encode(),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+    return raw_body, {
+        "Content-Type": "application/json",
+        "X-Vayca-Simulator-Signature": signature,
+    }
 
 
 def test_conversations_are_ordered_and_staff_reply_requires_csrf(client: TestClient) -> None:
@@ -197,6 +213,69 @@ def test_risky_inbound_message_switches_conversation_to_manual(client: TestClien
     assert conversation is not None
     assert conversation.handling_mode is HandlingMode.MANUAL
     assert conversation.escalation_reason == "payment_or_refund"
+
+
+def test_signed_simulator_event_persists_and_deduplicates_inbound_messages(
+    client: TestClient,
+) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    payload = {
+        "property_id": property_data["id"],
+        "guest_contact_identifier": "+21699887766",
+        "content": "Can I check in late?",
+        "external_message_id": "simulator-event-001",
+        "language": "en",
+    }
+    raw_body, headers = signed_simulator_event(payload)
+
+    accepted = client.post(
+        "/api/v1/integrations/whatsapp/simulator/inbound",
+        content=raw_body,
+        headers=headers,
+    )
+    duplicate = client.post(
+        "/api/v1/integrations/whatsapp/simulator/inbound",
+        content=raw_body,
+        headers=headers,
+    )
+
+    assert accepted.status_code == 202, accepted.text
+    assert accepted.json()["mode"] == "simulator"
+    assert accepted.json()["created"] is True
+    assert duplicate.status_code == 202, duplicate.text
+    assert duplicate.json()["created"] is False
+    assert duplicate.json()["message_id"] == accepted.json()["message_id"]
+
+
+def test_simulator_rejects_unverified_or_unknown_property_events(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    payload = {
+        "property_id": property_data["id"],
+        "guest_contact_identifier": "+21699887766",
+        "content": "Can I check in late?",
+        "external_message_id": "simulator-event-invalid-signature",
+    }
+    raw_body, _ = signed_simulator_event(payload)
+
+    invalid = client.post(
+        "/api/v1/integrations/whatsapp/simulator/inbound",
+        content=raw_body,
+        headers={"Content-Type": "application/json", "X-Vayca-Simulator-Signature": "invalid"},
+    )
+    assert invalid.status_code == 401
+    assert invalid.json()["code"] == "invalid_webhook_signature"
+
+    payload["property_id"] = str(uuid4())
+    unknown_body, unknown_headers = signed_simulator_event(payload)
+    unknown = client.post(
+        "/api/v1/integrations/whatsapp/simulator/inbound",
+        content=unknown_body,
+        headers=unknown_headers,
+    )
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == "property_not_found"
 
 
 def test_other_company_cannot_read_or_change_conversation(client: TestClient) -> None:

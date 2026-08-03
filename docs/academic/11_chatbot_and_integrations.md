@@ -131,6 +131,21 @@ RFC 5545 defines a data format for exchanging calendar information independent o
 - Retry outgoing messages with bounded policy.
 - Keep staff handling usable during provider or chatbot outage.
 
+### Implemented local simulator contract
+
+The MVP development simulator accepts a signed event at
+`POST /api/v1/integrations/whatsapp/simulator/inbound`. The payload contains a
+property ID, guest contact identifier, message content, external message ID,
+and optional timestamp/language. It does not accept a company ID; the backend
+resolves company context from the stored property. The caller calculates an
+HMAC-SHA256 signature over the raw JSON request body using the local simulator
+secret and sends it in `X-Vayca-Simulator-Signature`.
+
+The endpoint returns a `202` acknowledgement after idempotent persistence. It
+is a development/CI transport only and must not be described as an approved
+WhatsApp connection. Provider test and production modes remain separate future
+adapters.
+
 ## Ticket Suggestion Example
 
 Guest message:

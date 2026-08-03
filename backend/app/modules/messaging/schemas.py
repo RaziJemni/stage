@@ -43,5 +43,23 @@ class MessageResponse(BaseModel):
     delivery_status: DeliveryStatus
     automatically_sent: bool
     created_at: datetime
+
+
 class HandlingModeRequest(StrictRequest):
     handling_mode: HandlingMode
+
+
+class SimulatorInboundEventRequest(StrictRequest):
+    property_id: UUID
+    guest_contact_identifier: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1, max_length=5000)
+    external_message_id: str = Field(min_length=1, max_length=255)
+    provider_timestamp: datetime | None = None
+    language: str | None = Field(default=None, max_length=16)
+
+
+class SimulatorInboundEventResponse(BaseModel):
+    mode: str
+    message_id: UUID
+    conversation_id: UUID
+    created: bool

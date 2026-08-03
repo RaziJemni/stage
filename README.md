@@ -15,7 +15,7 @@ The repository currently provides:
 - automated backend, database, and frontend tests;
 - architecture, design-system, academic, and workflow documentation.
 
-Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Managers can also configure supported iCalendar feeds through the authenticated API; Celery imports their events asynchronously and records sync history. The portfolio Calendar screen remains mock-data based until Issue #6 connects it to these APIs. Authenticated staff can view persistent conversation history, manually take over a conversation, and save replies. A deterministic chatbot safety policy records high-risk inbound messages and switches them to manual handling; WhatsApp delivery and chatbot responses remain unconfigured until their dedicated integration issues are completed. Maintenance workflows and other external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
+Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Managers can also configure supported iCalendar feeds through the authenticated API; Celery imports their events asynchronously and records sync history. The portfolio Calendar screen remains mock-data based until Issue #6 connects it to these APIs. Authenticated staff can view persistent conversation history, manually take over a conversation, and save replies. A signed local WhatsApp simulator persists deterministic inbound messages but does not connect to WhatsApp or send outbound messages. A deterministic chatbot safety policy records high-risk inbound messages and switches them to manual handling. Maintenance workflows and other external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
 
 ## Install the Required Software
 
@@ -111,6 +111,25 @@ docker compose run --rm frontend npm run build
 ```
 
 If all commands pass, the checkout is ready for development.
+
+## Test the WhatsApp Simulator
+
+The simulator is local only. It creates an inbound guest message; it never contacts WhatsApp.
+
+1. Start the project and create a manager and property through the frontend or API documentation.
+2. Copy the property ID and set a local `WHATSAPP_SIMULATOR_WEBHOOK_SECRET` in `.env`.
+3. Run this PowerShell example from the repository. Replace the property ID and use the same secret as `.env`.
+
+```powershell
+$secret = "your_local_simulator_secret"
+$body = @{ property_id = "replace-property-id"; guest_contact_identifier = "+21699887766"; content = "Can I check in late?"; external_message_id = "manual-simulator-001"; language = "en" } | ConvertTo-Json -Compress
+$bytes = [Text.Encoding]::UTF8.GetBytes($body)
+$hash = [Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret)).ComputeHash($bytes)
+$signature = -join ($hash | ForEach-Object { $_.ToString("x2") })
+Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/integrations/whatsapp/simulator/inbound" -ContentType "application/json" -Headers @{ "X-Vayca-Simulator-Signature" = $signature } -Body $body
+```
+
+The response has `mode: "simulator"` and `created: true`. Open **Messages** in the app to see the new conversation. Send the exact command again to confirm that `created` becomes `false`, proving duplicate events are not stored twice.
 
 ## Daily Commands
 
