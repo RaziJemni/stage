@@ -1,3 +1,5 @@
+from fastapi import APIRouter
+
 from app.modules.identity.router import router as identity_router
 from app.modules.identity.router import team_router
 from app.modules.properties.router import router as properties_router
