@@ -1,4 +1,4 @@
-import { ArrowLeft, Bot, Send, UserCheck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, Send, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -29,6 +29,7 @@ export function ConversationThreadPage({ conversation, messages, loading, error,
         {manual ? <span className="inline-flex items-center gap-2"><UserCheck className="h-4 w-4" /> Manual mode — return to automatic</span> : <span className="inline-flex items-center gap-2"><Bot className="h-4 w-4" /> Automatic mode — take over</span>}
       </button>
     </header>
+    {conversation.escalation_reason && <section role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><p className="font-bold">Staff attention required</p><p className="mt-1">Escalated: {formatEscalationReason(conversation.escalation_reason)}</p></div></section>}
     {loading && <p className="rounded-2xl border border-[#EBE6DD] bg-white p-5 text-sm text-[#78716C]">Loading message history...</p>}
     {!loading && error && <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-900"><p>{error}</p><button type="button" onClick={onRetry} className="mt-3 font-bold underline">Try again</button></section>}
     {!loading && !error && <section className="space-y-3 rounded-2xl border border-[#EBE6DD] bg-white p-5 shadow-sm">{messages.length === 0 ? <p className="py-8 text-center text-sm text-[#78716C]">No messages have been recorded yet.</p> : messages.map((message) => <article key={message.id} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${message.direction === 'outbound' ? 'ml-auto bg-[#0F3D5E] text-white' : 'bg-[#FAF8F5] text-[#1C1B18]'}`}><p>{message.content}</p><p className={`mt-2 text-[11px] ${message.direction === 'outbound' ? 'text-[#DCEDF5]' : 'text-[#78716C]'}`}>{message.sender_type} · {formatTime(message.created_at)} · {message.delivery_status}</p></article>)}</section>}
@@ -38,4 +39,16 @@ export function ConversationThreadPage({ conversation, messages, loading, error,
 
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatEscalationReason(reason: string): string {
+  const labels: Record<string, string> = {
+    cancellation: 'Cancellation request',
+    complaint: 'Complaint',
+    conflict: 'Conflict',
+    emergency: 'Emergency',
+    payment_or_refund: 'Payment or refund',
+    uncertain: 'Uncertain request',
+  };
+  return labels[reason] ?? reason.replaceAll('_', ' ');
 }
