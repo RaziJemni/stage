@@ -79,6 +79,21 @@ services:
       - ./backend:/app
     command: celery -A app.worker:celery worker --loglevel=info
 
+  beat:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: celery -A app.worker:celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+
   frontend:
     build:
       context: ./frontend

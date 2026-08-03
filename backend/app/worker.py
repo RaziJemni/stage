@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from celery import Celery
 
@@ -15,7 +16,17 @@ celery.conf.update(
     accept_content=["json"],
     timezone=os.getenv("APP_TIMEZONE", "Africa/Tunis"),
     enable_utc=True,
+    beat_schedule={
+        "refresh-calendar-feeds": {
+            "task": "vayca.calendar.refresh_due_channels",
+            "schedule": timedelta(
+                seconds=int(os.getenv("CALENDAR_SYNC_INTERVAL_SECONDS", "900"))
+            ),
+        }
+    },
 )
+
+celery.autodiscover_tasks(["app.modules.calendar"])
 
 
 @celery.task(name="vayca.healthcheck")

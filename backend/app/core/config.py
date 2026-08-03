@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     login_rate_limit_attempts: int = 5
     login_rate_limit_window_seconds: int = 900
+    calendar_sync_interval_seconds: int = 900
+    calendar_feed_max_bytes: int = 1_048_576
 
     @property
     def allowed_origin_list(self) -> list[str]:
