@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.errors import ApiProblem
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
-from app.modules.identity.dependencies import CurrentContext
+from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.messaging import service
 from app.modules.messaging.schemas import (
     ConversationResponse,
@@ -75,11 +75,12 @@ def list_messages_endpoint(
 @router.post(
     "/{conversation_id}/messages",
     response_model=MessageResponse,
+    status_code=201,
 )
 def create_message_endpoint(
     conversation_id: UUID,
     request: MessageCreateRequest,
-    context: CurrentContext,
+    context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> MessageResponse:
 
@@ -113,7 +114,7 @@ def create_message_endpoint(
 def update_handling_mode_endpoint(
     conversation_id: UUID,
     request: HandlingModeRequest,
-    context: CurrentContext,
+    context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> ConversationResponse:
 
@@ -135,4 +136,5 @@ def update_handling_mode_endpoint(
         db=db,
         conversation=conversation,
         handling_mode=request.handling_mode,
+        actor_user_id=context.user.id,
     )

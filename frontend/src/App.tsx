@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import {
   INITIAL_BOOKINGS, 
-  INITIAL_CONVERSATIONS, 
   INITIAL_TICKETS
 } from './data/mockData';
-import type { Property, Booking, Conversation, Ticket } from './data/mockData';
+import type { Property, Booking, Ticket } from './data/mockData';
 import {
   fetchProperties,
   createProperty,
@@ -16,6 +15,14 @@ import {
   type PropertyCreatePayload,
   type PropertyUpdatePayload
 } from './api/properties';
+import {
+  fetchConversations,
+  fetchMessages,
+  sendStaffMessage,
+  updateHandlingMode,
+  type ApiConversation,
+  type ApiMessage,
+} from './api/messaging';
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
@@ -45,12 +52,18 @@ function WorkspaceApp() {
   const [showingArchived, setShowingArchived] = useState<boolean>(false);
 
   const [bookings] = useState<Booking[]>(INITIAL_BOOKINGS);
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
+  const [conversations, setConversations] = useState<ApiConversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ApiMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
-  const [selectedConversationId, setSelectedConversationId] = useState<string>('conv-1');
+  const [selectedConversationId, setSelectedConversationId] = useState<string>('');
 
   const isManager = identity?.user?.role === 'manager';
 
@@ -74,12 +87,45 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoadingConversations(true);
+      setConversationsError(null);
+      const response = await fetchConversations();
+      setConversations(response.items);
+      setSelectedConversationId((current) => current || response.items[0]?.id || '');
+    } catch (err: any) {
+      setConversations([]);
+      setConversationsError(err.message || 'Failed to load conversations from the API server.');
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    if (!conversationId) return;
+    try {
+      setLoadingMessages(true);
+      setMessagesError(null);
+      setMessages(await fetchMessages(conversationId));
+    } catch (err: any) {
+      setMessages([]);
+      setMessagesError(err.message || 'Failed to load this conversation history.');
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
+
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);
   };
 
   // Derived indicator counts for sidebar badges
-  const unreadMessagesCount = conversations.filter(c => c.unread).length;
+  const unreadMessagesCount = 0;
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
   const hasCalendarConflict = bookings.some(b => b.status === 'Conflict');
 
@@ -92,41 +138,33 @@ function WorkspaceApp() {
   const handleSelectConversation = (convId: string) => {
     setSelectedConversationId(convId);
     setActivePage('conversation-thread');
+    void loadMessages(convId);
   };
 
-  const handleToggleAIMode = (convId: string, currentMode: boolean) => {
-    setConversations(prev => prev.map(c => {
-      if (c.id === convId) {
-        return {
-          ...c,
-          aiMode: !currentMode,
-          status: !currentMode ? 'ai_handled' : 'staff_took_over'
-        };
-      }
-      return c;
-    }));
+  const handleToggleHandlingMode = async (mode: ApiConversation['handling_mode']) => {
+    if (!selectedConversationId) return;
+    try {
+      setMessagesError(null);
+      const updated = await updateHandlingMode(selectedConversationId, mode);
+      setConversations((current) => current.map((conversation) => conversation.id === updated.id ? updated : conversation));
+    } catch (err: any) {
+      setMessagesError(err.message || 'Failed to update the conversation mode.');
+    }
   };
 
-  const handleSendMessage = (convId: string, text: string) => {
-    setConversations(prev => prev.map(c => {
-      if (c.id === convId) {
-        const newMsg = {
-          id: `msg-${Date.now()}`,
-          sender: 'staff' as const,
-          senderName: `${identity?.user?.name || 'Staff'}`,
-          text: text,
-          timestamp: 'Just now'
-        };
-        return {
-          ...c,
-          lastMessage: text,
-          lastMessageTime: 'Just now',
-          unread: false,
-          messages: [...c.messages, newMsg]
-        };
-      }
-      return c;
-    }));
+  const handleSendMessage = async (content: string) => {
+    if (!selectedConversationId) return;
+    try {
+      setSendingMessage(true);
+      setMessagesError(null);
+      const created = await sendStaffMessage(selectedConversationId, content);
+      setMessages((current) => [...current, created]);
+      setConversations((current) => current.map((conversation) => conversation.id === selectedConversationId ? { ...conversation, handling_mode: 'manual', last_message_at: created.created_at } : conversation));
+    } catch (err: any) {
+      setMessagesError(err.message || 'Failed to save the manual reply.');
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   const handleUpdateTicketStatus = (ticketId: string, newStatus: Ticket['status']) => {
@@ -165,8 +203,8 @@ function WorkspaceApp() {
 
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
-  // Selected Conversation Object
-  const selectedConversation = conversations.find(c => c.id === selectedConversationId) || conversations[0];
+  const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId);
+  const propertyNames = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property.name])), [properties]);
 
   return (
     <div className="flex h-screen bg-[#FAF8F5] text-[#1C1B18] overflow-hidden font-sans">
@@ -229,6 +267,10 @@ function WorkspaceApp() {
         {activePage === 'inbox' && (
           <InboxPage
             conversations={conversations}
+            loading={loadingConversations}
+            error={conversationsError}
+            propertyNames={propertyNames}
+            onRetry={() => void loadConversations()}
             onSelectConversation={handleSelectConversation}
           />
         )}
@@ -236,8 +278,14 @@ function WorkspaceApp() {
         {activePage === 'conversation-thread' && (
           <ConversationThreadPage
             conversation={selectedConversation}
+            messages={messages}
+            loading={loadingMessages}
+            error={messagesError}
+            sending={sendingMessage}
+            propertyName={selectedConversation ? propertyNames[selectedConversation.property_id] : undefined}
             onBackToInbox={() => setActivePage('inbox')}
-            onToggleAIMode={handleToggleAIMode}
+            onRetry={() => void loadMessages(selectedConversationId)}
+            onToggleHandlingMode={handleToggleHandlingMode}
             onSendMessage={handleSendMessage}
           />
         )}

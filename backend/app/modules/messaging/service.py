@@ -1,28 +1,41 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiProblem
 from app.api.pagination import PageParams
 from app.core.enums import (
+    ConversationStatus,
     DeliveryStatus,
     HandlingMode,
     MessageDirection,
     SenderType,
 )
 from app.modules.messaging.models import Conversation, Message
+from app.modules.properties.models import Property
+
+
+@dataclass(frozen=True)
+class InboundMessageResult:
+    message: Message
+    created: bool
+
+
 def get_conversation(
     db: Session,
     company_id: UUID,
     conversation_id: UUID,
 ) -> Conversation | None:
-    return db.execute(
+    return db.scalar(
         select(Conversation).where(
             Conversation.company_id == company_id,
             Conversation.id == conversation_id,
         )
-    ).scalar_one_or_none()
+    )
 
 
 def list_messages(
@@ -38,7 +51,7 @@ def list_messages(
                 Message.conversation_id == conversation_id,
             )
             .order_by(Message.created_at.asc())
-        ).all()
+        )
     )
 
 
@@ -47,23 +60,18 @@ def list_conversations(
     company_id: UUID,
     params: PageParams,
 ) -> tuple[list[Conversation], int]:
-    stmt = select(Conversation).where(
-        Conversation.company_id == company_id,
-    )
-
-    total = db.scalar(
-        select(func.count()).select_from(stmt.subquery())
-    ) or 0
-
+    statement = select(Conversation).where(Conversation.company_id == company_id)
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
     items = list(
         db.scalars(
-            stmt.order_by(Conversation.last_message_at.desc())
+            statement.order_by(Conversation.last_message_at.desc().nulls_last())
             .offset(params.offset)
             .limit(params.page_size)
-        ).all()
+        )
     )
-
     return items, total
+
+
 def create_message(
     db: Session,
     *,
@@ -72,6 +80,7 @@ def create_message(
     sender_user_id: UUID,
     content: str,
 ) -> Message:
+    _require_open_conversation(conversation)
     message = Message(
         company_id=company_id,
         conversation_id=conversation.id,
@@ -79,27 +88,133 @@ def create_message(
         sender_type=SenderType.STAFF,
         sender_user_id=sender_user_id,
         content=content,
-        delivery_status=DeliveryStatus.RECEIVED,
+        delivery_status=DeliveryStatus.QUEUED,
         automatically_sent=False,
     )
-
     db.add(message)
-
+    conversation.handling_mode = HandlingMode.MANUAL
+    conversation.assigned_staff_user_id = sender_user_id
     conversation.last_message_at = datetime.now(UTC)
-
     db.commit()
     db.refresh(message)
-
     return message
+
+
 def update_handling_mode(
     db: Session,
     *,
     conversation: Conversation,
     handling_mode: HandlingMode,
+    actor_user_id: UUID,
 ) -> Conversation:
+    _require_open_conversation(conversation)
     conversation.handling_mode = handling_mode
-
+    conversation.assigned_staff_user_id = (
+        actor_user_id if handling_mode is HandlingMode.MANUAL else None
+    )
     db.commit()
     db.refresh(conversation)
-
     return conversation
+
+
+def automated_sending_allowed(conversation: Conversation) -> bool:
+    return (
+        conversation.status is ConversationStatus.OPEN
+        and conversation.handling_mode is HandlingMode.AUTOMATIC
+    )
+
+
+def record_inbound_message(
+    db: Session,
+    *,
+    company_id: UUID,
+    property_id: UUID,
+    guest_contact_identifier: str,
+    content: str,
+    external_message_id: str,
+    provider_timestamp: datetime | None = None,
+    language: str | None = None,
+) -> InboundMessageResult:
+    _get_property(db, company_id=company_id, property_id=property_id)
+    existing = db.scalar(
+        select(Message).where(
+            Message.company_id == company_id,
+            Message.external_message_id == external_message_id,
+        )
+    )
+    if existing is not None:
+        return InboundMessageResult(message=existing, created=False)
+
+    conversation = db.scalar(
+        select(Conversation).where(
+            Conversation.company_id == company_id,
+            Conversation.property_id == property_id,
+            Conversation.guest_contact_identifier == guest_contact_identifier,
+            Conversation.status == ConversationStatus.OPEN,
+        )
+    )
+    if conversation is None:
+        conversation = Conversation(
+            company_id=company_id,
+            property_id=property_id,
+            guest_contact_identifier=guest_contact_identifier,
+        )
+        db.add(conversation)
+        db.flush()
+
+    message = Message(
+        company_id=company_id,
+        conversation_id=conversation.id,
+        external_message_id=external_message_id,
+        direction=MessageDirection.INBOUND,
+        sender_type=SenderType.GUEST,
+        content=content,
+        language=language,
+        delivery_status=DeliveryStatus.RECEIVED,
+        automatically_sent=False,
+        provider_timestamp=provider_timestamp,
+    )
+    db.add(message)
+    conversation.last_message_at = provider_timestamp or datetime.now(UTC)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        duplicate = db.scalar(
+            select(Message).where(
+                Message.company_id == company_id,
+                Message.external_message_id == external_message_id,
+            )
+        )
+        if duplicate is None:
+            raise
+        return InboundMessageResult(message=duplicate, created=False)
+    db.refresh(message)
+    return InboundMessageResult(message=message, created=True)
+
+
+def _get_property(db: Session, *, company_id: UUID, property_id: UUID) -> Property:
+    property_obj = db.scalar(
+        select(Property).where(
+            Property.company_id == company_id,
+            Property.id == property_id,
+        )
+    )
+    if property_obj is None:
+        raise ApiProblem(
+            status=404,
+            title="Property not found",
+            detail="Property does not exist or does not belong to your company.",
+            code="property_not_found",
+        )
+    return property_obj
+
+
+def _require_open_conversation(conversation: Conversation) -> None:
+    if conversation.status is ConversationStatus.CLOSED:
+        raise ApiProblem(
+            status=409,
+            title="Conversation closed",
+            detail="Closed conversations cannot be updated.",
+            code="conversation_closed",
+        )
