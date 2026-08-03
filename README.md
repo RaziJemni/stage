@@ -116,8 +116,8 @@ If all commands pass, the checkout is ready for development.
 
 The simulator is local only. It creates an inbound guest message; it never contacts WhatsApp.
 
-1. Start the project and create a manager and property through the frontend or API documentation.
-2. Copy the property ID and set a local `WHATSAPP_SIMULATOR_WEBHOOK_SECRET` in `.env`.
+1. Set a local `WHATSAPP_SIMULATOR_WEBHOOK_SECRET` in `.env`, then start the project.
+2. Create a manager and property through the frontend or API documentation and copy the property ID.
 3. Run this PowerShell example from the repository. Replace the property ID and use the same secret as `.env`.
 
 ```powershell
