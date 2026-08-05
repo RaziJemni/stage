@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     login_rate_limit_attempts: int = 5
     login_rate_limit_window_seconds: int = 900
+    calendar_sync_interval_seconds: int = 900
+    calendar_feed_max_bytes: int = 1_048_576
+    whatsapp_mode: str = "simulator"
+    whatsapp_simulator_webhook_secret: str = "local_simulator_secret_change_me"
 
     @property
     def allowed_origin_list(self) -> list[str]:
@@ -26,6 +30,8 @@ class Settings(BaseSettings):
     def require_secure_production_cookies(self) -> "Settings":
         if self.environment.lower() == "production" and not self.cookie_secure:
             raise ValueError("COOKIE_SECURE must be true in production")
+        if self.whatsapp_mode not in {"simulator", "test", "production"}:
+            raise ValueError("WHATSAPP_MODE must be simulator, test, or production")
         return self
 
 
