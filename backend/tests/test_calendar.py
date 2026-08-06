@@ -44,6 +44,36 @@ END:VCALENDAR
 """
 
 
+UPDATED_AND_REDUCED_FEED = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:reservation-1@example.test
+DTSTART:20260811T140000Z
+DTEND:20260814T100000Z
+SUMMARY:Guest reservation updated
+LAST-MODIFIED:20260802T100000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+PARTIAL_FEED = b"""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:reservation-1@example.test
+DTSTART:20260811T140000Z
+DTEND:20260814T100000Z
+SUMMARY:Guest reservation updated
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260820T000000Z
+DTEND:20260821T000000Z
+SUMMARY:Invalid event without an identifier
+END:VEVENT
+END:VCALENDAR
+"""
+
+
 def alembic_config() -> Config:
     database_url = os.environ["DATABASE_URL"]
     assert (make_url(database_url).database or "").endswith("_test")
@@ -190,6 +220,71 @@ def test_sync_persists_events_idempotently_and_records_failures(client: TestClie
         assert db.scalar(sa.select(sa.func.count()).select_from(service.Booking)) == 3
 
 
+def test_complete_sync_updates_and_cancels_missing_events(client: TestClient) -> None:
+    identity = register_manager(client)
+    property_id = create_property(client)
+    feed = configure_feed(client, property_id)
+
+    with SessionLocal() as db:
+        service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: VALID_FEED,
+        )
+        refreshed = service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: UPDATED_AND_REDUCED_FEED,
+        )
+        assert refreshed.status is SyncStatus.SUCCEEDED
+        assert refreshed.updated_count == 1
+        assert refreshed.cancelled_count == 2
+
+        bookings = {
+            booking.external_event_id: booking
+            for booking in db.scalars(sa.select(service.Booking))
+        }
+        assert bookings["reservation-1@example.test"].check_in.isoformat() == "2026-08-11T14:00:00+00:00"
+        assert bookings["block-1@example.test"].status is BookingStatus.CANCELLED
+        assert bookings["same-day-block@example.test"].status is BookingStatus.CANCELLED
+
+
+def test_partial_sync_preserves_missing_bookings(client: TestClient) -> None:
+    identity = register_manager(client)
+    property_id = create_property(client)
+    feed = configure_feed(client, property_id)
+
+    with SessionLocal() as db:
+        service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: VALID_FEED,
+        )
+        channel = db.get(Channel, feed["id"])
+        assert channel is not None
+        last_successful_sync_at = channel.last_successful_sync_at
+        partial_run = service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: PARTIAL_FEED,
+        )
+        assert partial_run.status is SyncStatus.PARTIAL
+        assert partial_run.rejected_count == 1
+        assert partial_run.cancelled_count == 0
+        db.refresh(channel)
+        assert channel.last_successful_sync_at == last_successful_sync_at
+        assert channel.last_error_summary == partial_run.error_summary
+        assert db.scalar(
+            sa.select(service.Booking.status).where(
+                service.Booking.external_event_id == "block-1@example.test"
+            )
+        ) is BookingStatus.CONFIRMED
+
+
 def test_sync_request_queues_background_task(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     register_manager(client)
     property_id = create_property(client)
@@ -208,3 +303,4 @@ def test_sync_request_queues_background_task(client: TestClient, monkeypatch: py
 def test_private_calendar_urls_are_rejected_before_download() -> None:
     with pytest.raises(service.CalendarImportError, match="private or local"):
         service.fetch_calendar_bytes("http://127.0.0.1/calendar.ics")
+
