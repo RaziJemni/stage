@@ -303,3 +303,4 @@ def test_sync_request_queues_background_task(client: TestClient, monkeypatch: py
 def test_private_calendar_urls_are_rejected_before_download() -> None:
     with pytest.raises(service.CalendarImportError, match="private or local"):
         service.fetch_calendar_bytes("http://127.0.0.1/calendar.ics")
+
