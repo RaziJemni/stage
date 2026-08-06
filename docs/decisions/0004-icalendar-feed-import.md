@@ -46,8 +46,12 @@ Use Option B.
   network addresses. Redirects are rejected.
 - Each imported event is upserted using the existing company/channel/external
   event unique index. Same-day all-day events are normalized to one day.
-- Every attempt records a `CalendarSyncRun`; failed imports preserve earlier
-  bookings and store a sanitized error summary.
+- An explicit cancelled event updates its existing record to `cancelled`. An
+  event missing from a successful complete feed is also cancelled. A partial or
+  failed feed preserves every earlier booking.
+- Every attempt records a `CalendarSyncRun`; partial and failed imports store a
+  sanitized error summary, while only successful complete imports update the
+  channel's last-success timestamp.
 
 ## Consequences
 
