@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
@@ -10,22 +11,30 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from icalendar import Calendar
-from sqlalchemy import exists, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
+from app.api.pagination import PageParams
 from app.core.config import settings
 from app.core.enums import (
     BookingRecordType,
     BookingSource,
     BookingStatus,
     ChannelType,
+    ConflictStatus,
     PropertyStatus,
     SyncStatus,
 )
-from app.modules.calendar.models import Booking, CalendarSyncRun
+from app.modules.calendar.models import (
+    Booking,
+    BookingConflict,
+    BookingConflictBooking,
+    CalendarSyncRun,
+)
 from app.modules.calendar.schemas import (
     CalendarFeedRequest,
+    ConflictAcknowledgeRequest,
     ManualBookingCreateRequest,
     ManualBookingUpdateRequest,
 )
@@ -33,12 +42,247 @@ from app.modules.properties.models import Channel, Property
 
 
 ACTIVE_BOOKING_STATUSES = (BookingStatus.TENTATIVE, BookingStatus.CONFIRMED)
+ACTIVE_CONFLICT_STATUSES = (ConflictStatus.OPEN, ConflictStatus.ACKNOWLEDGED)
+
+
+def reconcile_booking_conflicts(
+    db: Session, *, company_id: UUID, property_id: UUID
+) -> None:
+    """Reconcile active pairwise overlaps for one property.
+
+    Callers must hold the property row lock for the duration of the transaction.
+    That lock serializes manual changes and feed imports and makes the existing
+    association table sufficient to prevent duplicate active pair records.
+    """
+    active_bookings = list(
+        db.scalars(
+            select(Booking)
+            .where(
+                Booking.company_id == company_id,
+                Booking.property_id == property_id,
+                Booking.status.in_(ACTIVE_BOOKING_STATUSES),
+            )
+            .order_by(Booking.check_in, Booking.id)
+        ).all()
+    )
+
+    active_pairs: dict[frozenset[UUID], tuple[Booking, Booking]] = {}
+    for index, first in enumerate(active_bookings):
+        for second in active_bookings[index + 1 :]:
+            if first.check_in < second.check_out and first.check_out > second.check_in:
+                pair = tuple(sorted((first, second), key=lambda booking: booking.id))
+                active_pairs[frozenset((first.id, second.id))] = pair
+
+    existing_rows = db.execute(
+        select(BookingConflict, BookingConflictBooking)
+        .join(
+            BookingConflictBooking,
+            and_(
+                BookingConflictBooking.company_id == BookingConflict.company_id,
+                BookingConflictBooking.conflict_id == BookingConflict.id,
+            ),
+        )
+        .where(
+            BookingConflict.company_id == company_id,
+            BookingConflict.property_id == property_id,
+        )
+    ).all()
+    conflict_bookings: dict[UUID, set[UUID]] = defaultdict(set)
+    conflicts: dict[UUID, BookingConflict] = {}
+    for conflict, association in existing_rows:
+        conflicts[conflict.id] = conflict
+        conflict_bookings[conflict.id].add(association.booking_id)
+
+    active_conflicts_by_pair: dict[frozenset[UUID], list[BookingConflict]] = defaultdict(list)
+    for conflict in conflicts.values():
+        if conflict.status in ACTIVE_CONFLICT_STATUSES:
+            booking_ids = conflict_bookings[conflict.id]
+            if len(booking_ids) == 2:
+                active_conflicts_by_pair[frozenset(booking_ids)].append(conflict)
+
+    now = datetime.now(timezone.utc)
+    for pair_key, (first, second) in active_pairs.items():
+        active_conflicts = active_conflicts_by_pair.get(pair_key, [])
+        if active_conflicts:
+            # A duplicate should not be possible under the property lock, but
+            # resolve any legacy duplicates while preserving their history.
+            for duplicate in active_conflicts[1:]:
+                duplicate.status = ConflictStatus.RESOLVED
+                duplicate.resolved_at = now
+                duplicate.resolved_by_user_id = None
+            continue
+
+        conflict = BookingConflict(
+            company_id=company_id,
+            property_id=property_id,
+            status=ConflictStatus.OPEN,
+            detected_at=now,
+        )
+        db.add(conflict)
+        db.flush()
+        db.add(
+            BookingConflictBooking(
+                company_id=company_id,
+                conflict_id=conflict.id,
+                booking_id=first.id,
+            )
+        )
+        db.flush()
+        db.add(
+            BookingConflictBooking(
+                company_id=company_id,
+                conflict_id=conflict.id,
+                booking_id=second.id,
+            )
+        )
+        db.flush()
+
+    current_pair_keys = set(active_pairs)
+    for pair_key, active_conflicts in active_conflicts_by_pair.items():
+        if pair_key in current_pair_keys:
+            continue
+        for conflict in active_conflicts:
+            conflict.status = ConflictStatus.RESOLVED
+            conflict.resolved_at = now
+            conflict.resolved_by_user_id = None
+
+    db.flush()
+
+
+def list_booking_conflicts(
+    db: Session,
+    *,
+    company_id: UUID,
+    params: PageParams,
+    property_id: UUID | None = None,
+    status: ConflictStatus | None = None,
+) -> tuple[list[tuple[BookingConflict, list[Booking]]], int]:
+    statement = select(BookingConflict).where(BookingConflict.company_id == company_id)
+    if property_id is not None:
+        statement = statement.where(BookingConflict.property_id == property_id)
+    if status is None:
+        statement = statement.where(BookingConflict.status.in_(ACTIVE_CONFLICT_STATUSES))
+    else:
+        statement = statement.where(BookingConflict.status == status)
+
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+    conflicts = list(
+        db.scalars(
+            statement.order_by(BookingConflict.detected_at.desc(), BookingConflict.id.desc())
+            .offset(params.offset)
+            .limit(params.page_size)
+        ).all()
+    )
+    return _attach_conflict_bookings(db, company_id=company_id, conflicts=conflicts), total
+
+
+def get_booking_conflict(
+    db: Session, *, company_id: UUID, conflict_id: UUID
+) -> tuple[BookingConflict, list[Booking]]:
+    conflict = db.scalar(
+        select(BookingConflict).where(
+            BookingConflict.company_id == company_id,
+            BookingConflict.id == conflict_id,
+        )
+    )
+    if conflict is None:
+        raise _conflict_not_found()
+    details = _attach_conflict_bookings(db, company_id=company_id, conflicts=[conflict])
+    return details[0]
+
+
+def acknowledge_booking_conflict(
+    db: Session,
+    *,
+    company_id: UUID,
+    conflict_id: UUID,
+    user_id: UUID,
+    payload: ConflictAcknowledgeRequest,
+) -> tuple[BookingConflict, list[Booking]]:
+    conflict = db.scalar(
+        select(BookingConflict)
+        .where(
+            BookingConflict.company_id == company_id,
+            BookingConflict.id == conflict_id,
+        )
+        .with_for_update()
+    )
+    if conflict is None:
+        raise _conflict_not_found()
+    if conflict.status is ConflictStatus.ACKNOWLEDGED:
+        raise ApiProblem(
+            status=409,
+            title="Conflict already acknowledged",
+            detail="This booking conflict has already been acknowledged.",
+            code="conflict_already_acknowledged",
+        )
+    if conflict.status is not ConflictStatus.OPEN:
+        raise ApiProblem(
+            status=409,
+            title="Conflict resolved",
+            detail="Resolved booking conflicts cannot be acknowledged.",
+            code="conflict_resolved",
+        )
+
+    conflict.status = ConflictStatus.ACKNOWLEDGED
+    conflict.acknowledged_at = datetime.now(timezone.utc)
+    conflict.acknowledged_by_user_id = user_id
+    conflict.resolution_note = payload.resolution_note
+    db.commit()
+    db.refresh(conflict)
+    return get_booking_conflict(db, company_id=company_id, conflict_id=conflict.id)
+
+
+def _attach_conflict_bookings(
+    db: Session,
+    *,
+    company_id: UUID,
+    conflicts: list[BookingConflict],
+) -> list[tuple[BookingConflict, list[Booking]]]:
+    if not conflicts:
+        return []
+    conflict_ids = [conflict.id for conflict in conflicts]
+    rows = db.execute(
+        select(BookingConflictBooking.conflict_id, Booking)
+        .join(
+            Booking,
+            and_(
+                Booking.company_id == BookingConflictBooking.company_id,
+                Booking.id == BookingConflictBooking.booking_id,
+            ),
+        )
+        .where(
+            BookingConflictBooking.company_id == company_id,
+            BookingConflictBooking.conflict_id.in_(conflict_ids),
+        )
+        .order_by(Booking.check_in, Booking.id)
+    ).all()
+    bookings_by_conflict: dict[UUID, list[Booking]] = defaultdict(list)
+    for conflict_id, booking in rows:
+        bookings_by_conflict[conflict_id].append(booking)
+    return [
+        (conflict, bookings_by_conflict.get(conflict.id, [])) for conflict in conflicts
+    ]
+
+
+def _conflict_not_found() -> ApiProblem:
+    return ApiProblem(
+        status=404,
+        title="Booking conflict not found",
+        detail="Booking conflict does not exist or does not belong to your company.",
+        code="booking_conflict_not_found",
+    )
 
 
 def create_manual_booking(
     db: Session, *, company_id: UUID, payload: ManualBookingCreateRequest
 ) -> Booking:
-    _get_active_property(db, company_id=company_id, property_id=payload.property_id)
+    _get_active_property(
+        db,
+        company_id=company_id,
+        property_id=payload.property_id,
+        for_update=True,
+    )
     booking = Booking(
         company_id=company_id,
         property_id=payload.property_id,
@@ -52,6 +296,10 @@ def create_manual_booking(
         notes=payload.notes,
     )
     db.add(booking)
+    db.flush()
+    reconcile_booking_conflicts(
+        db, company_id=company_id, property_id=payload.property_id
+    )
     db.commit()
     db.refresh(booking)
     return booking
@@ -64,7 +312,13 @@ def update_manual_booking(
     booking_id: UUID,
     payload: ManualBookingUpdateRequest,
 ) -> Booking:
-    booking = _get_manual_booking(db, company_id=company_id, booking_id=booking_id)
+    booking = _get_manual_booking(
+        db, company_id=company_id, booking_id=booking_id, for_update=False
+    )
+    _lock_property(db, company_id=company_id, property_id=booking.property_id)
+    booking = _get_manual_booking(
+        db, company_id=company_id, booking_id=booking_id, for_update=True
+    )
     if booking.status is BookingStatus.CANCELLED:
         raise ApiProblem(
             status=409,
@@ -72,7 +326,6 @@ def update_manual_booking(
             detail="Cancelled bookings cannot be edited.",
             code="booking_cancelled",
         )
-
     updates = payload.model_dump(exclude_unset=True)
     check_in = updates.get("check_in", booking.check_in)
     check_out = updates.get("check_out", booking.check_out)
@@ -85,6 +338,10 @@ def update_manual_booking(
         )
     for field, value in updates.items():
         setattr(booking, field, value)
+    db.flush()
+    reconcile_booking_conflicts(
+        db, company_id=company_id, property_id=booking.property_id
+    )
     db.commit()
     db.refresh(booking)
     return booking
@@ -93,7 +350,20 @@ def update_manual_booking(
 def cancel_manual_booking(
     db: Session, *, company_id: UUID, booking_id: UUID
 ) -> Booking:
-    booking = _get_manual_booking(db, company_id=company_id, booking_id=booking_id)
+    booking = _get_manual_booking(
+        db, company_id=company_id, booking_id=booking_id, for_update=False
+    )
+    if booking.status is BookingStatus.CANCELLED:
+        raise ApiProblem(
+            status=409,
+            title="Booking cancelled",
+            detail="This booking is already cancelled.",
+            code="booking_cancelled",
+        )
+    _lock_property(db, company_id=company_id, property_id=booking.property_id)
+    booking = _get_manual_booking(
+        db, company_id=company_id, booking_id=booking_id, for_update=True
+    )
     if booking.status is BookingStatus.CANCELLED:
         raise ApiProblem(
             status=409,
@@ -102,6 +372,10 @@ def cancel_manual_booking(
             code="booking_cancelled",
         )
     booking.status = BookingStatus.CANCELLED
+    db.flush()
+    reconcile_booking_conflicts(
+        db, company_id=company_id, property_id=booking.property_id
+    )
     db.commit()
     db.refresh(booking)
     return booking
@@ -262,6 +536,7 @@ def sync_channel(
             (fetcher or fetch_calendar_bytes)(channel.calendar_url),
             timezone_name=_property_timezone(db, company_id, channel.property_id),
         )
+        _lock_property(db, company_id=company_id, property_id=channel.property_id)
         for event in parsed_calendar.events:
             outcome = _upsert_event(db, channel=channel, event=event)
             if outcome == "created":
@@ -293,6 +568,10 @@ def sync_channel(
                 "missing-event cancellation was skipped."
             )
             channel.last_error_summary = sync_run.error_summary
+        db.flush()
+        reconcile_booking_conflicts(
+            db, company_id=company_id, property_id=channel.property_id
+        )
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -464,13 +743,20 @@ def _require_public_host(hostname: str) -> None:
             raise CalendarImportError("Calendar URL must not target a private or local network")
 
 
-def _get_active_property(db: Session, *, company_id: UUID, property_id: UUID) -> Property:
-    property_obj = db.scalar(
-        select(Property).where(
-            Property.company_id == company_id,
-            Property.id == property_id,
-        )
+def _get_active_property(
+    db: Session,
+    *,
+    company_id: UUID,
+    property_id: UUID,
+    for_update: bool = False,
+) -> Property:
+    statement = select(Property).where(
+        Property.company_id == company_id,
+        Property.id == property_id,
     )
+    if for_update:
+        statement = statement.with_for_update()
+    property_obj = db.scalar(statement)
     if property_obj is None:
         raise ApiProblem(
             status=404,
@@ -488,14 +774,37 @@ def _get_active_property(db: Session, *, company_id: UUID, property_id: UUID) ->
     return property_obj
 
 
-def _get_manual_booking(db: Session, *, company_id: UUID, booking_id: UUID) -> Booking:
-    booking = db.scalar(
-        select(Booking).where(
-            Booking.company_id == company_id,
-            Booking.id == booking_id,
-            Booking.source_type.in_((BookingSource.DIRECT, BookingSource.MANUAL)),
-        )
+def _lock_property(db: Session, *, company_id: UUID, property_id: UUID) -> Property:
+    property_obj = db.scalar(
+        select(Property)
+        .where(Property.company_id == company_id, Property.id == property_id)
+        .with_for_update()
     )
+    if property_obj is None:
+        raise ApiProblem(
+            status=404,
+            title="Property not found",
+            detail="Property does not exist or does not belong to your company.",
+            code="property_not_found",
+        )
+    return property_obj
+
+
+def _get_manual_booking(
+    db: Session,
+    *,
+    company_id: UUID,
+    booking_id: UUID,
+    for_update: bool,
+) -> Booking:
+    statement = select(Booking).where(
+        Booking.company_id == company_id,
+        Booking.id == booking_id,
+        Booking.source_type.in_((BookingSource.DIRECT, BookingSource.MANUAL)),
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    booking = db.scalar(statement)
     if booking is None:
         raise ApiProblem(
             status=404,

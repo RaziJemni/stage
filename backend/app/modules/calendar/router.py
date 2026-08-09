@@ -1,17 +1,22 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
+from app.core.enums import ConflictStatus
 from app.modules.calendar import service
 from app.modules.calendar.schemas import (
     BookingResponse,
+    BookingConflictResponse,
     CalendarFeedRequest,
     CalendarFeedResponse,
     CalendarSyncQueuedResponse,
     CalendarSyncResponse,
+    ConflictAcknowledgeRequest,
+    ConflictBookingResponse,
     ManualBookingCreateRequest,
     ManualBookingUpdateRequest,
 )
@@ -20,6 +25,81 @@ from app.modules.identity.dependencies import CsrfContext, CurrentContext, Manag
 
 
 router = APIRouter(tags=["Calendar"])
+
+
+def _conflict_response(conflict, bookings) -> BookingConflictResponse:
+    return BookingConflictResponse(
+        id=conflict.id,
+        property_id=conflict.property_id,
+        status=conflict.status,
+        detected_at=conflict.detected_at,
+        acknowledged_at=conflict.acknowledged_at,
+        acknowledged_by_user_id=conflict.acknowledged_by_user_id,
+        resolution_note=conflict.resolution_note,
+        resolved_at=conflict.resolved_at,
+        resolved_by_user_id=conflict.resolved_by_user_id,
+        bookings=[
+            ConflictBookingResponse.model_validate(booking) for booking in bookings
+        ],
+    )
+
+
+@router.get("/booking-conflicts", response_model=Page[BookingConflictResponse])
+def list_booking_conflicts_endpoint(
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    page_params: Annotated[PageParams, Depends(get_page_params)],
+    property_id: Annotated[UUID | None, Query()] = None,
+    conflict_status: Annotated[
+        ConflictStatus | None, Query(alias="status")
+    ] = None,
+) -> Page[BookingConflictResponse]:
+    items, total = service.list_booking_conflicts(
+        db,
+        company_id=context.company.id,
+        params=page_params,
+        property_id=property_id,
+        status=conflict_status,
+    )
+    return Page.create(
+        items=[_conflict_response(conflict, bookings) for conflict, bookings in items],
+        params=page_params,
+        total=total,
+    )
+
+
+@router.get(
+    "/booking-conflicts/{conflict_id}", response_model=BookingConflictResponse
+)
+def get_booking_conflict_endpoint(
+    conflict_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> BookingConflictResponse:
+    conflict, bookings = service.get_booking_conflict(
+        db, company_id=context.company.id, conflict_id=conflict_id
+    )
+    return _conflict_response(conflict, bookings)
+
+
+@router.post(
+    "/booking-conflicts/{conflict_id}/acknowledge",
+    response_model=BookingConflictResponse,
+)
+def acknowledge_booking_conflict_endpoint(
+    conflict_id: UUID,
+    payload: ConflictAcknowledgeRequest,
+    context: CsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> BookingConflictResponse:
+    conflict, bookings = service.acknowledge_booking_conflict(
+        db,
+        company_id=context.company.id,
+        conflict_id=conflict_id,
+        user_id=context.user.id,
+        payload=payload,
+    )
+    return _conflict_response(conflict, bookings)
 
 
 @router.post(

@@ -115,6 +115,16 @@ def booking_payload(property_id: str, **overrides: str) -> dict:
     return payload
 
 
+def create_booking(client: TestClient, property_id: str, **overrides: str) -> dict:
+    response = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_id, **overrides),
+        headers=csrf_headers(client),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 def test_manager_and_staff_create_update_and_cancel_direct_bookings(
     client: TestClient,
 ) -> None:
@@ -302,3 +312,148 @@ def test_availability_uses_active_bookings_and_excludes_cancelled_records(
                 check_out=datetime(2026, 8, 15, 0, tzinfo=timezone.utc),
             )
         assert invalid_range.value.code == "availability_date_range_invalid"
+
+
+def test_conflicts_are_pairwise_idempotent_acknowledge_and_auto_resolve(
+    client: TestClient,
+) -> None:
+    manager = register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+
+    first = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-10T14:00:00Z",
+        check_out="2026-08-12T10:00:00Z",
+        guest_name="First guest",
+    )
+    second = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-11T14:00:00Z",
+        check_out="2026-08-13T10:00:00Z",
+        guest_name="Second guest",
+    )
+    third = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-11T16:00:00Z",
+        check_out="2026-08-14T10:00:00Z",
+        guest_name="Third guest",
+    )
+
+    conflicts = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert conflicts.status_code == 200, conflicts.text
+    assert conflicts.json()["total"] == 3
+    assert all(len(item["bookings"]) == 2 for item in conflicts.json()["items"])
+
+    first_pair = next(
+        item
+        for item in conflicts.json()["items"]
+        if {booking["id"] for booking in item["bookings"]}
+        == {first["id"], second["id"]}
+    )
+    acknowledged = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={"resolution_note": "Confirmed with the channel manager."},
+        headers=csrf_headers(client),
+    )
+    assert acknowledged.status_code == 200, acknowledged.text
+    assert acknowledged.json()["status"] == "acknowledged"
+    assert acknowledged.json()["acknowledged_by_user_id"] == manager["user"]["id"]
+    assert acknowledged.json()["resolution_note"] == "Confirmed with the channel manager."
+
+    repeated_acknowledgement = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={},
+        headers=csrf_headers(client),
+    )
+    assert repeated_acknowledgement.status_code == 409
+    assert repeated_acknowledgement.json()["code"] == "conflict_already_acknowledged"
+
+    # A normal booking update re-runs reconciliation but does not duplicate pairs.
+    updated = client.patch(
+        f"/api/v1/bookings/{third['id']}",
+        json={"notes": "Still overlapping."},
+        headers=csrf_headers(client),
+    )
+    assert updated.status_code == 200, updated.text
+    repeated = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert repeated.json()["total"] == 3
+
+    cancelled = client.post(
+        f"/api/v1/bookings/{second['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 200, cancelled.text
+
+    unresolved = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert unresolved.status_code == 200
+    assert unresolved.json()["total"] == 1
+    resolved = client.get(
+        "/api/v1/booking-conflicts?status=resolved&page_size=100"
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["total"] == 2
+    resolved_pair = client.get(f"/api/v1/booking-conflicts/{first_pair['id']}")
+    assert resolved_pair.status_code == 200
+    assert resolved_pair.json()["status"] == "resolved"
+    assert resolved_pair.json()["resolution_note"] == "Confirmed with the channel manager."
+
+    cannot_acknowledge_resolved = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={},
+        headers=csrf_headers(client),
+    )
+    assert cannot_acknowledge_resolved.status_code == 409
+    assert cannot_acknowledge_resolved.json()["code"] == "conflict_resolved"
+
+
+def test_conflicts_ignore_adjacent_and_cancelled_bookings_and_enforce_tenant_scope(
+    client: TestClient,
+) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+    first = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-01T14:00:00Z",
+        check_out="2026-09-03T10:00:00Z",
+    )
+    adjacent = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-03T10:00:00Z",
+        check_out="2026-09-05T10:00:00Z",
+    )
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 0
+
+    overlapping = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-02T10:00:00Z",
+        check_out="2026-09-04T10:00:00Z",
+    )
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 2
+
+    cancelled = client.post(
+        f"/api/v1/bookings/{overlapping['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 200
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 0
+
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+    hidden = other_client.get("/api/v1/booking-conflicts")
+    assert hidden.status_code == 200
+    assert hidden.json()["total"] == 0
+    inaccessible = other_client.get(
+        f"/api/v1/booking-conflicts/{uuid4()}"
+    )
+    assert inaccessible.status_code == 404
+
+    # Keep variables explicit so this test documents the adjacent/cancelled pair inputs.
+    assert adjacent["id"] != first["id"]

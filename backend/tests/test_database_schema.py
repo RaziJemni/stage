@@ -85,6 +85,24 @@ def test_migration_creates_expected_tables_and_indexes(migrated_engine: Engine) 
     assert index_names == EXPECTED_PARTIAL_INDEXES
 
 
+def test_booking_conflict_acknowledgement_is_tenant_scoped(
+    migrated_engine: Engine,
+) -> None:
+    inspector = sa.inspect(migrated_engine)
+    columns = {column["name"] for column in inspector.get_columns("booking_conflicts")}
+    assert {"acknowledged_at", "acknowledged_by_user_id"}.issubset(columns)
+
+    foreign_keys = inspector.get_foreign_keys("booking_conflicts")
+    assert any(
+        foreign_key["name"] == "fk_booking_conflicts_company_acknowledged_by_user"
+        and foreign_key["constrained_columns"]
+        == ["company_id", "acknowledged_by_user_id"]
+        and foreign_key["referred_table"] == "app_users"
+        and foreign_key["referred_columns"] == ["company_id", "id"]
+        for foreign_key in foreign_keys
+    )
+
+
 def test_downgrade_removes_application_tables() -> None:
     config = alembic_config()
     command.downgrade(config, "base")
