@@ -129,6 +129,12 @@ class BookingConflict(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="fk_booking_conflicts_company_resolved_by_user",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["company_id", "acknowledged_by_user_id"],
+            ["app_users.company_id", "app_users.id"],
+            name="fk_booking_conflicts_company_acknowledged_by_user",
+            ondelete="RESTRICT",
+        ),
         UniqueConstraint("company_id", "id", name="uq_booking_conflicts_company_id_id"),
     )
 
@@ -143,6 +149,8 @@ class BookingConflict(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_by_user_id: Mapped[UUID | None] = mapped_column()
     resolution_note: Mapped[str | None] = mapped_column(Text)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_by_user_id: Mapped[UUID | None] = mapped_column()

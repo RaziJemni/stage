@@ -285,6 +285,56 @@ def test_partial_sync_preserves_missing_bookings(client: TestClient) -> None:
         ) is BookingStatus.CONFIRMED
 
 
+def test_sync_reconciles_booking_conflicts_for_complete_and_partial_feeds(
+    client: TestClient,
+) -> None:
+    identity = register_manager(client)
+    property_id = create_property(client)
+    feed = configure_feed(client, property_id)
+    direct_booking = client.post(
+        "/api/v1/bookings",
+        json={
+            "property_id": property_id,
+            "source_type": "direct",
+            "record_type": "reservation",
+            "status": "confirmed",
+            "check_in": "2026-08-09T14:00:00Z",
+            "check_out": "2026-08-11T10:00:00Z",
+            "guest_name": "Direct guest",
+        },
+        headers=csrf_headers(client),
+    )
+    assert direct_booking.status_code == 201, direct_booking.text
+
+    with SessionLocal() as db:
+        first_run = service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: VALID_FEED,
+        )
+        assert first_run.status is SyncStatus.SUCCEEDED, first_run.error_summary
+
+        conflicts = client.get("/api/v1/booking-conflicts")
+        assert conflicts.status_code == 200, conflicts.text
+        assert conflicts.json()["total"] == 1
+
+        partial_run = service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: PARTIAL_FEED,
+        )
+        assert partial_run.status is SyncStatus.PARTIAL
+
+    repeated = client.get("/api/v1/booking-conflicts")
+    assert repeated.status_code == 200
+    assert repeated.json()["total"] == 0
+    resolved = client.get("/api/v1/booking-conflicts?status=resolved")
+    assert resolved.status_code == 200
+    assert resolved.json()["total"] == 1
+
+
 def test_sync_request_queues_background_task(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     register_manager(client)
     property_id = create_property(client)

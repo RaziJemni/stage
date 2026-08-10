@@ -9,6 +9,7 @@ from app.core.enums import (
     BookingSource,
     BookingStatus,
     ChannelType,
+    ConflictStatus,
     SyncStatus,
 )
 
@@ -121,3 +122,45 @@ class CalendarSyncResponse(BaseModel):
 class CalendarSyncQueuedResponse(BaseModel):
     channel_id: UUID
     status: str
+
+
+class ConflictAcknowledgeRequest(StrictRequest):
+    resolution_note: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("resolution_note", mode="before")
+    @classmethod
+    def normalize_resolution_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip()
+        return normalized or None
+
+
+class ConflictBookingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    property_id: UUID
+    channel_id: UUID | None
+    external_event_id: str | None
+    source_type: BookingSource
+    record_type: BookingRecordType
+    status: BookingStatus
+    check_in: datetime
+    check_out: datetime
+    guest_name: str | None
+
+
+class BookingConflictResponse(BaseModel):
+    id: UUID
+    property_id: UUID
+    status: ConflictStatus
+    detected_at: datetime
+    acknowledged_at: datetime | None
+    acknowledged_by_user_id: UUID | None
+    resolution_note: str | None
+    resolved_at: datetime | None
+    resolved_by_user_id: UUID | None
+    bookings: list[ConflictBookingResponse]
