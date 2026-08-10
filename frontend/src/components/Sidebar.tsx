@@ -9,7 +9,6 @@ import {
   Settings, 
   LogOut, 
   Palmtree, 
-  AlertTriangle,
   UserRound,
   X
 } from 'lucide-react';
@@ -135,27 +134,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="mx-3 mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800">
-        Prototype data - integrations are not connected
+        Some modules still use prototype data
       </div>
-
-      {/* Alert Notification Card */}
-      {hasCalendarConflict && (
-        <div className="p-3 mx-3 mb-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <div>
-              <div className="font-semibold text-[11px]">Booking Overlap Alert</div>
-              <p className="text-[10px] text-rose-700 mt-0.5">Villa Yasmine has a 1-day conflict on Jul 25.</p>
-              <button 
-                onClick={() => onNavigate('calendar')}
-                className="mt-1 text-[10px] font-bold text-rose-800 underline hover:text-rose-900"
-              >
-                Resolve in Calendar &rarr;
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* User Profile Footer */}
       <div className="p-3 border-t border-[#EBE6DD] bg-[#FAF8F5]/70">

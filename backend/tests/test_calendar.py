@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 import sqlalchemy as sa
@@ -14,6 +16,7 @@ from app.core.database import SessionLocal
 from app.core.enums import BookingRecordType, BookingStatus, ChannelType, SyncStatus
 from app.main import create_app
 from app.modules.calendar import service
+from app.modules.calendar.models import CalendarSyncRun
 from app.modules.calendar.schemas import CalendarFeedRequest
 from app.modules.calendar.tasks import sync_calendar_channel
 from app.modules.properties.models import Channel
@@ -136,6 +139,23 @@ def create_property(client: TestClient) -> str:
     )
     assert response.status_code == 201, response.text
     return response.json()["id"]
+
+
+def activate_staff(manager_client: TestClient) -> TestClient:
+    invitation = manager_client.post(
+        "/api/v1/team/invitations",
+        json={"name": "Calendar Staff", "email": f"staff-{uuid4()}@example.com"},
+        headers=csrf_headers(manager_client),
+    )
+    assert invitation.status_code == 201, invitation.text
+    token = parse_qs(urlparse(invitation.json()["invitation_url"]).query)["token"][0]
+    staff_client = TestClient(manager_client.app)
+    accepted = staff_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={"token": token, "password": "secure-staff-password-123"},
+    )
+    assert accepted.status_code == 200, accepted.text
+    return staff_client
 
 
 def configure_feed(client: TestClient, property_id: str) -> dict:
@@ -353,4 +373,310 @@ def test_sync_request_queues_background_task(client: TestClient, monkeypatch: py
 def test_private_calendar_urls_are_rejected_before_download() -> None:
     with pytest.raises(service.CalendarImportError, match="private or local"):
         service.fetch_calendar_bytes("http://127.0.0.1/calendar.ics")
+
+
+def test_calendar_booking_list_is_bounded_filtered_and_privacy_safe(client: TestClient) -> None:
+    unauthenticated = TestClient(client.app)
+    unauthenticated_list = unauthenticated.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-11T00:00:00Z",
+        },
+    )
+    assert unauthenticated_list.status_code == 401
+    unauthenticated_feeds = unauthenticated.get("/api/v1/calendar-feeds")
+    assert unauthenticated_feeds.status_code == 401
+
+    register_manager(client)
+    property_id = create_property(client)
+    active = client.post(
+        "/api/v1/bookings",
+        json={
+            "property_id": property_id,
+            "source_type": "direct",
+            "record_type": "reservation",
+            "status": "confirmed",
+            "check_in": "2026-08-10T14:00:00Z",
+            "check_out": "2026-08-12T10:00:00Z",
+            "guest_name": "Visible Guest",
+            "guest_contact": "+21620000000",
+            "notes": "Private staff note",
+        },
+        headers=csrf_headers(client),
+    )
+    assert active.status_code == 201, active.text
+    cancelled = client.post(
+        "/api/v1/bookings",
+        json={
+            "property_id": property_id,
+            "source_type": "manual",
+            "record_type": "blocked_period",
+            "status": "confirmed",
+            "check_in": "2026-08-13T00:00:00Z",
+            "check_out": "2026-08-14T00:00:00Z",
+        },
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 201, cancelled.text
+    cancel_response = client.post(
+        f"/api/v1/bookings/{cancelled.json()['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancel_response.status_code == 200, cancel_response.text
+
+    listed = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "source_type": "direct",
+            "page_size": 100,
+        },
+    )
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["total"] == 1
+    item = listed.json()["items"][0]
+    assert item["id"] == active.json()["id"]
+    assert item["guest_name"] == "Visible Guest"
+    assert "guest_contact" not in item
+    assert "notes" not in item
+    assert "raw_payload" not in item
+
+    cancelled_list = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "status": "cancelled",
+            "page_size": 100,
+        },
+    )
+    assert cancelled_list.status_code == 200
+    assert cancelled_list.json()["total"] == 1
+
+    detail = client.get(f"/api/v1/bookings/{active.json()['id']}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["guest_contact"] == "+21620000000"
+    assert detail.json()["notes"] == "Private staff note"
+    assert "raw_payload" not in detail.json()
+
+    invalid_range = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00",
+            "range_end": "2026-08-11T00:00:00Z",
+        },
+    )
+    assert invalid_range.status_code == 422
+    assert invalid_range.json()["code"] == "calendar_range_timezone_required"
+
+    too_large = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-01T00:00:00Z",
+            "range_end": "2026-09-02T00:00:00Z",
+        },
+    )
+    assert too_large.status_code == 422
+    assert too_large.json()["code"] == "calendar_range_too_large"
+
+    staff_client = activate_staff(client)
+    staff_list = staff_client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+        },
+    )
+    assert staff_list.status_code == 200, staff_list.text
+    assert staff_list.json()["total"] == 1
+
+
+def test_calendar_booking_and_feed_details_enforce_tenant_scope(client: TestClient) -> None:
+    register_manager(client)
+    property_id = create_property(client)
+    booking = client.post(
+        "/api/v1/bookings",
+        json={
+            "property_id": property_id,
+            "source_type": "direct",
+            "record_type": "reservation",
+            "status": "confirmed",
+            "check_in": "2026-08-10T14:00:00Z",
+            "check_out": "2026-08-12T10:00:00Z",
+        },
+        headers=csrf_headers(client),
+    )
+    assert booking.status_code == 201
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+
+    hidden_booking = other_client.get(f"/api/v1/bookings/{booking.json()['id']}")
+    assert hidden_booking.status_code == 404
+    hidden_feed = other_client.get("/api/v1/calendar-feeds")
+    assert hidden_feed.status_code == 200
+    assert hidden_feed.json()["total"] == 0
+
+
+def test_calendar_booking_range_filters_and_pagination(client: TestClient) -> None:
+    register_manager(client)
+    first_property = create_property(client)
+    second_property = create_property(client)
+
+    def create_entry(property_id: str, **values: str) -> dict:
+        payload = {
+            "property_id": property_id,
+            "source_type": "direct",
+            "record_type": "reservation",
+            "status": "confirmed",
+            "check_in": "2026-08-11T14:00:00Z",
+            "check_out": "2026-08-13T10:00:00Z",
+            "guest_name": "Calendar guest",
+        }
+        payload.update(values)
+        response = client.post(
+            "/api/v1/bookings", json=payload, headers=csrf_headers(client)
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    adjacent = create_entry(
+        first_property,
+        check_in="2026-08-09T14:00:00Z",
+        check_out="2026-08-10T00:00:00Z",
+    )
+    tentative = create_entry(
+        first_property,
+        status="tentative",
+        check_in="2026-08-11T14:00:00Z",
+        check_out="2026-08-13T10:00:00Z",
+    )
+    blocked = create_entry(
+        second_property,
+        source_type="manual",
+        record_type="blocked_period",
+        check_in="2026-08-14T00:00:00Z",
+        check_out="2026-08-16T00:00:00Z",
+        guest_name=None,
+    )
+
+    listed = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "page_size": 1,
+        },
+    )
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["total"] == 2
+    assert listed.json()["pages"] == 2
+    assert len(listed.json()["items"]) == 1
+    assert listed.json()["items"][0]["id"] in {tentative["id"], blocked["id"]}
+    assert adjacent["id"] not in {
+        item["id"] for item in listed.json()["items"]
+    }
+
+    property_filtered = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "property_id": first_property,
+        },
+    )
+    assert property_filtered.status_code == 200
+    assert property_filtered.json()["total"] == 1
+    assert property_filtered.json()["items"][0]["id"] == tentative["id"]
+
+    source_filtered = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "source_type": "manual",
+        },
+    )
+    assert source_filtered.status_code == 200
+    assert source_filtered.json()["total"] == 1
+    assert source_filtered.json()["items"][0]["id"] == blocked["id"]
+
+    status_filtered = client.get(
+        "/api/v1/bookings",
+        params={
+            "range_start": "2026-08-10T00:00:00Z",
+            "range_end": "2026-08-15T00:00:00Z",
+            "status": "tentative",
+        },
+    )
+    assert status_filtered.status_code == 200
+    assert status_filtered.json()["total"] == 1
+    assert status_filtered.json()["items"][0]["id"] == tentative["id"]
+
+
+def test_calendar_feed_health_classifies_all_states_without_exposing_urls(client: TestClient) -> None:
+    identity = register_manager(client)
+    now = datetime.now(timezone.utc)
+    configurations = [
+        ("pending", None, None, True),
+        ("running", SyncStatus.RUNNING, now, True),
+        ("healthy", SyncStatus.SUCCEEDED, now, True),
+        (
+            "stale",
+            SyncStatus.SUCCEEDED,
+            now - timedelta(seconds=settings.calendar_sync_interval_seconds * 2 + 1),
+            True,
+        ),
+        ("partial", SyncStatus.PARTIAL, now, True),
+        ("failed", SyncStatus.FAILED, now, True),
+        ("inactive", SyncStatus.SUCCEEDED, now, False),
+    ]
+    for label, run_status, completed_at, active in configurations:
+        property_id = create_property(client)
+        feed = client.post(
+            f"/api/v1/properties/{property_id}/calendar-feeds",
+            json={
+                "channel_type": "airbnb",
+                "calendar_url": f"https://calendar.example.test/{label}.ics",
+                "external_listing_id": label,
+            },
+            headers=csrf_headers(client),
+        )
+        assert feed.status_code == 201, feed.text
+        with SessionLocal() as db:
+            channel = db.get(service.Channel, feed.json()["id"])
+            assert channel is not None
+            channel.is_active = active
+            if run_status is not None:
+                run = CalendarSyncRun(
+                    company_id=identity["company"]["id"],
+                    channel_id=channel.id,
+                    status=run_status,
+                    started_at=completed_at or now,
+                    completed_at=completed_at if run_status is not SyncStatus.RUNNING else None,
+                )
+                db.add(run)
+                if run_status is SyncStatus.SUCCEEDED:
+                    channel.last_successful_sync_at = completed_at
+                if run_status in (SyncStatus.PARTIAL, SyncStatus.FAILED):
+                    channel.last_error_summary = f"{label} error"
+            db.commit()
+
+    response = client.get("/api/v1/calendar-feeds?page_size=100")
+    assert response.status_code == 200, response.text
+    health_by_listing = {
+        item["last_error_summary"].removesuffix(" error")
+        if item["last_error_summary"]
+        else item["health_status"]: item["health_status"]
+        for item in response.json()["items"]
+    }
+    assert health_by_listing["pending"] == "pending"
+    assert health_by_listing["running"] == "running"
+    assert health_by_listing["healthy"] == "healthy"
+    assert health_by_listing["stale"] == "stale"
+    assert health_by_listing["partial"] == "partial"
+    assert health_by_listing["failed"] == "failed"
+    assert health_by_listing["inactive"] == "inactive"
+    assert all("calendar_url" not in item for item in response.json()["items"])
 

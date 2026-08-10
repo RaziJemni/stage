@@ -52,6 +52,7 @@ function WorkspaceApp() {
   const [showingArchived, setShowingArchived] = useState<boolean>(false);
 
   const [bookings] = useState<Booking[]>(INITIAL_BOOKINGS);
+  const [calendarHasConflict, setCalendarHasConflict] = useState(false);
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
@@ -72,7 +73,7 @@ function WorkspaceApp() {
       try {
         setLoadingProperties(true);
         setPropertiesError(null);
-        const res = await fetchProperties({ include_archived: showingArchived });
+        const res = await fetchProperties({ include_archived: showingArchived, page_size: 100 });
         const mapped = (res.items || []).map(mapApiPropertyToProperty);
         setProperties(mapped);
         setSelectedPropertyId(prev => prev || (mapped.length > 0 ? mapped[0].id : ''));
@@ -127,7 +128,7 @@ function WorkspaceApp() {
   // Derived indicator counts for sidebar badges
   const unreadMessagesCount = 0;
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
-  const hasCalendarConflict = bookings.some(b => b.status === 'Conflict');
+  const hasCalendarConflict = calendarHasConflict;
 
   // Page Handlers
   const handleSelectProperty = (propId: string) => {
@@ -234,9 +235,9 @@ function WorkspaceApp() {
 
         {activePage === 'calendar' && (
           <CalendarPage
-            properties={properties}
-            bookings={bookings}
+            companyTimezone={identity!.company.timezone}
             onSelectProperty={handleSelectProperty}
+            onConflictStateChange={setCalendarHasConflict}
           />
         )}
 
