@@ -68,3 +68,56 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  stack-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create development environment file
+        run: cp .env.example .env
+
+      - name: Build and start the full stack
+        run: docker compose up -d --build
+
+      - name: Verify required services remain running
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_services=(db redis backend worker beat frontend pgadmin)
+          for attempt in {1..30}; do
+            running_services="$(docker compose ps --status running --services)"
+            missing_services=()
+            for service in "${required_services[@]}"; do
+              if ! grep -qx "$service" <<<"$running_services"; then
+                missing_services+=("$service")
+              fi
+            done
+            if [ "${#missing_services[@]}" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "Services not running: ${missing_services[*]}"
+              docker compose ps
+              docker compose logs --tail=100
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Verify documented HTTP endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          wait_for_url() {
+            curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused "$1" >/dev/null
+          }
+          wait_for_url http://localhost:8000/health
+          wait_for_url http://localhost:8000/health/live
+          wait_for_url http://localhost:8000/api/v1/openapi.json
+          wait_for_url http://localhost:5173/
+
+      - name: Clean full-stack containers and volumes
+        if: always()
+        run: docker compose down -v --remove-orphans
