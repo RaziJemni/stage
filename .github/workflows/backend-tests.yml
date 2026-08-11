@@ -111,7 +111,13 @@ jobs:
         run: |
           set -euo pipefail
           wait_for_url() {
-            curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused "$1" >/dev/null
+            for attempt in {1..30}; do
+              if curl --fail --silent "$1" >/dev/null; then
+                return 0
+              fi
+              sleep 2
+            done
+            curl --fail --show-error "$1"
           }
           wait_for_url http://localhost:8000/health
           wait_for_url http://localhost:8000/health/live
