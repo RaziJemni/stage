@@ -679,4 +679,3 @@ def test_calendar_feed_health_classifies_all_states_without_exposing_urls(client
     assert health_by_listing["failed"] == "failed"
     assert health_by_listing["inactive"] == "inactive"
     assert all("calendar_url" not in item for item in response.json()["items"])
-
