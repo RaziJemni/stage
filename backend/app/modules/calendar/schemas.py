@@ -8,6 +8,7 @@ from app.core.enums import (
     BookingRecordType,
     BookingSource,
     BookingStatus,
+    CalendarFeedHealthStatus,
     ChannelType,
     ConflictStatus,
     SyncStatus,
@@ -66,6 +67,8 @@ class BookingResponse(BaseModel):
 
     id: UUID
     property_id: UUID
+    channel_id: UUID | None
+    external_event_id: str | None
     source_type: BookingSource
     record_type: BookingRecordType
     status: BookingStatus
@@ -76,6 +79,21 @@ class BookingResponse(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class BookingCalendarResponse(BaseModel):
+    """Booking fields safe for the portfolio calendar grid."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    property_id: UUID
+    source_type: BookingSource
+    record_type: BookingRecordType
+    status: BookingStatus
+    check_in: datetime
+    check_out: datetime
+    guest_name: str | None
 
 
 class CalendarFeedRequest(StrictRequest):
@@ -101,6 +119,18 @@ class CalendarFeedResponse(BaseModel):
     calendar_url: str | None
     is_active: bool
     last_successful_sync_at: datetime | None
+    last_error_summary: str | None
+
+
+class CalendarFeedHealthResponse(BaseModel):
+    id: UUID
+    property_id: UUID
+    channel_type: ChannelType
+    is_active: bool
+    health_status: CalendarFeedHealthStatus
+    last_successful_sync_at: datetime | None
+    last_sync_at: datetime | None
+    last_sync_status: SyncStatus | None
     last_error_summary: str | None
 
 

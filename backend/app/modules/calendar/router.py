@@ -1,16 +1,20 @@
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiProblem
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
-from app.core.enums import ConflictStatus
+from app.core.enums import BookingSource, BookingStatus, ConflictStatus
 from app.modules.calendar import service
 from app.modules.calendar.schemas import (
+    BookingCalendarResponse,
     BookingResponse,
     BookingConflictResponse,
+    CalendarFeedHealthResponse,
     CalendarFeedRequest,
     CalendarFeedResponse,
     CalendarSyncQueuedResponse,
@@ -25,6 +29,53 @@ from app.modules.identity.dependencies import CsrfContext, CurrentContext, Manag
 
 
 router = APIRouter(tags=["Calendar"])
+
+
+def _validate_calendar_range(range_start: datetime, range_end: datetime) -> None:
+    if (
+        range_start.tzinfo is None
+        or range_start.utcoffset() is None
+        or range_end.tzinfo is None
+        or range_end.utcoffset() is None
+    ):
+        raise ApiProblem(
+            status=422,
+            title="Invalid calendar range",
+            detail="Calendar range timestamps must include a timezone.",
+            code="calendar_range_timezone_required",
+        )
+    if range_end <= range_start:
+        raise ApiProblem(
+            status=422,
+            title="Invalid calendar range",
+            detail="Calendar range end must be after its start.",
+            code="calendar_range_invalid",
+        )
+    if range_end - range_start > timedelta(days=31):
+        raise ApiProblem(
+            status=422,
+            title="Calendar range too large",
+            detail="Calendar ranges cannot exceed 31 days.",
+            code="calendar_range_too_large",
+        )
+
+
+def _feed_health_response(channel, latest_run, health) -> CalendarFeedHealthResponse:
+    return CalendarFeedHealthResponse(
+        id=channel.id,
+        property_id=channel.property_id,
+        channel_type=channel.channel_type,
+        is_active=channel.is_active,
+        health_status=health,
+        last_successful_sync_at=channel.last_successful_sync_at,
+        last_sync_at=(
+            (latest_run.completed_at or latest_run.started_at)
+            if latest_run
+            else None
+        ),
+        last_sync_status=latest_run.status if latest_run else None,
+        last_error_summary=channel.last_error_summary,
+    )
 
 
 def _conflict_response(conflict, bookings) -> BookingConflictResponse:
@@ -100,6 +151,67 @@ def acknowledge_booking_conflict_endpoint(
         payload=payload,
     )
     return _conflict_response(conflict, bookings)
+
+
+@router.get("/bookings", response_model=Page[BookingCalendarResponse])
+def list_bookings_endpoint(
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    page_params: Annotated[PageParams, Depends(get_page_params)],
+    range_start: Annotated[datetime, Query()],
+    range_end: Annotated[datetime, Query()],
+    property_id: Annotated[UUID | None, Query()] = None,
+    source_type: Annotated[BookingSource | None, Query()] = None,
+    booking_status: Annotated[BookingStatus | None, Query(alias="status")] = None,
+) -> Page[BookingCalendarResponse]:
+    _validate_calendar_range(range_start, range_end)
+    items, total = service.list_bookings(
+        db,
+        company_id=context.company.id,
+        params=page_params,
+        range_start=range_start,
+        range_end=range_end,
+        property_id=property_id,
+        source_type=source_type,
+        status=booking_status,
+    )
+    return Page.create(
+        items=[BookingCalendarResponse.model_validate(item) for item in items],
+        params=page_params,
+        total=total,
+    )
+
+
+@router.get("/bookings/{booking_id}", response_model=BookingResponse)
+def get_booking_endpoint(
+    booking_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> BookingResponse:
+    return service.get_booking(db, company_id=context.company.id, booking_id=booking_id)
+
+
+@router.get("/calendar-feeds", response_model=Page[CalendarFeedHealthResponse])
+def list_calendar_feeds_endpoint(
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    page_params: Annotated[PageParams, Depends(get_page_params)],
+    property_id: Annotated[UUID | None, Query()] = None,
+) -> Page[CalendarFeedHealthResponse]:
+    items, total = service.list_calendar_feed_health(
+        db,
+        company_id=context.company.id,
+        params=page_params,
+        property_id=property_id,
+    )
+    return Page.create(
+        items=[
+            _feed_health_response(channel, latest_run, health)
+            for channel, latest_run, health in items
+        ],
+        params=page_params,
+        total=total,
+    )
 
 
 @router.post(

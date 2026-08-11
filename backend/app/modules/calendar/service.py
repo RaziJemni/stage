@@ -21,6 +21,7 @@ from app.core.enums import (
     BookingRecordType,
     BookingSource,
     BookingStatus,
+    CalendarFeedHealthStatus,
     ChannelType,
     ConflictStatus,
     PropertyStatus,
@@ -272,6 +273,113 @@ def _conflict_not_found() -> ApiProblem:
         detail="Booking conflict does not exist or does not belong to your company.",
         code="booking_conflict_not_found",
     )
+
+
+def list_bookings(
+    db: Session,
+    *,
+    company_id: UUID,
+    params: PageParams,
+    range_start: datetime,
+    range_end: datetime,
+    property_id: UUID | None = None,
+    source_type: BookingSource | None = None,
+    status: BookingStatus | None = None,
+) -> tuple[list[Booking], int]:
+    statement = select(Booking).where(
+        Booking.company_id == company_id,
+        Booking.check_in < range_end,
+        Booking.check_out > range_start,
+    )
+    if property_id is not None:
+        statement = statement.where(Booking.property_id == property_id)
+    if source_type is not None:
+        statement = statement.where(Booking.source_type == source_type)
+    if status is None:
+        statement = statement.where(Booking.status.in_(ACTIVE_BOOKING_STATUSES))
+    else:
+        statement = statement.where(Booking.status == status)
+
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+    bookings = list(
+        db.scalars(
+            statement.order_by(Booking.check_in, Booking.id)
+            .offset(params.offset)
+            .limit(params.page_size)
+        ).all()
+    )
+    return bookings, total
+
+
+def get_booking(db: Session, *, company_id: UUID, booking_id: UUID) -> Booking:
+    booking = db.scalar(
+        select(Booking).where(
+            Booking.company_id == company_id,
+            Booking.id == booking_id,
+        )
+    )
+    if booking is None:
+        raise ApiProblem(
+            status=404,
+            title="Booking not found",
+            detail="Booking does not exist or does not belong to your company.",
+            code="booking_not_found",
+        )
+    return booking
+
+
+def list_calendar_feed_health(
+    db: Session,
+    *,
+    company_id: UUID,
+    params: PageParams,
+    property_id: UUID | None = None,
+) -> tuple[list[tuple[Channel, CalendarSyncRun | None, CalendarFeedHealthStatus]], int]:
+    statement = select(Channel).where(Channel.company_id == company_id)
+    if property_id is not None:
+        statement = statement.where(Channel.property_id == property_id)
+
+    total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+    channels = list(
+        db.scalars(
+            statement.order_by(Channel.property_id, Channel.channel_type, Channel.id)
+            .offset(params.offset)
+            .limit(params.page_size)
+        ).all()
+    )
+
+    now = datetime.now(timezone.utc)
+    stale_after = timedelta(seconds=settings.calendar_sync_interval_seconds * 2)
+    result: list[tuple[Channel, CalendarSyncRun | None, CalendarFeedHealthStatus]] = []
+    for channel in channels:
+        latest_run = db.scalar(
+            select(CalendarSyncRun)
+            .where(
+                CalendarSyncRun.company_id == company_id,
+                CalendarSyncRun.channel_id == channel.id,
+            )
+            .order_by(CalendarSyncRun.started_at.desc(), CalendarSyncRun.id.desc())
+            .limit(1)
+        )
+        if not channel.is_active:
+            health = CalendarFeedHealthStatus.INACTIVE
+        elif latest_run is None:
+            health = CalendarFeedHealthStatus.PENDING
+        elif latest_run.status is SyncStatus.RUNNING:
+            health = CalendarFeedHealthStatus.RUNNING
+        elif latest_run.status is SyncStatus.PARTIAL:
+            health = CalendarFeedHealthStatus.PARTIAL
+        elif latest_run.status is SyncStatus.FAILED:
+            health = CalendarFeedHealthStatus.FAILED
+        elif (
+            channel.last_successful_sync_at is None
+            or now - channel.last_successful_sync_at >= stale_after
+        ):
+            health = CalendarFeedHealthStatus.STALE
+        else:
+            health = CalendarFeedHealthStatus.HEALTHY
+        result.append((channel, latest_run, health))
+    return result, total
 
 
 def create_manual_booking(

@@ -39,6 +39,16 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
 
 
+class CalendarFeedHealthStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    HEALTHY = "healthy"
+    STALE = "stale"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    INACTIVE = "inactive"
+
+
 class BookingSource(str, Enum):
     AIRBNB = "airbnb"
     BOOKING_COM = "booking_com"
