@@ -13,6 +13,7 @@ The repository currently provides:
 - manager and staff registration, login, sessions, invitations, roles, and protected pages;
 - an interactive frontend for the planned operational modules;
 - automated backend, database, and frontend tests;
+- CI verification that a clean checkout can build the full Docker stack, keep all services running, and reach the documented health, OpenAPI, and frontend URLs;
 - architecture, design-system, academic, and workflow documentation.
 
 Property management is connected to the authenticated API: managers can create, edit, archive, and restore persistent company properties, while staff can view company properties. Staff and managers can also create, update, and cancel persistent manual/direct bookings for active company properties; the backend availability service uses active reservation and blocked-period data. Managers can configure supported iCalendar feeds through the authenticated API; Celery imports, updates, and cancels events asynchronously while recording truthful synchronization health. The backend detects, lists, and acknowledges persistent pairwise booking conflicts, while automatically resolving conflicts when their overlap disappears. The portfolio Calendar screen is connected to persisted properties, bookings, blocked periods, feed health, and conflicts, with responsive filtering and manual booking controls. Authenticated staff can view persistent conversation history, manually take over a conversation, and save replies. A signed local WhatsApp simulator persists deterministic inbound messages but does not connect to WhatsApp or send outbound messages. A deterministic chatbot safety policy records high-risk inbound messages, switches them to manual handling, and shows staff the escalation reason. Maintenance workflows and other external integrations still contain prototype or simulated data until their GitHub issues are completed with test evidence.
@@ -109,6 +110,12 @@ docker compose run --rm frontend npm test
 docker compose run --rm frontend npm run lint
 docker compose run --rm frontend npm run build
 ```
+
+The CI workflow also runs a clean-stack smoke test from a fresh checkout. It
+builds every service, verifies `db`, `redis`, `backend`, `worker`, `beat`,
+`frontend`, and `pgadmin` remain running, probes `/health`, `/health/live`,
+`/api/v1/openapi.json`, and the frontend root, then removes its disposable
+containers and volumes.
 
 If all commands pass, the checkout is ready for development.
 
