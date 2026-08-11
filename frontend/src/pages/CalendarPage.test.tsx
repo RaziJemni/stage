@@ -10,6 +10,7 @@ import {
   fetchBookingConflicts,
   fetchCalendarBookings,
   fetchCalendarFeeds,
+  updateManualBooking,
 } from '../api/calendar';
 
 vi.mock('../api/properties', () => ({
@@ -107,6 +108,11 @@ function configureApi() {
     bookings: [booking],
   });
   vi.mocked(createManualBooking).mockResolvedValue(bookingDetail);
+  vi.mocked(updateManualBooking).mockResolvedValue({
+    ...bookingDetail,
+    status: 'tentative',
+    notes: 'Edited during live verification',
+  });
 }
 
 describe('CalendarPage', () => {
@@ -150,6 +156,29 @@ describe('CalendarPage', () => {
       guest_name: null,
       notes: 'Maintenance window',
     })));
+  });
+
+  it('closes stale booking details and reloads current data after an edit', async () => {
+    vi.mocked(fetchBooking)
+      .mockResolvedValueOnce(bookingDetail)
+      .mockResolvedValueOnce({
+        ...bookingDetail,
+        status: 'tentative',
+        notes: 'Edited during live verification',
+      });
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Sami Guest/i }))[0]);
+    fireEvent.click(await screen.findByRole('button', { name: /Edit entry/i }));
+    const editor = await screen.findByRole('dialog', { name: 'Edit booking' });
+    fireEvent.change(editor.querySelector('select')!, { target: { value: 'tentative' } });
+    fireEvent.change(screen.getByLabelText(/Internal note/i), { target: { value: 'Edited during live verification' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save changes/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Booking details' })).not.toBeInTheDocument());
+    fireEvent.click((await screen.findAllByRole('button', { name: /Sami Guest/i }))[0]);
+    const detail = await screen.findByRole('dialog', { name: 'Booking details' });
+    await waitFor(() => expect(detail).toHaveTextContent('Tentative'));
+    expect(detail).toHaveTextContent('Edited during live verification');
   });
 
   it('acknowledges an open conflict and refreshes the live data', async () => {
