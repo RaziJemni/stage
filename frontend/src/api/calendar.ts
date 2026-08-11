@@ -51,6 +51,30 @@ export interface CalendarFeedHealth {
   last_error_summary: string | null;
 }
 
+export type CalendarFeedChannelType = 'airbnb' | 'booking_com' | 'other';
+
+export interface CalendarFeedConfigPayload {
+  channel_type: CalendarFeedChannelType;
+  calendar_url: string;
+  external_listing_id?: string | null;
+}
+
+export interface CalendarFeedConfigResponse {
+  id: string;
+  property_id: string;
+  channel_type: CalendarFeedChannelType;
+  external_listing_id: string | null;
+  calendar_url: string | null;
+  is_active: boolean;
+  last_successful_sync_at: string | null;
+  last_error_summary: string | null;
+}
+
+export interface CalendarSyncQueuedResponse {
+  channel_id: string;
+  status: 'queued';
+}
+
 export interface ConflictBooking {
   id: string;
   property_id: string;
@@ -143,6 +167,22 @@ export async function fetchCalendarFeeds(propertyId?: string): Promise<CalendarF
     const query = new URLSearchParams(pageQuery(page));
     if (propertyId) query.set('property_id', propertyId);
     return `/api/v1/calendar-feeds?${query.toString()}`;
+  });
+}
+
+export async function configureCalendarFeed(
+  propertyId: string,
+  payload: CalendarFeedConfigPayload
+): Promise<CalendarFeedConfigResponse> {
+  return apiRequest<CalendarFeedConfigResponse>(`/api/v1/properties/${propertyId}/calendar-feeds`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function requestCalendarFeedSync(channelId: string): Promise<CalendarSyncQueuedResponse> {
+  return apiRequest<CalendarSyncQueuedResponse>(`/api/v1/calendar-feeds/${channelId}/sync`, {
+    method: 'POST',
   });
 }
 
