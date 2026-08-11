@@ -122,6 +122,20 @@ export async function fetchProperties(params: {
   return apiRequest<ApiPropertyPage>(path);
 }
 
+export async function fetchAllActiveProperties(): Promise<ApiProperty[]> {
+  const first = await fetchProperties({ page: 1, page_size: 100 });
+  if (first.pages <= 1) return first.items.filter((property) => property.status === 'active');
+
+  const remaining = await Promise.all(
+    Array.from({ length: first.pages - 1 }, (_, index) =>
+      fetchProperties({ page: index + 2, page_size: 100 })
+    )
+  );
+  return [first.items, ...remaining.map((page) => page.items)]
+    .flat()
+    .filter((property) => property.status === 'active');
+}
+
 export async function fetchPropertyById(propertyId: string): Promise<ApiProperty> {
   return apiRequest<ApiProperty>(`/api/v1/properties/${propertyId}`);
 }
