@@ -51,6 +51,11 @@ export async function fetchUnreadConversationCount(): Promise<number> {
   return response.total;
 }
 
+export async function fetchConversationCount(): Promise<number> {
+  const response = await fetchConversations({ page_size: 1 });
+  return response.total;
+}
+
 export async function markConversationRead(conversationId: string): Promise<ApiConversation> {
   return apiRequest<ApiConversation>(`/api/v1/conversations/${conversationId}/read`, { method: 'POST' });
 }

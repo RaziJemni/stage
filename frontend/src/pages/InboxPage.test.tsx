@@ -6,6 +6,7 @@ import { InboxPage } from './InboxPage';
 describe('InboxPage', () => {
   const baseProps = {
     conversations: [],
+    totalConversations: 0,
     error: null,
     loading: false,
     propertyNames: {},

@@ -17,6 +17,7 @@ import {
 } from './api/properties';
 import {
   fetchConversations,
+  fetchConversationCount,
   fetchMessages,
   fetchUnreadConversationCount,
   sendStaffMessage,
@@ -60,6 +61,7 @@ function WorkspaceApp() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all');
+  const [conversationCount, setConversationCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -133,10 +135,19 @@ function WorkspaceApp() {
     }
   }, []);
 
+  const loadConversationCount = useCallback(async () => {
+    try {
+      setConversationCount(await fetchConversationCount());
+    } catch (err) {
+      console.error('Unable to refresh conversation count:', err);
+    }
+  }, []);
+
   useEffect(() => {
     void loadConversations();
     void loadUnreadMessagesCount();
-  }, [loadConversations, loadUnreadMessagesCount]);
+    void loadConversationCount();
+  }, [loadConversationCount, loadConversations, loadUnreadMessagesCount]);
 
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);
@@ -292,6 +303,7 @@ function WorkspaceApp() {
         {activePage === 'inbox' && (
           <InboxPage
             conversations={conversations}
+            totalConversations={conversationCount}
             loading={loadingConversations}
             error={conversationsError}
             propertyNames={propertyNames}

@@ -56,6 +56,7 @@ describe('App inbox unread state', () => {
       return page();
     });
     vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(7);
+    vi.mocked(messagingApi.fetchConversationCount).mockResolvedValue(9);
     vi.mocked(messagingApi.fetchMessages).mockResolvedValue([]);
     vi.mocked(messagingApi.markConversationRead).mockResolvedValue({
       ...conversation,
@@ -67,13 +68,16 @@ describe('App inbox unread state', () => {
     renderApp();
 
     await waitFor(() => expect(messagingApi.fetchUnreadConversationCount).toHaveBeenCalledOnce());
+    await waitFor(() => expect(messagingApi.fetchConversationCount).toHaveBeenCalledOnce());
     expect(screen.getByText('7')).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Messages' })[0]);
+    expect(screen.getByRole('button', { name: 'All (9)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Chatbot handled' }));
 
     await waitFor(() => expect(messagingApi.fetchConversations).toHaveBeenCalledWith({ handling_mode: 'automatic' }));
     expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All (9)' })).toBeInTheDocument();
   });
 
   it('marks a conversation read before loading its history', async () => {

@@ -7,6 +7,7 @@ export type ConversationFilter = 'all' | 'unread' | 'automatic' | 'manual';
 
 interface InboxPageProps {
   conversations: ApiConversation[];
+  totalConversations: number;
   loading: boolean;
   error: string | null;
   propertyNames: Record<string, string>;
@@ -18,6 +19,7 @@ interface InboxPageProps {
 
 export function InboxPage({
   conversations,
+  totalConversations,
   loading,
   error,
   propertyNames,
@@ -46,7 +48,7 @@ export function InboxPage({
         <div className="flex gap-1 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-1" aria-label="Conversation filters">
           {(['all', 'unread', 'automatic', 'manual'] as const).map((value) => (
             <button key={value} type="button" onClick={() => onFilterChange(value)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${filter === value ? 'bg-white text-[#0F3D5E] shadow-sm' : 'text-[#78716C]'}`}>
-              {value === 'all' ? `All (${conversations.length})` : value === 'automatic' ? 'Chatbot handled' : value === 'manual' ? 'Staff attention' : 'Unread'}
+              {value === 'all' ? `All (${totalConversations})` : value === 'automatic' ? 'Chatbot handled' : value === 'manual' ? 'Staff attention' : 'Unread'}
             </button>
           ))}
         </div>
