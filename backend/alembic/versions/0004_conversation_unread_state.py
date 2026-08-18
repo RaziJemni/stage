@@ -19,10 +19,10 @@ def upgrade() -> None:
         "conversations",
         sa.Column("unread_message_count", sa.Integer(), nullable=False, server_default="0"),
     )
-    op.create_check_constraint(
-        "conversation_unread_message_count_nonnegative",
-        "conversations",
-        "unread_message_count >= 0",
+    op.execute(
+        "ALTER TABLE conversations ADD CONSTRAINT "
+        "conversation_unread_message_count_nonnegative "
+        "CHECK (unread_message_count >= 0)"
     )
 
 
