@@ -310,7 +310,10 @@ function WorkspaceApp() {
             error={messagesError ?? markReadError}
             sending={sendingMessage}
             propertyName={selectedConversation ? propertyNames[selectedConversation.property_id] : undefined}
-            onBackToInbox={() => setActivePage('inbox')}
+            onBackToInbox={() => {
+              setActivePage('inbox');
+              void loadConversations();
+            }}
             onRetry={() => void (markReadError ? handleSelectConversation(selectedConversationId) : loadMessages(selectedConversationId))}
             onToggleHandlingMode={handleToggleHandlingMode}
             onSendMessage={handleSendMessage}

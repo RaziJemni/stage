@@ -57,6 +57,10 @@ describe('App inbox unread state', () => {
     });
     vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(7);
     vi.mocked(messagingApi.fetchMessages).mockResolvedValue([]);
+    vi.mocked(messagingApi.markConversationRead).mockResolvedValue({
+      ...conversation,
+      unread_message_count: 0,
+    });
   });
 
   it('keeps the sidebar unread badge company-wide when the inbox filter changes', async () => {
@@ -97,5 +101,29 @@ describe('App inbox unread state', () => {
 
     await waitFor(() => expect(messagingApi.fetchMessages).toHaveBeenCalledWith('conversation-1'));
     expect(screen.getByText('Unable to mark as read.')).toBeInTheDocument();
+  });
+
+  it('removes a conversation from the unread view after it is marked read', async () => {
+    let unread = true;
+    vi.mocked(messagingApi.fetchConversations).mockImplementation(async (filters = {}) => {
+      if (filters.unread) return page(unread ? [conversation] : [], unread ? 1 : 0);
+      return page();
+    });
+    vi.mocked(messagingApi.markConversationRead).mockImplementation(async () => {
+      unread = false;
+      return { ...conversation, unread_message_count: 0 };
+    });
+    renderApp();
+
+    await waitFor(() => expect(messagingApi.fetchConversations).toHaveBeenCalledWith({}));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messages' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Unread' }));
+    await waitFor(() => expect(messagingApi.fetchConversations).toHaveBeenCalledWith({ unread: true }));
+    const conversationButton = await screen.findByRole('button', { name: /\+21699887766/ });
+    fireEvent.click(conversationButton);
+    await screen.findByRole('button', { name: 'Back to messages' });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to messages' }));
+
+    await waitFor(() => expect(screen.getByText(/No conversations match this view/)).toBeInTheDocument());
   });
 });
