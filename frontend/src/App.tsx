@@ -18,8 +18,10 @@ import {
 import {
   fetchConversations,
   fetchMessages,
+  fetchUnreadConversationCount,
   sendStaffMessage,
   updateHandlingMode,
+  markConversationRead,
   type ApiConversation,
   type ApiMessage,
 } from './api/messaging';
@@ -35,6 +37,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { PropertyDetailPage } from './pages/PropertyDetailPage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { InboxPage } from './pages/InboxPage';
+import type { ConversationFilter } from './pages/InboxPage';
 import { ConversationThreadPage } from './pages/ConversationThreadPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -56,9 +59,12 @@ function WorkspaceApp() {
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all');
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [markReadError, setMarkReadError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
 
@@ -92,7 +98,9 @@ function WorkspaceApp() {
     try {
       setLoadingConversations(true);
       setConversationsError(null);
-      const response = await fetchConversations();
+      const response = await fetchConversations(
+        conversationFilter === 'unread' ? { unread: true } : conversationFilter === 'all' ? {} : { handling_mode: conversationFilter },
+      );
       setConversations(response.items);
       setSelectedConversationId((current) => current || response.items[0]?.id || '');
     } catch (err: any) {
@@ -101,7 +109,7 @@ function WorkspaceApp() {
     } finally {
       setLoadingConversations(false);
     }
-  }, []);
+  }, [conversationFilter]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     if (!conversationId) return;
@@ -117,16 +125,24 @@ function WorkspaceApp() {
     }
   }, []);
 
+  const loadUnreadMessagesCount = useCallback(async () => {
+    try {
+      setUnreadMessagesCount(await fetchUnreadConversationCount());
+    } catch (err) {
+      console.error('Unable to refresh unread conversation count:', err);
+    }
+  }, []);
+
   useEffect(() => {
     void loadConversations();
-  }, [loadConversations]);
+    void loadUnreadMessagesCount();
+  }, [loadConversations, loadUnreadMessagesCount]);
 
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);
   };
 
-  // Derived indicator counts for sidebar badges
-  const unreadMessagesCount = 0;
+  // Sidebar badges represent company-wide state, not the active inbox page or filter.
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
   const hasCalendarConflict = calendarHasConflict;
 
@@ -136,10 +152,18 @@ function WorkspaceApp() {
     setActivePage('property-detail');
   };
 
-  const handleSelectConversation = (convId: string) => {
+  const handleSelectConversation = async (convId: string) => {
     setSelectedConversationId(convId);
     setActivePage('conversation-thread');
-    void loadMessages(convId);
+    setMarkReadError(null);
+    try {
+      const updated = await markConversationRead(convId);
+      setConversations((current) => current.map((conversation) => conversation.id === updated.id ? updated : conversation));
+      await loadUnreadMessagesCount();
+    } catch (err: any) {
+      setMarkReadError(err.message || 'Conversation opened, but marking it read failed. Try again.');
+    }
+    await loadMessages(convId);
   };
 
   const handleToggleHandlingMode = async (mode: ApiConversation['handling_mode']) => {
@@ -272,7 +296,9 @@ function WorkspaceApp() {
             error={conversationsError}
             propertyNames={propertyNames}
             onRetry={() => void loadConversations()}
-            onSelectConversation={handleSelectConversation}
+            onSelectConversation={(conversationId) => void handleSelectConversation(conversationId)}
+            filter={conversationFilter}
+            onFilterChange={setConversationFilter}
           />
         )}
 
@@ -281,11 +307,14 @@ function WorkspaceApp() {
             conversation={selectedConversation}
             messages={messages}
             loading={loadingMessages}
-            error={messagesError}
+            error={messagesError ?? markReadError}
             sending={sendingMessage}
             propertyName={selectedConversation ? propertyNames[selectedConversation.property_id] : undefined}
-            onBackToInbox={() => setActivePage('inbox')}
-            onRetry={() => void loadMessages(selectedConversationId)}
+            onBackToInbox={() => {
+              setActivePage('inbox');
+              void loadConversations();
+            }}
+            onRetry={() => void (markReadError ? handleSelectConversation(selectedConversationId) : loadMessages(selectedConversationId))}
             onToggleHandlingMode={handleToggleHandlingMode}
             onSendMessage={handleSendMessage}
           />

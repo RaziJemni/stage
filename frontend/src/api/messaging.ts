@@ -12,7 +12,9 @@ export interface ApiConversation {
   status: ConversationStatus;
   handling_mode: HandlingMode;
   last_message_at: string | null;
+  last_message_sender_type: SenderType | null;
   escalation_reason: string | null;
+  unread_message_count: number;
 }
 
 export interface ApiMessage {
@@ -34,8 +36,23 @@ interface ApiPage<T> {
   pages: number;
 }
 
-export async function fetchConversations(): Promise<ApiPage<ApiConversation>> {
-  return apiRequest<ApiPage<ApiConversation>>('/api/v1/conversations');
+export async function fetchConversations(
+  filters: { unread?: boolean; handling_mode?: HandlingMode; page_size?: number } = {},
+): Promise<ApiPage<ApiConversation>> {
+  const params = new URLSearchParams();
+  if (filters.unread) params.set('unread', 'true');
+  if (filters.handling_mode) params.set('handling_mode', filters.handling_mode);
+  if (filters.page_size) params.set('page_size', String(filters.page_size));
+  return apiRequest<ApiPage<ApiConversation>>(`/api/v1/conversations${params.size ? `?${params}` : ''}`);
+}
+
+export async function fetchUnreadConversationCount(): Promise<number> {
+  const response = await fetchConversations({ unread: true, page_size: 1 });
+  return response.total;
+}
+
+export async function markConversationRead(conversationId: string): Promise<ApiConversation> {
+  return apiRequest<ApiConversation>(`/api/v1/conversations/${conversationId}/read`, { method: 'POST' });
 }
 
 export async function fetchMessages(conversationId: string): Promise<ApiMessage[]> {

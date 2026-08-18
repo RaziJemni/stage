@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -72,8 +72,14 @@ def list_conversations(
     db: Session,
     company_id: UUID,
     params: PageParams,
+    unread: bool | None = None,
+    handling_mode: HandlingMode | None = None,
 ) -> tuple[list[Conversation], int]:
     statement = select(Conversation).where(Conversation.company_id == company_id)
+    if unread:
+        statement = statement.where(Conversation.unread_message_count > 0)
+    if handling_mode is not None:
+        statement = statement.where(Conversation.handling_mode == handling_mode)
     total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
     items = list(
         db.scalars(
@@ -83,6 +89,17 @@ def list_conversations(
         )
     )
     return items, total
+
+
+def mark_conversation_read(db: Session, *, conversation: Conversation) -> Conversation:
+    db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation.id, Conversation.company_id == conversation.company_id)
+        .values(unread_message_count=0)
+    )
+    db.commit()
+    db.refresh(conversation)
+    return conversation
 
 
 def create_message(
@@ -194,6 +211,11 @@ def record_inbound_message(
         classify_message(content, facts_available=facts_available),
     )
     conversation.last_message_at = provider_timestamp or datetime.now(UTC)
+    db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation.id, Conversation.company_id == company_id)
+        .values(unread_message_count=Conversation.unread_message_count + 1)
+    )
     try:
         db.commit()
     except IntegrityError:

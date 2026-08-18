@@ -294,3 +294,84 @@ def test_other_company_cannot_read_or_change_conversation(client: TestClient) ->
     )
     assert takeover.status_code == 404
     assert takeover.json()["code"] == "conversation_not_found"
+
+
+def test_shared_unread_count_filters_and_mark_read_are_persistent(client: TestClient) -> None:
+    manager, context = create_inbound_conversation(client)
+    conversation_id = context["conversation_id"]
+
+    listed = client.get("/api/v1/conversations?unread=true")
+    assert listed.status_code == 200
+    item = listed.json()["items"][0]
+    assert item["id"] == conversation_id
+    assert item["unread_message_count"] == 1
+    assert item["last_message_sender_type"] == "guest"
+    assert client.get("/api/v1/conversations?handling_mode=automatic").json()["total"] == 1
+
+    with SessionLocal() as db:
+        duplicate = service.record_inbound_message(
+            db,
+            company_id=UUID(manager["company"]["id"]),
+            property_id=UUID(context["property"]["id"]),
+            guest_contact_identifier="+21699887766",
+            content="Can I check in late?",
+            external_message_id="provider-event-001",
+        )
+        assert not duplicate.created
+    assert client.get("/api/v1/conversations").json()["items"][0]["unread_message_count"] == 1
+
+    marked_read = client.post(
+        f"/api/v1/conversations/{conversation_id}/read",
+        headers=csrf_headers(client),
+    )
+    assert marked_read.status_code == 200
+    assert marked_read.json()["unread_message_count"] == 0
+    assert client.post(
+        f"/api/v1/conversations/{conversation_id}/read",
+        headers=csrf_headers(client),
+    ).status_code == 200
+    assert client.get("/api/v1/conversations?unread=true").json()["total"] == 0
+
+    with SessionLocal() as db:
+        inbound_after_read = service.record_inbound_message(
+            db,
+            company_id=UUID(manager["company"]["id"]),
+            property_id=UUID(context["property"]["id"]),
+            guest_contact_identifier="+21699887766",
+            content="I have another question.",
+            external_message_id="provider-event-002",
+        )
+        assert inbound_after_read.created
+    assert client.get("/api/v1/conversations?unread=true").json()["items"][0]["unread_message_count"] == 1
+
+    staff_reply = client.post(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        json={"content": "A staff reply does not make this unread."},
+        headers=csrf_headers(client),
+    )
+    assert staff_reply.status_code == 201
+    after_staff_reply = client.get("/api/v1/conversations").json()["items"][0]
+    assert after_staff_reply["unread_message_count"] == 1
+    assert after_staff_reply["last_message_sender_type"] == "staff"
+
+    switched_to_manual = client.patch(
+        f"/api/v1/conversations/{conversation_id}/handling-mode",
+        json={"handling_mode": "manual"},
+        headers=csrf_headers(client),
+    )
+    assert switched_to_manual.status_code == 200
+    assert client.get("/api/v1/conversations?handling_mode=automatic").json()["total"] == 0
+    assert client.get("/api/v1/conversations?handling_mode=manual").json()["total"] == 1
+
+
+def test_other_company_cannot_mark_conversation_read(client: TestClient) -> None:
+    _, context = create_inbound_conversation(client)
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+
+    response = other_client.post(
+        f"/api/v1/conversations/{context['conversation_id']}/read",
+        headers=csrf_headers(other_client),
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "conversation_not_found"

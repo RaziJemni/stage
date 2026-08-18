@@ -11,6 +11,8 @@ describe('InboxPage', () => {
     propertyNames: {},
     onRetry: vi.fn(),
     onSelectConversation: vi.fn(),
+    filter: 'all' as const,
+    onFilterChange: vi.fn(),
   };
 
   it('renders loading, empty, and retryable failure states', () => {
@@ -35,9 +37,20 @@ describe('InboxPage', () => {
       status: 'open',
       handling_mode: 'automatic',
       last_message_at: '2026-08-03T12:00:00Z',
+      last_message_sender_type: 'guest',
       escalation_reason: null,
+      unread_message_count: 2,
     }]} />);
     fireEvent.click(screen.getByRole('button', { name: /\+21699887766/ }));
     expect(onSelectConversation).toHaveBeenCalledWith('conversation-1');
+    expect(screen.getByText('Unread 2')).toBeInTheDocument();
+    expect(screen.getByText('Last source: Guest')).toBeInTheDocument();
+  });
+
+  it('sends the selected server-side filter', () => {
+    const onFilterChange = vi.fn();
+    render(<InboxPage {...baseProps} onFilterChange={onFilterChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Unread' }));
+    expect(onFilterChange).toHaveBeenCalledWith('unread');
   });
 });
