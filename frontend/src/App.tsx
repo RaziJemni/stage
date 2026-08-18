@@ -18,6 +18,7 @@ import {
 import {
   fetchConversations,
   fetchMessages,
+  fetchUnreadConversationCount,
   sendStaffMessage,
   updateHandlingMode,
   markConversationRead,
@@ -59,9 +60,11 @@ function WorkspaceApp() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all');
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [markReadError, setMarkReadError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
 
@@ -122,16 +125,24 @@ function WorkspaceApp() {
     }
   }, []);
 
+  const loadUnreadMessagesCount = useCallback(async () => {
+    try {
+      setUnreadMessagesCount(await fetchUnreadConversationCount());
+    } catch (err) {
+      console.error('Unable to refresh unread conversation count:', err);
+    }
+  }, []);
+
   useEffect(() => {
     void loadConversations();
-  }, [loadConversations]);
+    void loadUnreadMessagesCount();
+  }, [loadConversations, loadUnreadMessagesCount]);
 
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);
   };
 
-  // Derived indicator counts for sidebar badges
-  const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unread_message_count, 0);
+  // Sidebar badges represent company-wide state, not the active inbox page or filter.
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
   const hasCalendarConflict = calendarHasConflict;
 
@@ -144,13 +155,15 @@ function WorkspaceApp() {
   const handleSelectConversation = async (convId: string) => {
     setSelectedConversationId(convId);
     setActivePage('conversation-thread');
+    setMarkReadError(null);
     try {
       const updated = await markConversationRead(convId);
       setConversations((current) => current.map((conversation) => conversation.id === updated.id ? updated : conversation));
+      await loadUnreadMessagesCount();
     } catch (err: any) {
-      setMessagesError(err.message || 'Conversation opened, but marking it read failed. Try again.');
+      setMarkReadError(err.message || 'Conversation opened, but marking it read failed. Try again.');
     }
-    void loadMessages(convId);
+    await loadMessages(convId);
   };
 
   const handleToggleHandlingMode = async (mode: ApiConversation['handling_mode']) => {
@@ -294,11 +307,11 @@ function WorkspaceApp() {
             conversation={selectedConversation}
             messages={messages}
             loading={loadingMessages}
-            error={messagesError}
+            error={messagesError ?? markReadError}
             sending={sendingMessage}
             propertyName={selectedConversation ? propertyNames[selectedConversation.property_id] : undefined}
             onBackToInbox={() => setActivePage('inbox')}
-            onRetry={() => void loadMessages(selectedConversationId)}
+            onRetry={() => void (markReadError ? handleSelectConversation(selectedConversationId) : loadMessages(selectedConversationId))}
             onToggleHandlingMode={handleToggleHandlingMode}
             onSendMessage={handleSendMessage}
           />

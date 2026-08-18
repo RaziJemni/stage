@@ -36,11 +36,19 @@ interface ApiPage<T> {
   pages: number;
 }
 
-export async function fetchConversations(filters: { unread?: boolean; handling_mode?: HandlingMode } = {}): Promise<ApiPage<ApiConversation>> {
+export async function fetchConversations(
+  filters: { unread?: boolean; handling_mode?: HandlingMode; page_size?: number } = {},
+): Promise<ApiPage<ApiConversation>> {
   const params = new URLSearchParams();
   if (filters.unread) params.set('unread', 'true');
   if (filters.handling_mode) params.set('handling_mode', filters.handling_mode);
+  if (filters.page_size) params.set('page_size', String(filters.page_size));
   return apiRequest<ApiPage<ApiConversation>>(`/api/v1/conversations${params.size ? `?${params}` : ''}`);
+}
+
+export async function fetchUnreadConversationCount(): Promise<number> {
+  const response = await fetchConversations({ unread: true, page_size: 1 });
+  return response.total;
 }
 
 export async function markConversationRead(conversationId: string): Promise<ApiConversation> {
