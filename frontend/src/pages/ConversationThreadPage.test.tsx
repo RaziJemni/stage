@@ -11,9 +11,11 @@ describe('ConversationThreadPage', () => {
         property_id: 'property-1',
         guest_contact_identifier: '+21699887766',
         status: 'open',
-        handling_mode: 'manual',
-        last_message_at: '2026-08-03T12:00:00Z',
-        escalation_reason: 'payment_or_refund',
+      handling_mode: 'manual',
+      last_message_at: '2026-08-03T12:00:00Z',
+      last_message_sender_type: 'guest',
+      escalation_reason: 'payment_or_refund',
+      unread_message_count: 0,
       }}
       messages={[]}
       loading={false}
@@ -36,9 +38,11 @@ describe('ConversationThreadPage', () => {
         property_id: 'property-1',
         guest_contact_identifier: '+21699887766',
         status: 'open',
-        handling_mode: 'manual',
-        last_message_at: '2026-08-03T12:00:00Z',
-        escalation_reason: null,
+      handling_mode: 'manual',
+      last_message_at: '2026-08-03T12:00:00Z',
+      last_message_sender_type: 'staff',
+      escalation_reason: null,
+      unread_message_count: 0,
       }}
       messages={[{
         id: 'message-1',

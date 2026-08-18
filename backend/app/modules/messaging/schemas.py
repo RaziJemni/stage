@@ -25,7 +25,9 @@ class ConversationResponse(BaseModel):
     status: ConversationStatus
     handling_mode: HandlingMode
     last_message_at: datetime | None
+    last_message_sender_type: SenderType | None
     escalation_reason: str | None
+    unread_message_count: int
 
 
 class MessageCreateRequest(StrictRequest):

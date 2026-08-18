@@ -20,6 +20,7 @@ import {
   fetchMessages,
   sendStaffMessage,
   updateHandlingMode,
+  markConversationRead,
   type ApiConversation,
   type ApiMessage,
 } from './api/messaging';
@@ -35,6 +36,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { PropertyDetailPage } from './pages/PropertyDetailPage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { InboxPage } from './pages/InboxPage';
+import type { ConversationFilter } from './pages/InboxPage';
 import { ConversationThreadPage } from './pages/ConversationThreadPage';
 import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -56,6 +58,7 @@ function WorkspaceApp() {
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [conversationFilter, setConversationFilter] = useState<ConversationFilter>('all');
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
@@ -92,7 +95,9 @@ function WorkspaceApp() {
     try {
       setLoadingConversations(true);
       setConversationsError(null);
-      const response = await fetchConversations();
+      const response = await fetchConversations(
+        conversationFilter === 'unread' ? { unread: true } : conversationFilter === 'all' ? {} : { handling_mode: conversationFilter },
+      );
       setConversations(response.items);
       setSelectedConversationId((current) => current || response.items[0]?.id || '');
     } catch (err: any) {
@@ -101,7 +106,7 @@ function WorkspaceApp() {
     } finally {
       setLoadingConversations(false);
     }
-  }, []);
+  }, [conversationFilter]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     if (!conversationId) return;
@@ -126,7 +131,7 @@ function WorkspaceApp() {
   };
 
   // Derived indicator counts for sidebar badges
-  const unreadMessagesCount = 0;
+  const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unread_message_count, 0);
   const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
   const hasCalendarConflict = calendarHasConflict;
 
@@ -136,9 +141,15 @@ function WorkspaceApp() {
     setActivePage('property-detail');
   };
 
-  const handleSelectConversation = (convId: string) => {
+  const handleSelectConversation = async (convId: string) => {
     setSelectedConversationId(convId);
     setActivePage('conversation-thread');
+    try {
+      const updated = await markConversationRead(convId);
+      setConversations((current) => current.map((conversation) => conversation.id === updated.id ? updated : conversation));
+    } catch (err: any) {
+      setMessagesError(err.message || 'Conversation opened, but marking it read failed. Try again.');
+    }
     void loadMessages(convId);
   };
 
@@ -272,7 +283,9 @@ function WorkspaceApp() {
             error={conversationsError}
             propertyNames={propertyNames}
             onRetry={() => void loadConversations()}
-            onSelectConversation={handleSelectConversation}
+            onSelectConversation={(conversationId) => void handleSelectConversation(conversationId)}
+            filter={conversationFilter}
+            onFilterChange={setConversationFilter}
           />
         )}
 

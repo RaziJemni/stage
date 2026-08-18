@@ -8,6 +8,7 @@ from app.api.errors import ApiProblem
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.enums import HandlingMode
 from app.integrations.whatsapp import InboundMessageEvent, simulator_adapter
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.messaging import service
@@ -90,11 +91,15 @@ def list_conversations_endpoint(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
     page_params: Annotated[PageParams, Depends(get_page_params)],
+    unread: bool | None = None,
+    handling_mode: HandlingMode | None = None,
 ) -> Page[ConversationResponse]:
     items, total = service.list_conversations(
         db=db,
         company_id=context.company.id,
         params=page_params,
+        unread=unread,
+        handling_mode=handling_mode,
     )
 
     return Page.create(
@@ -102,6 +107,18 @@ def list_conversations_endpoint(
         params=page_params,
         total=total,
     )
+
+
+@router.post("/{conversation_id}/read", response_model=ConversationResponse)
+def mark_conversation_read_endpoint(
+    conversation_id: UUID,
+    context: CsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> ConversationResponse:
+    conversation = service.get_conversation(db, company_id=context.company.id, conversation_id=conversation_id)
+    if conversation is None:
+        raise ApiProblem(status=404, title="Conversation not found", detail="Conversation does not exist or does not belong to your company.", code="conversation_not_found")
+    return service.mark_conversation_read(db, conversation=conversation)
 
 
 @router.get(

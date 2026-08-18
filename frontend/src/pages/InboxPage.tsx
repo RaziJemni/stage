@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 
 import type { ApiConversation } from '../api/messaging';
 
+export type ConversationFilter = 'all' | 'unread' | 'automatic' | 'manual';
+
 interface InboxPageProps {
   conversations: ApiConversation[];
   loading: boolean;
@@ -10,6 +12,8 @@ interface InboxPageProps {
   propertyNames: Record<string, string>;
   onRetry: () => void;
   onSelectConversation: (conversationId: string) => void;
+  filter: ConversationFilter;
+  onFilterChange: (filter: ConversationFilter) => void;
 }
 
 export function InboxPage({
@@ -19,14 +23,14 @@ export function InboxPage({
   propertyNames,
   onRetry,
   onSelectConversation,
+  filter,
+  onFilterChange,
 }: InboxPageProps) {
-  const [mode, setMode] = useState<'all' | 'automatic' | 'manual'>('all');
   const [search, setSearch] = useState('');
   const filtered = useMemo(() => conversations.filter((conversation) => {
-    if (mode !== 'all' && conversation.handling_mode !== mode) return false;
     const searchable = `${conversation.guest_contact_identifier} ${propertyNames[conversation.property_id] ?? ''}`;
     return searchable.toLowerCase().includes(search.toLowerCase());
-  }), [conversations, mode, propertyNames, search]);
+  }), [conversations, propertyNames, search]);
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -40,9 +44,9 @@ export function InboxPage({
 
       <section className="flex flex-col gap-4 rounded-2xl border border-[#EBE6DD] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-1" aria-label="Conversation filters">
-          {(['all', 'automatic', 'manual'] as const).map((value) => (
-            <button key={value} type="button" onClick={() => setMode(value)} className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize ${mode === value ? 'bg-white text-[#0F3D5E] shadow-sm' : 'text-[#78716C]'}`}>
-              {value === 'all' ? `All (${conversations.length})` : value}
+          {(['all', 'unread', 'automatic', 'manual'] as const).map((value) => (
+            <button key={value} type="button" onClick={() => onFilterChange(value)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${filter === value ? 'bg-white text-[#0F3D5E] shadow-sm' : 'text-[#78716C]'}`}>
+              {value === 'all' ? `All (${conversations.length})` : value === 'automatic' ? 'Chatbot handled' : value === 'manual' ? 'Staff attention' : 'Unread'}
             </button>
           ))}
         </div>
@@ -67,7 +71,9 @@ export function InboxPage({
                 <h2 className="truncate text-sm font-bold text-[#1C1B18]">{conversation.guest_contact_identifier}</h2>
                 <p className="mt-1 truncate text-xs text-[#78716C]">{propertyNames[conversation.property_id] ?? 'Property not available in this view'}</p>
                 <p className="mt-1 text-[11px] text-[#78716C]">{formatTime(conversation.last_message_at)}</p>
+                <p className="mt-1 text-[11px] font-semibold text-[#78716C]">Last source: {formatSender(conversation.last_message_sender_type)}</p>
               </div>
+              {conversation.unread_message_count > 0 && <span className="rounded-full bg-[#D96B43] px-2 py-1 text-xs font-bold text-white">Unread {conversation.unread_message_count}</span>}
               <span className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-bold ${automatic ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
                 {automatic ? <Bot className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                 {automatic ? 'Automatic' : 'Manual'}
@@ -89,4 +95,8 @@ function StateCard({ text, retry, error = false }: { text: string; retry?: () =>
 
 function formatTime(value: string | null): string {
   return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'No messages yet';
+}
+
+function formatSender(value: ApiConversation['last_message_sender_type']): string {
+  return value ? value[0].toUpperCase() + value.slice(1) : 'None';
 }
