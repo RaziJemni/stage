@@ -44,6 +44,9 @@ class MessageResponse(BaseModel):
     content: str
     delivery_status: DeliveryStatus
     automatically_sent: bool
+    language: str | None
+    model_version: str | None
+    escalation_reason: str | None
     created_at: datetime
 
 

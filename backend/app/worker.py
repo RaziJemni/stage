@@ -26,7 +26,7 @@ celery.conf.update(
     },
 )
 
-celery.autodiscover_tasks(["app.modules.calendar"])
+celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot"])
 
 
 @celery.task(name="vayca.healthcheck")

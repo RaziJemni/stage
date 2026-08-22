@@ -12,6 +12,7 @@ from app.core.enums import HandlingMode
 from app.integrations.whatsapp import InboundMessageEvent, simulator_adapter
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.messaging import service
+from app.modules.chatbot.tasks import process_chatbot_inbound_message
 from app.modules.messaging.schemas import (
     ConversationResponse,
     HandlingModeRequest,
@@ -78,6 +79,15 @@ def receive_simulator_inbound_event(
         provider_timestamp=event.provider_timestamp,
         language=event.language,
     )
+    if result.created:
+        try:
+            process_chatbot_inbound_message.apply_async(
+                args=(str(property_obj.company_id), str(result.message.id)),
+                retry=False,
+            )
+        except Exception:
+            # Persistence and staff access must not depend on the worker broker.
+            pass
     return SimulatorInboundEventResponse(
         mode=simulator_adapter.mode,
         message_id=result.message.id,
