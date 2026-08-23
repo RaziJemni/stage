@@ -31,6 +31,51 @@ class TicketSuggestionCreateRequest(TicketCreateRequest):
     """Internal/chatbot-facing input; it does not create a ticket."""
 
 
+class ContractorCreateRequest(StrictRequest):
+    name: str = Field(min_length=1, max_length=160)
+    phone: str | None = Field(default=None, max_length=40)
+    specialty: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=5000)
+
+
+class ContractorUpdateRequest(StrictRequest):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    phone: str | None = Field(default=None, max_length=40)
+    specialty: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=5000)
+    is_active: bool | None = None
+
+
+class ContractorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    phone: str | None
+    specialty: str | None
+    notes: str | None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class TicketAssignmentCreateRequest(StrictRequest):
+    contractor_id: UUID
+    notes: str | None = Field(default=None, max_length=5000)
+
+
+class TicketAssignmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    ticket_id: UUID
+    contractor_id: UUID
+    assigned_by_user_id: UUID
+    assigned_at: datetime
+    ended_at: datetime | None
+    notes: str | None
+
+
 class TicketResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
