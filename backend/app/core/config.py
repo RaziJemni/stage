@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     calendar_feed_max_bytes: int = 1_048_576
     whatsapp_mode: str = "simulator"
     whatsapp_simulator_webhook_secret: str = "local_simulator_secret_change_me"
+    chatbot_provider: str = "deterministic"
+    chatbot_model: str | None = None
+    openai_api_key: str | None = None
 
     @property
     def allowed_origin_list(self) -> list[str]:
@@ -32,6 +35,8 @@ class Settings(BaseSettings):
             raise ValueError("COOKIE_SECURE must be true in production")
         if self.whatsapp_mode not in {"simulator", "test", "production"}:
             raise ValueError("WHATSAPP_MODE must be simulator, test, or production")
+        if self.chatbot_provider not in {"deterministic", "openai"}:
+            raise ValueError("CHATBOT_PROVIDER must be deterministic or openai")
         return self
 
 

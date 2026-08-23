@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from celery import Celery
 
+import app.core.model_registry  # noqa: F401
+
 
 celery = Celery(
     "vayca",
@@ -26,7 +28,7 @@ celery.conf.update(
     },
 )
 
-celery.autodiscover_tasks(["app.modules.calendar"])
+celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot"])
 
 
 @celery.task(name="vayca.healthcheck")

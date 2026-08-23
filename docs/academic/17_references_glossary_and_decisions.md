@@ -83,6 +83,7 @@
 | DEC-013 | 2026-07-30 | Accepted | Authentication uses Argon2id passwords and revocable opaque server-backed sessions in secure cookies. | Avoids browser-stored credentials and supports immediate revocation |
 | DEC-014 | 2026-07-28 | Accepted | Academic documentation is written in English. | Team decision |
 | DEC-015 | 2026-07-28 | Accepted | These documents are a living baseline, not immutable final decisions. | Implementation and validation may reveal necessary changes |
+| DEC-016 | 2026-08-22 | Accepted | Grounded chatbot provider and deferred reply processing. | Policy and backend facts run before the configured provider; simulator remains deterministic and outbound delivery remains unconfigured. |
 
 ## Open Decisions
 
@@ -95,7 +96,7 @@
 | OPEN-005 | iCalendar missing-event cancellation policy | Calendar integration testing |
 | OPEN-006 | Conversation identity and reopening rules | Messaging/database review |
 | OPEN-007 | Final ticket lifecycle and transition matrix | Maintenance workflow review |
-| OPEN-008 | AI provider and model | Evaluation results |
+| OPEN-008 | AI provider and model | Decision 0008 selects the adapter approach; production model enablement remains subject to evaluation results |
 | OPEN-009 | Hosting platform and production topology | Deployment review |
 | OPEN-010 | Institution-specific report template and citation style | Supervisor confirmation |
 

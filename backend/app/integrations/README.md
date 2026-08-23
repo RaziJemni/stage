@@ -10,6 +10,15 @@ Planned adapters:
 
 Each external integration must support truthful health state, idempotency, failure handling, and deterministic testing.
 
+## Chatbot provider
+
+`chatbot.py` keeps the configured model provider outside the chatbot domain
+service. `CHATBOT_PROVIDER=deterministic` is the local simulator/test default;
+it makes no network request. `CHATBOT_PROVIDER=openai` requires
+`CHATBOT_MODEL` and `OPENAI_API_KEY`, and only generates a reply from the
+already-authorized fact supplied by the domain service. It is not an outbound
+WhatsApp transport: generated messages remain `queued` until one is approved.
+
 ## WhatsApp Simulator
 
 The implemented local adapter accepts a signed synthetic inbound event at
