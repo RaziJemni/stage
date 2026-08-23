@@ -215,3 +215,39 @@ def test_other_company_cannot_process_an_inbound_message() -> None:
                 chatbot_service.Message
             ).where(chatbot_service.Message.sender_type == "chatbot")
         ) == 0
+
+
+def test_invalid_availability_date_range_and_timezone_escalate_cleanly() -> None:
+    company_id, property_id = create_context()
+    # Check-out before check-in
+    invalid_dates = record_inbound(
+        company_id,
+        property_id,
+        content="Is it available from 2026-10-05 to 2026-10-01?",
+    )
+    with SessionLocal() as db:
+        assert process_inbound_message(db, company_id=company_id, inbound_message_id=invalid_dates.id) is None
+        conversation = messaging_service.get_conversation(db, company_id, invalid_dates.conversation_id)
+        assert conversation is not None
+        assert conversation.handling_mode is HandlingMode.MANUAL
+        assert conversation.escalation_reason == "missing_or_uncertain_information"
+
+    # Property with invalid timezone
+    with SessionLocal() as db:
+        prop = db.scalar(sa.select(Property).where(Property.id == property_id))
+        assert prop is not None
+        prop.timezone = "Invalid/Zone"
+        db.commit()
+
+    invalid_tz = record_inbound(
+        company_id,
+        property_id,
+        content="Is it available from 2026-10-01 to 2026-10-03?",
+        guest_contact_identifier="+21699887768",
+    )
+    with SessionLocal() as db:
+        assert process_inbound_message(db, company_id=company_id, inbound_message_id=invalid_tz.id) is None
+        conversation = messaging_service.get_conversation(db, company_id, invalid_tz.conversation_id)
+        assert conversation is not None
+        assert conversation.handling_mode is HandlingMode.MANUAL
+        assert conversation.escalation_reason == "missing_or_uncertain_information"

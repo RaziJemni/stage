@@ -3,13 +3,14 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime, time
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiProblem
 from app.core.enums import DeliveryStatus, HandlingMode, MessageDirection, SenderType
 from app.integrations.chatbot import (
     ChatbotProviderError,
@@ -129,7 +130,7 @@ def _grounded_fact(
                 check_in=check_in,
                 check_out=check_out,
             )
-        except (ValueError, ZoneInfoNotFoundError):
+        except (ValueError, ZoneInfoNotFoundError, ApiProblem):
             return None
         return GroundedFact(
             label="Availability",

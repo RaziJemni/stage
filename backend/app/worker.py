@@ -3,6 +3,8 @@ from datetime import timedelta
 
 from celery import Celery
 
+import app.core.model_registry  # noqa: F401
+
 
 celery = Celery(
     "vayca",

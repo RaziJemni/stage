@@ -5,6 +5,7 @@ import {
   INITIAL_TICKETS
 } from './data/mockData';
 import type { Property, Booking, Ticket } from './data/mockData';
+import { confirmTicketSuggestion, createTicket, fetchTickets, fetchTicketSuggestions, rejectTicketSuggestion, type ApiTicket, type ApiTicketSuggestion, type TicketPriority } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -68,7 +69,11 @@ function WorkspaceApp() {
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [markReadError, setMarkReadError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [tickets, setTickets] = useState<Ticket[]>(INITIAL_TICKETS);
+  const [tickets] = useState<Ticket[]>(INITIAL_TICKETS);
+  const [persistentTickets, setPersistentTickets] = useState<ApiTicket[]>([]);
+  const [ticketSuggestions, setTicketSuggestions] = useState<ApiTicketSuggestion[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -95,6 +100,10 @@ function WorkspaceApp() {
     };
     void load();
   }, [showingArchived]);
+
+  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage] = await Promise.all([fetchTickets(), fetchTicketSuggestions()]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, []);
+  useEffect(() => { void loadTickets(); }, [loadTickets]);
+
 
   const loadConversations = useCallback(async () => {
     try {
@@ -154,7 +163,7 @@ function WorkspaceApp() {
   };
 
   // Sidebar badges represent company-wide state, not the active inbox page or filter.
-  const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'Assigned').length;
+  const openTicketsCount = persistentTickets.filter(t => t.status === 'open' || t.status === 'assigned').length;
   const hasCalendarConflict = calendarHasConflict;
 
   // Page Handlers
@@ -203,10 +212,6 @@ function WorkspaceApp() {
     }
   };
 
-  const handleUpdateTicketStatus = (ticketId: string, newStatus: Ticket['status']) => {
-    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: newStatus } : t));
-  };
-
   const handleCreateProperty = async (payload: PropertyCreatePayload) => {
     const createdApiProp = await createProperty(payload);
     const mapped = mapApiPropertyToProperty(createdApiProp);
@@ -233,9 +238,9 @@ function WorkspaceApp() {
     setProperties(prev => prev.map(p => p.id === propertyId ? mapped : p));
   };
 
-  const handleAddTicket = (newTicket: Ticket) => {
-    setTickets(prev => [newTicket, ...prev]);
-  };
+  const handleCreateTicket = async (input: { property_id: string; title: string; description: string; priority: TicketPriority }) => { const ticket = await createTicket(input); setPersistentTickets((current) => [ticket, ...current]); };
+  const handleConfirmSuggestion = async (suggestion: ApiTicketSuggestion) => { await confirmTicketSuggestion(suggestion); await loadTickets(); };
+  const handleRejectSuggestion = async (suggestionId: string) => { await rejectTicketSuggestion(suggestionId); setTicketSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId)); };
 
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
@@ -334,9 +339,9 @@ function WorkspaceApp() {
 
         {activePage === 'tickets' && (
           <TicketsPage
-            tickets={tickets}
-            onUpdateTicketStatus={handleUpdateTicketStatus}
-            onAddTicket={handleAddTicket}
+            tickets={persistentTickets} suggestions={ticketSuggestions} properties={properties}
+            loading={loadingTickets} error={ticketsError} onRetry={() => void loadTickets()}
+            onCreate={handleCreateTicket} onConfirm={handleConfirmSuggestion} onReject={handleRejectSuggestion}
           />
         )}
 
