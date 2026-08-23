@@ -25,6 +25,7 @@ EXPECTED_TABLES = {
     "properties",
     "ticket_assignments",
     "ticket_status_history",
+    "ticket_suggestions",
     "tickets",
     "user_invitations",
 }

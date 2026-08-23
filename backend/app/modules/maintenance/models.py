@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -86,6 +87,31 @@ class Ticket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     created_by_user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
     suggested_by_chatbot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TicketSuggestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "ticket_suggestions"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'confirmed', 'rejected')", name="ticket_suggestion_status_valid"),
+        ForeignKeyConstraint(["company_id", "property_id"], ["properties.company_id", "properties.id"], name="fk_ticket_suggestions_company_property", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["company_id", "booking_id"], ["bookings.company_id", "bookings.id"], name="fk_ticket_suggestions_company_booking", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["company_id", "conversation_id"], ["conversations.company_id", "conversations.id"], name="fk_ticket_suggestions_company_conversation", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["company_id", "reviewed_by_user_id"], ["app_users.company_id", "app_users.id"], name="fk_ticket_suggestions_company_reviewer", ondelete="RESTRICT"),
+        UniqueConstraint("company_id", "id", name="uq_ticket_suggestions_company_id_id"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    booking_id: Mapped[UUID | None] = mapped_column(index=True)
+    conversation_id: Mapped[UUID | None] = mapped_column(index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(80))
+    priority: Mapped[TicketPriority] = mapped_column(enum_type(TicketPriority, "ticket_priority"), default=TicketPriority.MEDIUM, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending", nullable=False)
+    reviewed_by_user_id: Mapped[UUID | None] = mapped_column(index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ticket_id: Mapped[UUID | None] = mapped_column(index=True)
 
 
 class TicketAssignment(UUIDPrimaryKeyMixin, Base):
