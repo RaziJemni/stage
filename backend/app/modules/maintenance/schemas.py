@@ -76,6 +76,23 @@ class TicketAssignmentResponse(BaseModel):
     notes: str | None
 
 
+class TicketStatusUpdateRequest(StrictRequest):
+    status: TicketStatus
+    note: str | None = Field(default=None, max_length=5000)
+
+
+class TicketStatusHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    ticket_id: UUID
+    from_status: TicketStatus | None
+    to_status: TicketStatus
+    changed_by_user_id: UUID
+    changed_at: datetime
+    note: str | None
+
+
 class TicketResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID

@@ -161,3 +161,95 @@ def test_contractor_contacts_assignment_reassignment_and_tenant_isolation() -> N
             cross_ticket = other_client.get(f"/api/v1/tickets/{ticket['id']}/assignments")
             assert cross_ticket.status_code == 404
             assert cross_ticket.json()["code"] == "ticket_not_found"
+
+
+def test_ticket_lifecycle_audits_transitions_ends_assignments_and_filters_history() -> None:
+    with TestClient(create_app()) as client:
+        register_manager(client)
+        property_data = create_property(client)
+        ticket = client.post(
+            "/api/v1/tickets",
+            json={"property_id": property_data["id"], "title": "Broken AC", "description": "No cooling.", "priority": "urgent"},
+            headers=csrf_headers(client),
+        ).json()
+        contractor = client.post(
+            "/api/v1/contractors",
+            json={"name": "Amine HVAC", "specialty": "HVAC"},
+            headers=csrf_headers(client),
+        ).json()
+
+        assigned = client.post(
+            f"/api/v1/tickets/{ticket['id']}/assignments",
+            json={"contractor_id": contractor["id"]},
+            headers=csrf_headers(client),
+        )
+        assert assigned.status_code == 201
+        started = client.patch(
+            f"/api/v1/tickets/{ticket['id']}/status",
+            json={"status": "in_progress", "note": "Contractor is on site."},
+            headers=csrf_headers(client),
+        )
+        assert started.status_code == 200
+        assert started.json()["status"] == "in_progress"
+        resolved = client.patch(
+            f"/api/v1/tickets/{ticket['id']}/status",
+            json={"status": "resolved", "note": "Cooling verified."},
+            headers=csrf_headers(client),
+        )
+        assert resolved.status_code == 200
+        assert resolved.json()["status"] == "resolved"
+
+        assignments = client.get(f"/api/v1/tickets/{ticket['id']}/assignments")
+        assert assignments.status_code == 200
+        assert assignments.json()[0]["ended_at"] is not None
+        history = client.get(f"/api/v1/tickets/{ticket['id']}/status-history")
+        assert history.status_code == 200
+        assert [(item["from_status"], item["to_status"]) for item in history.json()] == [
+            (None, "open"),
+            ("open", "assigned"),
+            ("assigned", "in_progress"),
+            ("in_progress", "resolved"),
+        ]
+        assert history.json()[-1]["note"] == "Cooling verified."
+
+        invalid = client.patch(
+            f"/api/v1/tickets/{ticket['id']}/status",
+            json={"status": "open"},
+            headers=csrf_headers(client),
+        )
+        assert invalid.status_code == 409
+        assert invalid.json()["code"] == "invalid_status_transition"
+        filtered = client.get(f"/api/v1/tickets?status=resolved&priority=urgent&property_id={property_data['id']}&contractor_id={contractor['id']}")
+        assert filtered.status_code == 200
+        assert [item["id"] for item in filtered.json()["items"]] == [ticket["id"]]
+
+        with TestClient(create_app()) as other_client:
+            register_manager(other_client)
+            assert other_client.get(f"/api/v1/tickets?contractor_id={contractor['id']}").json()["total"] == 0
+            cross_history = other_client.get(f"/api/v1/tickets/{ticket['id']}/status-history")
+            assert cross_history.status_code == 404
+            assert cross_history.json()["code"] == "ticket_not_found"
+
+
+def test_ticket_can_be_cancelled_from_each_non_terminal_status() -> None:
+    with TestClient(create_app()) as client:
+        register_manager(client)
+        property_data = create_property(client)
+        for index, current_status in enumerate(("open", "assigned", "in_progress")):
+            ticket = client.post(
+                "/api/v1/tickets",
+                json={"property_id": property_data["id"], "title": f"Ticket {index}", "description": "Needs review."},
+                headers=csrf_headers(client),
+            ).json()
+            if current_status != "open":
+                contractor = client.post(
+                    "/api/v1/contractors",
+                    json={"name": f"Contractor {index}"},
+                    headers=csrf_headers(client),
+                ).json()
+                assert client.post(f"/api/v1/tickets/{ticket['id']}/assignments", json={"contractor_id": contractor["id"]}, headers=csrf_headers(client)).status_code == 201
+            if current_status == "in_progress":
+                assert client.patch(f"/api/v1/tickets/{ticket['id']}/status", json={"status": "in_progress"}, headers=csrf_headers(client)).status_code == 200
+            cancelled = client.patch(f"/api/v1/tickets/{ticket['id']}/status", json={"status": "cancelled"}, headers=csrf_headers(client))
+            assert cancelled.status_code == 200
+            assert cancelled.json()["status"] == "cancelled"

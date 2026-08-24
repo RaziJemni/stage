@@ -6,15 +6,16 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
 from app.api.pagination import PageParams
-from app.core.enums import PropertyStatus, TicketStatus
+from app.core.enums import PropertyStatus, TicketPriority, TicketStatus
 from app.modules.calendar.models import Booking
 from app.modules.messaging.models import Conversation
-from app.modules.maintenance.models import Contractor, Ticket, TicketAssignment, TicketSuggestion
+from app.modules.maintenance.models import Contractor, Ticket, TicketAssignment, TicketStatusHistory, TicketSuggestion
 from app.modules.maintenance.schemas import (
     ContractorCreateRequest,
     ContractorUpdateRequest,
     TicketAssignmentCreateRequest,
     TicketCreateRequest,
+    TicketStatusUpdateRequest,
     TicketSuggestionCreateRequest,
     TicketSuggestionReviewRequest,
 )
@@ -38,12 +39,44 @@ def _validate_links(db: Session, company_id: UUID, payload: TicketCreateRequest)
 def create_ticket(db: Session, *, company_id: UUID, user_id: UUID, payload: TicketCreateRequest, suggested_by_chatbot: bool = False) -> Ticket:
     _validate_links(db, company_id, payload)
     ticket = Ticket(company_id=company_id, created_by_user_id=user_id, suggested_by_chatbot=suggested_by_chatbot, **payload.model_dump())
-    db.add(ticket); db.commit(); db.refresh(ticket)
+    db.add(ticket)
+    db.flush()
+    db.add(TicketStatusHistory(
+        company_id=company_id,
+        ticket_id=ticket.id,
+        from_status=None,
+        to_status=TicketStatus.OPEN,
+        changed_by_user_id=user_id,
+    ))
+    db.commit(); db.refresh(ticket)
     return ticket
 
 
-def list_tickets(db: Session, *, company_id: UUID, params: PageParams) -> tuple[list[Ticket], int]:
+def list_tickets(
+    db: Session,
+    *,
+    company_id: UUID,
+    params: PageParams,
+    property_id: UUID | None = None,
+    priority: TicketPriority | None = None,
+    status: TicketStatus | None = None,
+    contractor_id: UUID | None = None,
+) -> tuple[list[Ticket], int]:
     statement = select(Ticket).where(Ticket.company_id == company_id)
+    if property_id is not None:
+        statement = statement.where(Ticket.property_id == property_id)
+    if priority is not None:
+        statement = statement.where(Ticket.priority == priority)
+    if status is not None:
+        statement = statement.where(Ticket.status == status)
+    if contractor_id is not None:
+        statement = statement.where(
+            select(TicketAssignment.id).where(
+                TicketAssignment.company_id == company_id,
+                TicketAssignment.ticket_id == Ticket.id,
+                TicketAssignment.contractor_id == contractor_id,
+            ).exists()
+        )
     total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
     return list(db.scalars(statement.order_by(Ticket.created_at.desc()).offset(params.offset).limit(params.page_size)).all()), total
 
@@ -185,9 +218,88 @@ def assign_contractor(
     db.add(assignment)
     if ticket.status is TicketStatus.OPEN:
         ticket.status = TicketStatus.ASSIGNED
+        db.add(TicketStatusHistory(
+            company_id=company_id,
+            ticket_id=ticket.id,
+            from_status=TicketStatus.OPEN,
+            to_status=TicketStatus.ASSIGNED,
+            changed_by_user_id=assigned_by_user_id,
+            changed_at=now,
+            note="Contractor assigned.",
+        ))
     db.commit()
     db.refresh(assignment)
     return assignment
+
+
+_ALLOWED_STATUS_TRANSITIONS = {
+    TicketStatus.OPEN: {TicketStatus.ASSIGNED, TicketStatus.CANCELLED},
+    TicketStatus.ASSIGNED: {TicketStatus.IN_PROGRESS, TicketStatus.CANCELLED},
+    TicketStatus.IN_PROGRESS: {TicketStatus.RESOLVED, TicketStatus.CANCELLED},
+    TicketStatus.RESOLVED: set(),
+    TicketStatus.CANCELLED: set(),
+}
+
+
+def update_ticket_status(
+    db: Session,
+    *,
+    company_id: UUID,
+    user_id: UUID,
+    ticket_id: UUID,
+    payload: TicketStatusUpdateRequest,
+) -> Ticket:
+    ticket = _get_ticket(db, company_id=company_id, ticket_id=ticket_id, for_update=True)
+    if payload.status not in _ALLOWED_STATUS_TRANSITIONS[ticket.status]:
+        raise ApiProblem(
+            status=409,
+            title="Invalid ticket status transition",
+            detail=f"A ticket cannot transition from {ticket.status.value} to {payload.status.value}.",
+            code="invalid_status_transition",
+        )
+    now = datetime.now(timezone.utc)
+    previous_status = ticket.status
+    ticket.status = payload.status
+    if payload.status is TicketStatus.RESOLVED:
+        ticket.resolved_at = now
+    if payload.status in {TicketStatus.RESOLVED, TicketStatus.CANCELLED}:
+        active_assignment = db.scalar(
+            select(TicketAssignment)
+            .where(
+                TicketAssignment.company_id == company_id,
+                TicketAssignment.ticket_id == ticket.id,
+                TicketAssignment.ended_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if active_assignment is not None:
+            active_assignment.ended_at = now
+    db.add(TicketStatusHistory(
+        company_id=company_id,
+        ticket_id=ticket.id,
+        from_status=previous_status,
+        to_status=payload.status,
+        changed_by_user_id=user_id,
+        changed_at=now,
+        note=payload.note,
+    ))
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
+def list_ticket_status_history(
+    db: Session, *, company_id: UUID, ticket_id: UUID
+) -> list[TicketStatusHistory]:
+    _get_ticket(db, company_id=company_id, ticket_id=ticket_id)
+    return list(db.scalars(
+        select(TicketStatusHistory)
+        .where(
+            TicketStatusHistory.company_id == company_id,
+            TicketStatusHistory.ticket_id == ticket_id,
+        )
+        .order_by(TicketStatusHistory.changed_at.asc())
+    ))
 
 
 def _get_ticket(
