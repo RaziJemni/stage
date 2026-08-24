@@ -5,7 +5,7 @@ import {
   INITIAL_TICKETS
 } from './data/mockData';
 import type { Property, Booking, Ticket } from './data/mockData';
-import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketSuggestions, rejectTicketSuggestion, updateContractor, type ApiContractor, type ApiTicket, type ApiTicketSuggestion, type TicketPriority } from './api/maintenance';
+import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -75,6 +75,8 @@ function WorkspaceApp() {
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
   const [contractors, setContractors] = useState<ApiContractor[]>([]);
+  const [ticketFilters, setTicketFilters] = useState<TicketFilters>({});
+  const [ticketStatusHistories, setTicketStatusHistories] = useState<Record<string, ApiTicketStatusHistory[]>>({});
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -102,7 +104,7 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
-  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage, contractorPage] = await Promise.all([fetchTickets(), fetchTicketSuggestions(), fetchContractors(true)]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); setContractors(contractorPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, []);
+  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage, contractorPage] = await Promise.all([fetchTickets(ticketFilters), fetchTicketSuggestions(), fetchContractors(true)]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); setContractors(contractorPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, [ticketFilters]);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
 
 
@@ -246,6 +248,8 @@ function WorkspaceApp() {
   const handleUpdateContractor = async (contractorId: string, input: { name: string; phone?: string; specialty?: string; notes?: string }) => { const contractor = await updateContractor(contractorId, input); setContractors((current) => current.map((item) => item.id === contractor.id ? contractor : item)); };
   const handleDeactivateContractor = async (contractorId: string) => { const contractor = await updateContractor(contractorId, { is_active: false }); setContractors((current) => current.map((item) => item.id === contractor.id ? contractor : item)); };
   const handleAssignContractor = async (ticketId: string, contractorId: string) => { await assignContractor(ticketId, contractorId); await loadTickets(); };
+  const handleUpdateTicketStatus = async (ticketId: string, status: TicketStatus, note?: string) => { await updateTicketStatus(ticketId, status, note); const history = await fetchTicketStatusHistory(ticketId); setTicketStatusHistories((current) => ({ ...current, [ticketId]: history })); await loadTickets(); };
+  const handleLoadTicketStatusHistory = async (ticketId: string) => { const history = await fetchTicketStatusHistory(ticketId); setTicketStatusHistories((current) => ({ ...current, [ticketId]: history })); };
 
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
@@ -350,6 +354,9 @@ function WorkspaceApp() {
             contractors={contractors} onCreateContractor={handleCreateContractor}
             onUpdateContractor={handleUpdateContractor}
             onDeactivateContractor={handleDeactivateContractor} onAssignContractor={handleAssignContractor}
+            filters={ticketFilters} onFiltersChange={setTicketFilters}
+            statusHistories={ticketStatusHistories} onLoadStatusHistory={handleLoadTicketStatusHistory}
+            onUpdateStatus={handleUpdateTicketStatus}
           />
         )}
 

@@ -95,7 +95,7 @@
 | OPEN-004 | Exact booking date/time and timezone semantics | Calendar/database review |
 | OPEN-005 | iCalendar missing-event cancellation policy | Calendar integration testing |
 | OPEN-006 | Conversation identity and reopening rules | Messaging/database review |
-| OPEN-007 | Final ticket lifecycle and transition matrix | Maintenance workflow review |
+| OPEN-007 | Resolved by Decision 0009: forward-only ticket lifecycle and terminal assignment closure | Closed 2026-08-24 |
 | OPEN-008 | AI provider and model | Decision 0008 selects the adapter approach; production model enablement remains subject to evaluation results |
 | OPEN-009 | Hosting platform and production topology | Deployment review |
 | OPEN-010 | Institution-specific report template and citation style | Supervisor confirmation |

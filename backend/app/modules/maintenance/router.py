@@ -8,6 +8,7 @@ from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.maintenance import service
+from app.core.enums import TicketPriority, TicketStatus
 from app.modules.maintenance.schemas import (
     ContractorCreateRequest,
     ContractorResponse,
@@ -16,6 +17,8 @@ from app.modules.maintenance.schemas import (
     TicketAssignmentResponse,
     TicketCreateRequest,
     TicketResponse,
+    TicketStatusHistoryResponse,
+    TicketStatusUpdateRequest,
     TicketSuggestionResponse,
     TicketSuggestionReviewRequest,
 )
@@ -65,8 +68,24 @@ def update_contractor(
 
 
 @router.get("", response_model=Page[TicketResponse])
-def list_tickets(context: CurrentContext, db: Annotated[Session, Depends(get_db)], page_params: Annotated[PageParams, Depends(get_page_params)]) -> Page[TicketResponse]:
-    items, total = service.list_tickets(db, company_id=context.company.id, params=page_params)
+def list_tickets(
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    page_params: Annotated[PageParams, Depends(get_page_params)],
+    property_id: UUID | None = None,
+    priority: TicketPriority | None = None,
+    status: TicketStatus | None = None,
+    contractor_id: UUID | None = None,
+) -> Page[TicketResponse]:
+    items, total = service.list_tickets(
+        db,
+        company_id=context.company.id,
+        params=page_params,
+        property_id=property_id,
+        priority=priority,
+        status=status,
+        contractor_id=contractor_id,
+    )
     return Page.create(items=items, params=page_params, total=total)
 
 
@@ -115,4 +134,31 @@ def assign_contractor(
         ticket_id=ticket_id,
         assigned_by_user_id=context.user.id,
         payload=payload,
+    )
+
+
+@router.patch("/{ticket_id}/status", response_model=TicketResponse)
+def update_ticket_status(
+    ticket_id: UUID,
+    context: CsrfContext,
+    payload: TicketStatusUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> TicketResponse:
+    return service.update_ticket_status(
+        db,
+        company_id=context.company.id,
+        user_id=context.user.id,
+        ticket_id=ticket_id,
+        payload=payload,
+    )
+
+
+@router.get("/{ticket_id}/status-history", response_model=list[TicketStatusHistoryResponse])
+def list_ticket_status_history(
+    ticket_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> list[TicketStatusHistoryResponse]:
+    return service.list_ticket_status_history(
+        db, company_id=context.company.id, ticket_id=ticket_id
     )
