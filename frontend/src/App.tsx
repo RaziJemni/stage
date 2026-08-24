@@ -5,7 +5,7 @@ import {
   INITIAL_TICKETS
 } from './data/mockData';
 import type { Property, Booking, Ticket } from './data/mockData';
-import { confirmTicketSuggestion, createTicket, fetchTickets, fetchTicketSuggestions, rejectTicketSuggestion, type ApiTicket, type ApiTicketSuggestion, type TicketPriority } from './api/maintenance';
+import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketSuggestions, rejectTicketSuggestion, updateContractor, type ApiContractor, type ApiTicket, type ApiTicketSuggestion, type TicketPriority } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -74,6 +74,7 @@ function WorkspaceApp() {
   const [ticketSuggestions, setTicketSuggestions] = useState<ApiTicketSuggestion[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
+  const [contractors, setContractors] = useState<ApiContractor[]>([]);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -101,7 +102,7 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
-  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage] = await Promise.all([fetchTickets(), fetchTicketSuggestions()]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, []);
+  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage, contractorPage] = await Promise.all([fetchTickets(), fetchTicketSuggestions(), fetchContractors(true)]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); setContractors(contractorPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, []);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
 
 
@@ -241,6 +242,10 @@ function WorkspaceApp() {
   const handleCreateTicket = async (input: { property_id: string; title: string; description: string; priority: TicketPriority }) => { const ticket = await createTicket(input); setPersistentTickets((current) => [ticket, ...current]); };
   const handleConfirmSuggestion = async (suggestion: ApiTicketSuggestion) => { await confirmTicketSuggestion(suggestion); await loadTickets(); };
   const handleRejectSuggestion = async (suggestionId: string) => { await rejectTicketSuggestion(suggestionId); setTicketSuggestions((current) => current.filter((suggestion) => suggestion.id !== suggestionId)); };
+  const handleCreateContractor = async (input: { name: string; phone?: string; specialty?: string; notes?: string }) => { const contractor = await createContractor(input); setContractors((current) => [...current, contractor].sort((left, right) => left.name.localeCompare(right.name))); };
+  const handleUpdateContractor = async (contractorId: string, input: { name: string; phone?: string; specialty?: string; notes?: string }) => { const contractor = await updateContractor(contractorId, input); setContractors((current) => current.map((item) => item.id === contractor.id ? contractor : item)); };
+  const handleDeactivateContractor = async (contractorId: string) => { const contractor = await updateContractor(contractorId, { is_active: false }); setContractors((current) => current.map((item) => item.id === contractor.id ? contractor : item)); };
+  const handleAssignContractor = async (ticketId: string, contractorId: string) => { await assignContractor(ticketId, contractorId); await loadTickets(); };
 
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
@@ -342,6 +347,9 @@ function WorkspaceApp() {
             tickets={persistentTickets} suggestions={ticketSuggestions} properties={properties}
             loading={loadingTickets} error={ticketsError} onRetry={() => void loadTickets()}
             onCreate={handleCreateTicket} onConfirm={handleConfirmSuggestion} onReject={handleRejectSuggestion}
+            contractors={contractors} onCreateContractor={handleCreateContractor}
+            onUpdateContractor={handleUpdateContractor}
+            onDeactivateContractor={handleDeactivateContractor} onAssignContractor={handleAssignContractor}
           />
         )}
 

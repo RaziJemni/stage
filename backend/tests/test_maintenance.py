@@ -86,3 +86,78 @@ def test_ticket_suggestion_requires_staff_confirmation_before_ticket_creation() 
         assert confirmed.status_code == 200, confirmed.text
         assert confirmed.json()["status"] == "confirmed"
         assert client.get("/api/v1/tickets").json()["items"][0]["suggested_by_chatbot"] is True
+
+
+def test_contractor_contacts_assignment_reassignment_and_tenant_isolation() -> None:
+    with TestClient(create_app()) as client:
+        register_manager(client)
+        property_data = create_property(client)
+        ticket = client.post(
+            "/api/v1/tickets",
+            json={"property_id": property_data["id"], "title": "Leaking sink", "description": "Water is leaking.", "priority": "high"},
+            headers=csrf_headers(client),
+        ).json()
+        first = client.post(
+            "/api/v1/contractors",
+            json={"name": "Amine Plumbing", "phone": "+21620111222", "specialty": "plumbing"},
+            headers=csrf_headers(client),
+        )
+        assert first.status_code == 201, first.text
+        second = client.post(
+            "/api/v1/contractors",
+            json={"name": "Noura Repairs", "specialty": "general"},
+            headers=csrf_headers(client),
+        )
+        assert second.status_code == 201
+        assert client.get("/api/v1/contractors").json()["total"] == 2
+
+        assigned = client.post(
+            f"/api/v1/tickets/{ticket['id']}/assignments",
+            json={"contractor_id": first.json()["id"], "notes": "Call before arrival."},
+            headers=csrf_headers(client),
+        )
+        assert assigned.status_code == 201, assigned.text
+        assert client.get("/api/v1/tickets").json()["items"][0]["status"] == "assigned"
+        reassigned = client.post(
+            f"/api/v1/tickets/{ticket['id']}/assignments",
+            json={"contractor_id": second.json()["id"]},
+            headers=csrf_headers(client),
+        )
+        assert reassigned.status_code == 201, reassigned.text
+        history = client.get(f"/api/v1/tickets/{ticket['id']}/assignments")
+        assert history.status_code == 200
+        assert len(history.json()) == 2
+        assert history.json()[0]["contractor_id"] == second.json()["id"]
+        assert history.json()[0]["ended_at"] is None
+        assert history.json()[1]["contractor_id"] == first.json()["id"]
+        assert history.json()[1]["ended_at"] is not None
+
+        deactivated = client.patch(
+            f"/api/v1/contractors/{second.json()['id']}",
+            json={"is_active": False},
+            headers=csrf_headers(client),
+        )
+        assert deactivated.status_code == 200
+        assert client.get("/api/v1/contractors").json()["total"] == 1
+        assert client.get("/api/v1/contractors?include_inactive=true").json()["total"] == 2
+        inactive = client.post(
+            f"/api/v1/tickets/{ticket['id']}/assignments",
+            json={"contractor_id": second.json()["id"]},
+            headers=csrf_headers(client),
+        )
+        assert inactive.status_code == 409
+        assert inactive.json()["code"] == "contractor_inactive"
+
+        with TestClient(create_app()) as other_client:
+            register_manager(other_client)
+            assert other_client.get("/api/v1/contractors").json()["total"] == 0
+            cross_contractor = other_client.patch(
+                f"/api/v1/contractors/{first.json()['id']}",
+                json={"is_active": False},
+                headers=csrf_headers(other_client),
+            )
+            assert cross_contractor.status_code == 404
+            assert cross_contractor.json()["code"] == "contractor_not_found"
+            cross_ticket = other_client.get(f"/api/v1/tickets/{ticket['id']}/assignments")
+            assert cross_ticket.status_code == 404
+            assert cross_ticket.json()["code"] == "ticket_not_found"
