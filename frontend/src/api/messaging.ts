@@ -37,13 +37,23 @@ interface ApiPage<T> {
 }
 
 export async function fetchConversations(
-  filters: { unread?: boolean; handling_mode?: HandlingMode; page_size?: number } = {},
+  filters: { unread?: boolean; handling_mode?: HandlingMode; page?: number; page_size?: number } = {},
 ): Promise<ApiPage<ApiConversation>> {
   const params = new URLSearchParams();
   if (filters.unread) params.set('unread', 'true');
   if (filters.handling_mode) params.set('handling_mode', filters.handling_mode);
+  if (filters.page) params.set('page', String(filters.page));
   if (filters.page_size) params.set('page_size', String(filters.page_size));
   return apiRequest<ApiPage<ApiConversation>>(`/api/v1/conversations${params.size ? `?${params}` : ''}`);
+}
+
+export async function fetchAllConversations(
+  filters: { unread?: boolean; handling_mode?: HandlingMode } = {},
+): Promise<ApiConversation[]> {
+  const first = await fetchConversations({ ...filters, page: 1, page_size: 100 });
+  if (first.pages <= 1) return first.items;
+  const remaining = await Promise.all(Array.from({ length: first.pages - 1 }, (_, index) => fetchConversations({ ...filters, page: index + 2, page_size: 100 })));
+  return [first.items, ...remaining.map((page) => page.items)].flat();
 }
 
 export async function fetchUnreadConversationCount(): Promise<number> {
