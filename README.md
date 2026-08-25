@@ -13,6 +13,7 @@ The repository currently provides:
 - manager and staff registration, login, sessions, invitations, roles, and protected pages;
 - an interactive frontend for the planned operational modules;
 - automated backend, database, and frontend tests;
+- a repeatable cross-module MVP validation scenario and synthetic-data demonstration runbook;
 - CI verification that a clean checkout can build the full Docker stack, keep all services running, and reach the documented health, OpenAPI, and frontend URLs;
 - architecture, design-system, academic, and workflow documentation.
 
