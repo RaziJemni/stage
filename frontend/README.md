@@ -4,7 +4,7 @@ React/TypeScript frontend for the Vayca operations platform.
 
 ## Current State
 
-The current screens are an interactive prototype backed by `src/data/mockData.ts`. They demonstrate approved navigation and workflows but do not prove authentication, persistence, calendar synchronization, WhatsApp, or chatbot integration.
+The authenticated workspace contains API-connected Properties, Calendar, Messages, Maintenance, Dashboard, and Settings workflows. Their exact persistent behavior and integration boundaries are recorded in the repository root `README.md` under **Current State**. Local WhatsApp use remains simulator-only: queued chatbot or staff messages are persisted but are not proof of external delivery.
 
 Every simulated or unconfigured integration must be labelled truthfully.
 
