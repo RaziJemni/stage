@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import {
-  INITIAL_BOOKINGS, 
-  INITIAL_TICKETS
+  INITIAL_BOOKINGS
 } from './data/mockData';
-import type { Property, Booking, Ticket } from './data/mockData';
+import type { Property, Booking } from './data/mockData';
 import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
@@ -69,7 +68,6 @@ function WorkspaceApp() {
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [markReadError, setMarkReadError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [tickets] = useState<Ticket[]>(INITIAL_TICKETS);
   const [persistentTickets, setPersistentTickets] = useState<ApiTicket[]>([]);
   const [ticketSuggestions, setTicketSuggestions] = useState<ApiTicketSuggestion[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -276,8 +274,7 @@ function WorkspaceApp() {
         {activePage === 'dashboard' && (
           <DashboardPage
             properties={properties}
-            bookings={bookings}
-            tickets={tickets}
+            companyTimezone={identity!.company.timezone}
             onNavigate={setActivePage}
           />
         )}
