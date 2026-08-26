@@ -4,7 +4,7 @@ import {
   INITIAL_BOOKINGS
 } from './data/mockData';
 import type { Property, Booking } from './data/mockData';
-import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
+import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -248,6 +248,9 @@ function WorkspaceApp() {
   const handleAssignContractor = async (ticketId: string, contractorId: string) => { await assignContractor(ticketId, contractorId); await loadTickets(); };
   const handleUpdateTicketStatus = async (ticketId: string, status: TicketStatus, note?: string) => { await updateTicketStatus(ticketId, status, note); const history = await fetchTicketStatusHistory(ticketId); setTicketStatusHistories((current) => ({ ...current, [ticketId]: history })); await loadTickets(); };
   const handleLoadTicketStatusHistory = async (ticketId: string) => { const history = await fetchTicketStatusHistory(ticketId); setTicketStatusHistories((current) => ({ ...current, [ticketId]: history })); };
+  const handleSendTicketGuestUpdate = async (ticketId: string, content: string) => {
+    await sendTicketGuestUpdate(ticketId, content);
+  };
 
   // Selected Property Object
   const selectedProperty = properties.find(p => p.id === selectedPropertyId) || properties[0];
@@ -354,6 +357,7 @@ function WorkspaceApp() {
             filters={ticketFilters} onFiltersChange={setTicketFilters}
             statusHistories={ticketStatusHistories} onLoadStatusHistory={handleLoadTicketStatusHistory}
             onUpdateStatus={handleUpdateTicketStatus}
+            onSendGuestUpdate={handleSendTicketGuestUpdate}
           />
         )}
 

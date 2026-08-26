@@ -253,3 +253,111 @@ def test_ticket_can_be_cancelled_from_each_non_terminal_status() -> None:
             cancelled = client.patch(f"/api/v1/tickets/{ticket['id']}/status", json={"status": "cancelled"}, headers=csrf_headers(client))
             assert cancelled.status_code == 200
             assert cancelled.json()["status"] == "cancelled"
+
+
+def test_ticket_guest_update_is_reviewed_persisted_and_isolated() -> None:
+    with TestClient(create_app()) as client:
+        manager = register_manager(client)
+        property_data = create_property(client)
+
+        from uuid import UUID
+        from app.modules.messaging import service as messaging_service
+        from app.core.enums import ConversationStatus
+
+        with SessionLocal() as db:
+            result = messaging_service.record_inbound_message(
+                db,
+                company_id=UUID(manager["company"]["id"]),
+                property_id=UUID(property_data["id"]),
+                guest_contact_identifier="+21699887766",
+                content="The AC is making a strange noise.",
+                external_message_id="ticket-conv-001",
+                language="en",
+            )
+            conversation_id = str(result.message.conversation_id)
+
+        ticket_with_conv = client.post(
+            "/api/v1/tickets",
+            json={
+                "property_id": property_data["id"],
+                "conversation_id": conversation_id,
+                "title": "AC Strange Noise",
+                "description": "Guest reported strange noise from the AC unit.",
+                "priority": "high",
+            },
+            headers=csrf_headers(client),
+        ).json()
+
+        ticket_without_conv = client.post(
+            "/api/v1/tickets",
+            json={
+                "property_id": property_data["id"],
+                "title": "Clean pool filters",
+                "description": "Routine pool filter cleaning.",
+                "priority": "low",
+            },
+            headers=csrf_headers(client),
+        ).json()
+
+        # Send guest update
+        update_payload = {"content": "Update: A technician has been scheduled to inspect the AC unit."}
+        response = client.post(
+            f"/api/v1/tickets/{ticket_with_conv['id']}/guest-update",
+            json=update_payload,
+            headers=csrf_headers(client),
+        )
+        assert response.status_code == 201, response.text
+        data = response.json()
+        assert data["conversation_id"] == conversation_id
+        assert data["content"] == update_payload["content"]
+        assert data["delivery_status"] == "queued"
+
+        # Verify message in conversation messages
+        messages = client.get(f"/api/v1/conversations/{conversation_id}/messages").json()
+        assert len(messages) == 2
+        staff_message = messages[-1]
+        assert staff_message["content"] == update_payload["content"]
+        assert staff_message["sender_type"] == "staff"
+        assert staff_message["direction"] == "outbound"
+        assert staff_message["delivery_status"] == "queued"
+
+        # Verify conversation handling mode is manual
+        conversations = client.get("/api/v1/conversations").json()
+        conv_item = next(c for c in conversations["items"] if c["id"] == conversation_id)
+        assert conv_item["handling_mode"] == "manual"
+
+        # Test ticket without conversation returns 409
+        no_conv_res = client.post(
+            f"/api/v1/tickets/{ticket_without_conv['id']}/guest-update",
+            json={"content": "Hello guest"},
+            headers=csrf_headers(client),
+        )
+        assert no_conv_res.status_code == 409
+        assert no_conv_res.json()["code"] == "ticket_has_no_conversation"
+
+        # Test closed conversation returns 409
+        with SessionLocal() as db:
+            from app.modules.messaging.models import Conversation
+            conv_obj = db.scalar(sa.select(Conversation).where(Conversation.id == UUID(conversation_id)))
+            assert conv_obj is not None
+            conv_obj.status = ConversationStatus.CLOSED
+            db.commit()
+
+        closed_res = client.post(
+            f"/api/v1/tickets/{ticket_with_conv['id']}/guest-update",
+            json={"content": "Another update"},
+            headers=csrf_headers(client),
+        )
+        assert closed_res.status_code == 409
+        assert closed_res.json()["code"] == "conversation_closed"
+
+        # Test tenant isolation with another company
+        with TestClient(create_app()) as other_client:
+            register_manager(other_client)
+            cross_res = other_client.post(
+                f"/api/v1/tickets/{ticket_with_conv['id']}/guest-update",
+                json={"content": "Unauthorized update attempt"},
+                headers=csrf_headers(other_client),
+            )
+            assert cross_res.status_code == 404
+            assert cross_res.json()["code"] == "ticket_not_found"
