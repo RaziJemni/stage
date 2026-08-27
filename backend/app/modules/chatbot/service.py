@@ -115,7 +115,20 @@ def _grounded_fact(
     if property_obj is None:
         return None
     normalized = content.casefold()
-    if any(term in normalized for term in ("availability", "available", "disponib", "متاح", "شاغر")):
+    if any(
+        term in normalized
+        for term in (
+            "availability",
+            "available",
+            "disponib",
+            "متاح",
+            "شاغر",
+            "verfügbar",
+            "verfügbarkeit",
+            "disponibile",
+            "disponibilità",
+        )
+    ):
         dates = _DATE_PATTERN.findall(content)
         if len(dates) != 2:
             return None
@@ -137,13 +150,13 @@ def _grounded_fact(
             value="available" if available else "unavailable",
         )
     fields: tuple[tuple[tuple[str, ...], str, object | None], ...] = (
-        (("wifi", "wi-fi", "internet", "واي فاي"), "Wi-Fi", property_obj.wifi_password),
-        (("check-in", "check in", "arrival", "arrivée", "وصول"), "Check-in", property_obj.check_in_time),
-        (("check-out", "check out", "departure", "départ", "مغادرة"), "Check-out", property_obj.check_out_time),
-        (("parking", "stationnement", "موقف"), "Parking", property_obj.parking_info),
-        (("directions", "direction", "itinéraire", "عنوان"), "Directions", property_obj.directions),
-        (("rules", "règles", "house rule", "قواعد"), "House rules", property_obj.house_rules),
-        (("amenities", "equipment", "équipement", "مرافق"), "Amenities", property_obj.amenities),
+        (("wifi", "wi-fi", "internet", "واي فاي", "wlan"), "Wi-Fi", property_obj.wifi_password),
+        (("check-in", "check in", "arrival", "arrivée", "وصول", "anreise", "arrivo"), "Check-in", property_obj.check_in_time),
+        (("check-out", "check out", "departure", "départ", "مغادرة", "abreise", "partenza"), "Check-out", property_obj.check_out_time),
+        (("parking", "stationnement", "موقف", "parkplatz", "parcheggio"), "Parking", property_obj.parking_info),
+        (("directions", "direction", "itinéraire", "عنوان", "wegbeschreibung", "indicazioni"), "Directions", property_obj.directions),
+        (("rules", "règles", "house rule", "قواعد", "hausregeln", "regole"), "House rules", property_obj.house_rules),
+        (("amenities", "equipment", "équipement", "مرافق", "ausstattung", "servizi"), "Amenities", property_obj.amenities),
     )
     for terms, label, value in fields:
         if any(term in normalized for term in terms) and value:
@@ -158,11 +171,15 @@ def _format_fact(value: object) -> str:
 
 
 def _supported_language(declared_language: str | None, content: str) -> str:
-    if declared_language in {"en", "fr", "ar"}:
+    if declared_language in {"en", "fr", "ar", "it", "de"}:
         return declared_language
     normalized = content.casefold()
     if _ARABIC_PATTERN.search(content) or any(term in normalized for term in ("chnowa", "win", "nheb")):
         return "ar"
+    if any(term in normalized for term in ("guten tag", "hallo", "danke", "verfügbar", "anreise", "abreise", "wlan", "parkplatz")):
+        return "de"
+    if any(term in normalized for term in ("buongiorno", "ciao", "grazie", "disponibile", "parcheggio", "partenza", "arrivo")):
+        return "it"
     if any(term in normalized for term in ("bonjour", "merci", "disponib", "arrivée", "règles")):
         return "fr"
     return "en"
