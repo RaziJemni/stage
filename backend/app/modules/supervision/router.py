@@ -1,11 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.modules.identity.dependencies import ManagerContext
-from app.modules.supervision.schemas import WhatsAppIntegrationHealthResponse
+from app.core.database import get_db
+from app.modules.identity.dependencies import CurrentContext, ManagerContext
+from app.modules.supervision.schemas import (
+    PortfolioAnalyticsResponse,
+    WhatsAppIntegrationHealthResponse,
+)
+from app.modules.supervision.service import get_portfolio_analytics
 
 
 router = APIRouter(prefix="/integrations", tags=["Supervision"])
+analytics_router = APIRouter(prefix="/supervision", tags=["Supervision"])
 
 
 def _whatsapp_health() -> WhatsAppIntegrationHealthResponse:
@@ -38,3 +45,20 @@ def whatsapp_health_endpoint(
     _: ManagerContext,
 ) -> WhatsAppIntegrationHealthResponse:
     return _whatsapp_health()
+
+
+@analytics_router.get(
+    "/analytics",
+    response_model=PortfolioAnalyticsResponse,
+    summary="Return operational portfolio analytics and occupancy insights",
+)
+def portfolio_analytics_endpoint(
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+    window_days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+) -> PortfolioAnalyticsResponse:
+    return get_portfolio_analytics(
+        db,
+        company_id=context.company.id,
+        window_days=window_days,
+    )
