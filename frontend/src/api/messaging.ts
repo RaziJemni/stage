@@ -25,6 +25,7 @@ export interface ApiMessage {
   content: string;
   delivery_status: DeliveryStatus;
   automatically_sent: boolean;
+  external_message_id?: string | null;
   created_at: string;
 }
 
