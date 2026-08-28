@@ -246,6 +246,16 @@ def test_mvp_operational_flow_is_persistent_tenant_scoped_and_recoverable(
         headers=csrf_headers(client),
     )
     assert assignment.status_code == 201, assignment.text
+
+    guest_update = client.post(
+        f"/api/v1/tickets/{ticket.json()['id']}/guest-update",
+        json={"content": "Update: A plumber has been assigned to inspect the synthetic issue."},
+        headers=csrf_headers(client),
+    )
+    assert guest_update.status_code == 201, guest_update.text
+    assert guest_update.json()["delivery_status"] == "queued"
+    assert guest_update.json()["conversation_id"] == risky_inbound["conversation_id"]
+
     for status, note in (
         ("in_progress", "Synthetic contractor started work."),
         ("resolved", "Synthetic repair verified."),
@@ -274,6 +284,14 @@ def test_mvp_operational_flow_is_persistent_tenant_scoped_and_recoverable(
         assert other_company_client.get(
             f"/api/v1/tickets/{ticket.json()['id']}/status-history"
         ).status_code == 404
+        assert (
+            other_company_client.post(
+                f"/api/v1/tickets/{ticket.json()['id']}/guest-update",
+                json={"content": "Cross-company update attempt"},
+                headers=csrf_headers(other_company_client),
+            ).status_code
+            == 404
+        )
         assert other_company_client.get("/api/v1/booking-conflicts").json()["total"] == 0
         assert other_company_client.get("/api/v1/conversations?handling_mode=manual").json()["total"] == 0
         assert other_company_client.get("/api/v1/tickets?priority=urgent").json()["total"] == 0
