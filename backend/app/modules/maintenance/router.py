@@ -21,6 +21,8 @@ from app.modules.maintenance.schemas import (
     TicketStatusUpdateRequest,
     TicketSuggestionResponse,
     TicketSuggestionReviewRequest,
+    TicketGuestUpdateRequest,
+    TicketGuestUpdateResponse,
 )
 
 router = APIRouter(prefix="/tickets", tags=["Maintenance"])
@@ -161,4 +163,27 @@ def list_ticket_status_history(
 ) -> list[TicketStatusHistoryResponse]:
     return service.list_ticket_status_history(
         db, company_id=context.company.id, ticket_id=ticket_id
+    )
+
+
+@router.post("/{ticket_id}/guest-update", response_model=TicketGuestUpdateResponse, status_code=status.HTTP_201_CREATED)
+def send_ticket_guest_update(
+    ticket_id: UUID,
+    context: CsrfContext,
+    payload: TicketGuestUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> TicketGuestUpdateResponse:
+    message = service.send_guest_update(
+        db,
+        company_id=context.company.id,
+        user_id=context.user.id,
+        ticket_id=ticket_id,
+        payload=payload,
+    )
+    return TicketGuestUpdateResponse(
+        id=message.id,
+        conversation_id=message.conversation_id,
+        content=message.content,
+        delivery_status=message.delivery_status.value if hasattr(message.delivery_status, "value") else str(message.delivery_status),
+        created_at=message.created_at,
     )

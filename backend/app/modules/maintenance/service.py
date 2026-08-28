@@ -18,6 +18,7 @@ from app.modules.maintenance.schemas import (
     TicketStatusUpdateRequest,
     TicketSuggestionCreateRequest,
     TicketSuggestionReviewRequest,
+    TicketGuestUpdateRequest,
 )
 from app.modules.properties.models import Property
 
@@ -349,3 +350,43 @@ def review_ticket_suggestion(db: Session, *, company_id: UUID, user_id: UUID, su
     db.commit()
     db.refresh(suggestion)
     return suggestion
+
+
+def send_guest_update(
+    db: Session,
+    *,
+    company_id: UUID,
+    user_id: UUID,
+    ticket_id: UUID,
+    payload: TicketGuestUpdateRequest,
+):
+    ticket = _get_ticket(db, company_id=company_id, ticket_id=ticket_id)
+    if ticket.conversation_id is None:
+        raise ApiProblem(
+            status=409,
+            title="Ticket has no linked conversation",
+            detail="This ticket is not linked to any guest conversation.",
+            code="ticket_has_no_conversation",
+        )
+    conversation = db.scalar(
+        select(Conversation).where(
+            Conversation.company_id == company_id,
+            Conversation.id == ticket.conversation_id,
+        )
+    )
+    if conversation is None:
+        raise ApiProblem(
+            status=404,
+            title="Conversation not found",
+            detail="The conversation linked to this ticket does not exist or does not belong to your company.",
+            code="conversation_not_found",
+        )
+    from app.modules.messaging import service as messaging_service
+
+    return messaging_service.create_message(
+        db,
+        conversation=conversation,
+        company_id=company_id,
+        sender_user_id=user_id,
+        content=payload.content,
+    )

@@ -127,3 +127,17 @@ class TicketSuggestionResponse(BaseModel):
     reviewed_at: datetime | None
     ticket_id: UUID | None
     created_at: datetime
+
+
+class TicketGuestUpdateRequest(StrictRequest):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class TicketGuestUpdateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    conversation_id: UUID
+    content: str
+    delivery_status: str
+    created_at: datetime
