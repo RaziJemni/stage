@@ -13,7 +13,7 @@ The repository currently provides:
 - manager and staff registration, login, sessions, invitations, roles, and protected pages;
 - an interactive frontend for the planned operational modules;
 - automated backend, database, and frontend tests;
-- a repeatable cross-module MVP validation scenario and synthetic-data demonstration runbook;
+- a repeatable cross-module MVP validation scenario and [synthetic-data demonstration runbook](docs/validation/issue-33-mvp-validation.md);
 - CI verification that a clean checkout can build the full Docker stack, keep all services running, and reach the documented health, OpenAPI, and frontend URLs;
 - architecture, design-system, academic, and workflow documentation.
 
@@ -104,6 +104,12 @@ Backend, API, PostgreSQL migration, and Redis tests:
 docker compose --profile test run --rm --build backend_test
 docker compose --profile test stop db_test redis_test
 docker compose --profile test rm -f db_test redis_test
+```
+
+Repeatable cross-module MVP validation scenario:
+
+```bash
+docker compose --profile test run --rm backend_test pytest tests/test_mvp_validation.py
 ```
 
 Frontend tests, lint, and production build:
