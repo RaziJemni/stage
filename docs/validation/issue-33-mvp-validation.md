@@ -13,7 +13,7 @@
 3. Submit the same signed simulator event twice and verify that exactly one inbound message is stored.
 4. Process a safe Wi-Fi question through the deterministic chatbot provider and verify a grounded, queued—not delivered—reply.
 5. Submit a refund request, verify mandatory manual escalation and shared unread state, mark it read, and queue a staff reply.
-6. Create a linked urgent ticket, assign a contractor contact, transition it through the approved lifecycle, and verify immutable history.
+6. Create a linked urgent ticket, assign a contractor contact, send a reviewed guest status update, transition it through the approved lifecycle, and verify immutable history.
 7. Register a second company and verify cross-company property, conversation, ticket, conflict, and filtered-list requests expose no first-company data.
 
 The normal frontend suite covers API-connected loading, empty, failure, filter, navigation, status-text, and mobile-navigation component states. The production build and stack smoke workflow verify the browser application can be built and served by the Docker stack.
@@ -40,15 +40,15 @@ For mobile review, use browser responsive emulation at **360px**, **390px**, and
 
 | Check | Evidence | Result |
 |---|---|---|
-| Clean database migrations | Backend test profile upgrades Alembic from base before the suite | Passed on 2026-08-26 |
-| Cross-module operational scenario | `test_mvp_operational_flow_is_persistent_tenant_scoped_and_recoverable` | Passed on 2026-08-26 |
+| Clean database migrations | Backend test profile upgrades Alembic from base before the suite | Passed on 2026-08-28 |
+| Cross-module operational scenario | `test_mvp_operational_flow_is_persistent_tenant_scoped_and_recoverable` | Passed on 2026-08-28 |
 | Tenant isolation and authorization | Cross-company assertions in the scenario and module tests | Automated in `backend_test` |
 | External-event idempotency | Signed simulator event is submitted twice | Automated in `backend_test` |
 | Chatbot provider fallback | Existing grounded-chatbot failure test changes the conversation to manual handling | Automated in `backend_test` |
-| Backend regression suite | `docker compose --profile test run --rm backend_test` | 69 passed on 2026-08-26 |
-| Frontend operational states | Component tests for connected pages, including loading, empty, and retryable failures | 46 passed on 2026-08-26 |
-| Frontend static checks | `npm run lint` and `npm run build` in Docker | Passed on 2026-08-26 |
-| Docker service health and public URLs | Local `docker compose ps`, `/health`, `/health/live`, `/api/v1/openapi.json`, and frontend root | Passed on 2026-08-26 |
+| Backend regression suite | `docker compose --profile test run --rm backend_test` | 70 passed on 2026-08-28 |
+| Frontend operational states | Component tests for connected pages, including loading, empty, and retryable failures | 47 passed on 2026-08-28 |
+| Frontend static checks | `npm run lint` and `npm run build` in Docker | Passed on 2026-08-28 |
+| Docker service health and public URLs | Local `docker compose ps`, `/health`, `/health/live`, `/api/v1/openapi.json`, and frontend root | Passed on 2026-08-28 |
 | Mobile widths and screenshots | Manual responsive-browser checklist above | Requires recorded browser evidence |
 
 ## Known limitations and unresolved deployment choices
