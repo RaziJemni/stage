@@ -39,6 +39,7 @@ The intended PDF assembly order is:
 15. `15_risks_and_constraints.md`
 16. `16_traceability_matrix.md`
 17. `17_references_glossary_and_decisions.md`
+18. `18_ui_ux_prototype_and_interaction_specification.md`
 
 ## Writing Rules
 

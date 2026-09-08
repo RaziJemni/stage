@@ -1,6 +1,6 @@
 # Testing and Validation Strategy
 
-**Status:** Proposed baseline
+**Status:** Implemented baseline and active validation record
 
 ## Objectives
 
@@ -9,6 +9,19 @@
 - Detect integration failures before pilot use.
 - Validate usability with target users, not only developers.
 - Distinguish prototype completeness from functional correctness.
+
+## Verified Test Suite Summary (MVP Baseline)
+
+| Suite | Scope / Tool | Test count | Result |
+|---|---|---|---|
+| Backend Domain & Auth | Pytest + SQLAlchemy (`test_api_conventions.py`, `test_authentication.py`, `test_database_schema.py`) | 20 passed | Verified in Docker |
+| Properties & Calendar | Pytest + Celery (`test_properties.py`, `test_calendar.py`, `test_manual_bookings.py`) | 23 passed | Verified in Docker |
+| Messaging & Chatbot | Pytest (`test_messaging.py`, `test_chatbot_policy.py`, `test_chatbot_grounding.py`) | 16 passed | Verified in Docker |
+| Maintenance & Supervision | Pytest (`test_maintenance.py`, `test_supervision.py`) | 10 passed | Verified in Docker |
+| Cross-Module MVP Validation | Pytest (`test_mvp_validation.py`) | 1 passed | Verified in Docker |
+| **Total Backend** | **Pytest / Docker Compose `backend_test` profile** | **70 passed** | **Green** |
+| Frontend Components & Pages | Vitest + Testing Library (14 test suites) | 54 passed | Verified locally & CI |
+| Frontend Static Checks | Oxlint linter & TypeScript build (`tsc -b && vite build`) | 0 errors | Verified |
 
 ## Test Levels
 

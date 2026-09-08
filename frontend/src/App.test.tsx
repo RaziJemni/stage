@@ -38,6 +38,7 @@ function renderApp() {
 describe('App inbox unread state', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    window.localStorage.setItem('vayca_locale', 'en');
     vi.mocked(useAuth).mockReturnValue({
       identity: {
         user: { id: 'staff-1', name: 'Amira', email: 'amira@example.com', role: 'staff', status: 'active' },

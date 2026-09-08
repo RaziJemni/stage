@@ -10,6 +10,7 @@ import {
 import { fetchAllActiveProperties } from '../api/properties';
 import { fetchWhatsappIntegrationHealth } from '../api/integrations';
 import { SettingsPage } from './SettingsPage';
+import { I18nProvider } from '../i18n/I18nContext';
 
 vi.mock('../auth/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('../api/calendar', () => ({
@@ -89,8 +90,16 @@ describe('SettingsPage integrations', () => {
     configureApi();
   });
 
+  function renderWithLocale(ui: React.ReactElement, locale: 'en' | 'fr' = 'en') {
+    return render(
+      <I18nProvider initialLocale={locale}>
+        {ui}
+      </I18nProvider>
+    );
+  }
+
   async function openIntegrations() {
-    render(<SettingsPage />);
+    renderWithLocale(<SettingsPage />);
     fireEvent.click(screen.getByRole('button', { name: /Integrations/i }));
     await screen.findByRole('heading', { name: 'Calendar feeds' });
   }
@@ -134,7 +143,7 @@ describe('SettingsPage integrations', () => {
     vi.clearAllMocks();
     configureApi();
     vi.mocked(fetchCalendarFeeds).mockResolvedValueOnce([]);
-    render(<SettingsPage />);
+    renderWithLocale(<SettingsPage />);
     fireEvent.click(screen.getByRole('button', { name: /Integrations/i }));
     expect(await screen.findByText('No calendar feeds configured')).toBeInTheDocument();
   });
@@ -170,7 +179,7 @@ describe('SettingsPage integrations', () => {
 
   it('shows a retryable loading error and hides Settings from staff', async () => {
     vi.mocked(fetchAllActiveProperties).mockRejectedValueOnce(new Error('unavailable'));
-    render(<SettingsPage />);
+    renderWithLocale(<SettingsPage />);
     fireEvent.click(screen.getByRole('button', { name: /Integrations/i }));
     await screen.findByRole('alert');
     expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded');
@@ -179,7 +188,28 @@ describe('SettingsPage integrations', () => {
     const staffIdentity = { ...managerIdentity, user: { ...managerIdentity.user, role: 'staff' as const } };
     vi.mocked(useAuth).mockReturnValue({ identity: staffIdentity, loading: false, startupError: null } as ReturnType<typeof useAuth>);
     cleanup();
-    const { container } = render(<SettingsPage />);
+    const { container } = renderWithLocale(<SettingsPage />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders language selector and switches between French and English in Settings', () => {
+    renderWithLocale(<SettingsPage />, 'fr');
+    // In French by default
+    expect(screen.getByText("Paramètres de l'entreprise & Accès équipe")).toBeInTheDocument();
+
+    // Click Preferences tab
+    fireEvent.click(screen.getByRole('button', { name: /Préférences & Langue/i }));
+    expect(screen.getByRole('heading', { name: "Langue de l'interface" })).toBeInTheDocument();
+
+    // Switch to English
+    fireEvent.click(screen.getByRole('button', { name: /Select English/i }));
+    expect(screen.getByRole('heading', { name: 'Interface Language' })).toBeInTheDocument();
+    expect(screen.getByText('Company Settings & Team Access')).toBeInTheDocument();
+    expect(window.localStorage.getItem('vayca_locale')).toBe('en');
+
+    // Switch back to French
+    fireEvent.click(screen.getByRole('button', { name: /Sélectionner Français/i }));
+    expect(screen.getByRole('heading', { name: "Langue de l'interface" })).toBeInTheDocument();
+    expect(window.localStorage.getItem('vayca_locale')).toBe('fr');
   });
 });

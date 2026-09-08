@@ -1,10 +1,10 @@
 # Requirements Traceability Matrix
 
-**Status:** Initial baseline; GitHub issue numbers must be updated during backlog reconciliation
+**Status:** Active baseline (MVP implementation verified; field interviews pending execution)
 
 ## Purpose
 
-Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. GitHub issue references below reflect the current backlog where a suitable issue exists. Issues should be split or rewritten when they combine materially different requirements.
+Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. All MVP functional issues are implemented and covered by automated test suites. Issue #34 establishes the reviewed customer discovery protocol in Chapter 3, pending field execution.
 
 ## Functional Traceability
 
@@ -27,8 +27,8 @@ Traceability connects stakeholder needs to requirements, modules, implementation
 | Update guest about issue | FR-TKT-08 | Maintenance/Communication | #16 | Approved-message test |
 | Review daily operations | FR-DASH-01..04 | Supervision | #17 | Derived-data and navigation tests |
 | Manage settings and integration health | FR-SET-01..04 | Foundation/Supervision | #18, #32 | Role and truthful-status tests |
-| Validate the integrated MVP | Cross-cutting NFRs | Cross-cutting | #33 | Staging end-to-end evidence |
-| Replace market assumptions with field evidence | Project-study validation | Documentation | #34 | Reviewed interviews and study update |
+| Validate the integrated MVP | Cross-cutting NFRs | Cross-cutting | #33 | Staging end-to-end evidence (`test_mvp_validation.py`) |
+| Replace market assumptions with field evidence | Project-study validation | Documentation | #34 | Reviewed interview guide & protocol (Chapter 3); field interviews pending |
 
 ## Non-Functional Traceability
 
