@@ -65,17 +65,14 @@ Use Option B.
 
 ### Negative or risky
 
-- The current MVP does not expand recurring events or provide a frontend feed
-  configuration screen; unsupported recurrence behavior must be designed before
-  claiming it as supported.
-- DNS checks reduce, but cannot alone eliminate, all SSRF risks. Production
-  deployment requires network egress controls as a further layer.
+- The current MVP does not expand recurring events; unsupported recurrence behavior must be designed before claiming it as supported. Feed configuration UI is available to managers in Settings Integrations.
+- DNS checks reduce, but cannot alone eliminate, all SSRF risks. Production deployment requires network egress controls as a further layer.
 
 ## Validation
 
 - Focused fixture tests cover configuration, authorization, CSRF, idempotency,
   failures, same-day all-day normalization, task queuing, and private URL
   rejection.
-- Full backend suite: `29 passed`.
+- Full backend regression suite: `70 passed`.
 - A manual local-stack import from a public iCalendar feed completed with 27
   persisted events and a succeeded sync run.

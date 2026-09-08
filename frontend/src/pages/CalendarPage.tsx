@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { ApiError } from '../auth/api';
+import { WorkstationHeader } from '../components/WorkstationHeader';
 import { fetchProperties, type ApiProperty, type ApiPropertyPage } from '../api/properties';
 import {
   acknowledgeBookingConflict,
@@ -544,26 +545,31 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
   const activeConflictCount = conflicts.filter((conflict) => conflict.status === 'open' || conflict.status === 'acknowledged').length;
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-5 p-4 md:p-8">
-      <div className="flex flex-col gap-4 border-b border-[#EBE6DD] pb-5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+    <div className="flex flex-col min-h-screen bg-[#FAF8F5]">
+      <WorkstationHeader
+        section="Calendar"
+        title="Multi-Property Booking Calendar"
+        subtitle="Live reservations, blocked periods, and channel conflict triage"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-xl border border-[#EBE6DD] bg-white p-1 shadow-sm">
+              <button type="button" aria-label="Previous 14 days" onClick={() => setRangeStart(addDays(rangeStart, -VIEW_DAYS))} className="rounded-lg p-2 text-[#3B3735] hover:bg-[#FAF8F5]"><ChevronLeft className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setRangeStart(todayInTimezone(companyTimezone))} className="px-3 text-xs font-bold text-[#1C1B18]">{formatDateLabel(rangeStart, { month: 'short', day: 'numeric' })} – {formatDateLabel(addDays(rangeEnd, -1), { month: 'short', day: 'numeric', year: 'numeric' })}</button>
+              <button type="button" aria-label="Next 14 days" onClick={() => setRangeStart(addDays(rangeStart, VIEW_DAYS))} className="rounded-lg p-2 text-[#3B3735] hover:bg-[#FAF8F5]"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+            <button type="button" onClick={() => { setEditingBooking(null); setShowEditor(true); }} disabled={properties.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-[#D96B43] hover:bg-[#C25730] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4 text-white" /> New direct booking</button>
+          </div>
+        }
+      />
+
+      <div className="flex-1 p-6 max-w-[1500px] w-full mx-auto space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#B6DAEA] bg-[#F0F6FA] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-[#0F3D5E]"><CalendarDays className="h-3.5 w-3.5" /> Live portfolio calendar</span>
             {activeConflictCount > 0 && <span className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" /> {activeConflictCount} active conflict{activeConflictCount === 1 ? '' : 's'}</span>}
           </div>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">Multi-property booking calendar</h1>
-          <p className="mt-1 max-w-3xl text-sm text-[#78716C]">Persistent reservations and blocked periods across your company properties. Feed health and conflict state come from the calendar APIs.</p>
+          <p className="text-xs text-[#78716C]">Persistent reservations and blocked periods across your company properties.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center rounded-xl border border-[#EBE6DD] bg-white p-1 shadow-sm">
-            <button type="button" aria-label="Previous 14 days" onClick={() => setRangeStart(addDays(rangeStart, -VIEW_DAYS))} className="rounded-lg p-2 text-[#3B3735] hover:bg-[#FAF8F5]"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" onClick={() => setRangeStart(todayInTimezone(companyTimezone))} className="px-3 text-xs font-bold text-[#1C1B18]">{formatDateLabel(rangeStart, { month: 'short', day: 'numeric' })} – {formatDateLabel(addDays(rangeEnd, -1), { month: 'short', day: 'numeric', year: 'numeric' })}</button>
-            <button type="button" aria-label="Next 14 days" onClick={() => setRangeStart(addDays(rangeStart, VIEW_DAYS))} className="rounded-lg p-2 text-[#3B3735] hover:bg-[#FAF8F5]"><ChevronRight className="h-4 w-4" /></button>
-          </div>
-          <button type="button" onClick={() => { setEditingBooking(null); setShowEditor(true); }} disabled={properties.length === 0} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F3D5E] px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#0C324E] disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4 text-[#E8A838]" /> New direct booking</button>
-        </div>
-      </div>
 
       {propertiesError && <div role="alert" className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between"><span>{propertiesError}</span><button type="button" onClick={() => void loadProperties()} className="inline-flex items-center gap-1.5 self-start rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 sm:self-auto"><RefreshCw className="h-3.5 w-3.5" /> Retry</button></div>}
       {partialErrors.length > 0 && <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><span>{partialErrors.join(' ')}</span><button type="button" onClick={() => void refreshCalendar()} className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 sm:self-auto"><RefreshCw className="h-3.5 w-3.5" /> Retry calendar data</button></div>}
@@ -617,6 +623,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
       {(detailLoading || selectedBooking || selectedConflict) && <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#1C1B18]/25 p-0 md:items-center md:p-6"><section role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title" className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EBE6DD] bg-white p-5 shadow-[0_8px_30px_rgba(28,27,24,0.16)] md:rounded-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-wider text-[#D96B43]">Calendar detail</p><h2 id="calendar-detail-title" className="mt-1 text-xl font-bold text-[#1C1B18]">{selectedConflict ? 'Booking conflict' : 'Booking details'}</h2></div><button type="button" aria-label="Close calendar detail" onClick={() => { setSelectedBooking(null); setSelectedConflict(null); }} className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5]"><X className="h-4 w-4" /></button></div>{detailLoading ? <div role="status" className="flex items-center gap-2 py-10 text-sm text-[#78716C]"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading details…</div> : detailError ? <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{detailError}</div> : selectedConflict ? <ConflictDetail conflict={selectedConflict} propertyById={propertyById} timezone={companyTimezone} acknowledgementNote={acknowledgementNote} setAcknowledgementNote={setAcknowledgementNote} acknowledging={acknowledging} actionError={actionError} onAcknowledge={() => void acknowledgeSelectedConflict()} /> : selectedBooking ? <BookingDetail booking={selectedBooking} propertyById={propertyById} timezone={companyTimezone} actionError={actionError} onEdit={() => { setEditingBooking(selectedBooking); setSelectedBooking(null); setShowEditor(true); }} onCancel={() => void cancelSelectedBooking()} /> : null}</section></div>}
 
       {showEditor && <BookingEditor propertyOptions={properties} timezone={companyTimezone} booking={editingBooking} defaultPropertyId={selectedPropertyId || properties[0]?.id || ''} onClose={() => { setShowEditor(false); setEditingBooking(null); setSelectedBooking(null); }} onSaved={refreshCalendar} />}
+      </div>
     </div>
   );
 };

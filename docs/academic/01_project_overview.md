@@ -64,10 +64,14 @@ The project's value is the integration of several operational workflows into a l
 
 ## Current Maturity
 
-At this documentation baseline, the repository includes project governance, a
-Docker-oriented skeleton, a migrated PostgreSQL domain, manager/staff
-authentication APIs, protected frontend routes, architecture notes, a design
-system, and a GitHub backlog. Operational feature APIs, external integrations,
-and end-to-end MVP validation remain implementation work. Prototype behavior
-and mock operational data must not be reported as completed production
-functionality.
+At this documentation baseline, the MVP implementation is functional across its core operational modules:
+- Multi-tenant PostgreSQL persistence with versioned Alembic migrations.
+- Manager and staff authentication, session management, permissions, and invitations.
+- Property CRUD, operational knowledge directives, archiving, and live property detail integration.
+- Portfolio calendar with manual/direct booking creation, asynchronous iCalendar feed synchronization via Celery, and automated booking conflict detection/acknowledgment.
+- Unified communication inbox with deterministic WhatsApp simulator transport, multilingual grounded chatbot replies, manual staff takeover, and shared unread tracking.
+- Maintenance ticketing board with contractor contact management, chatbot suggestion confirmation/rejection, immutable status audit history, and guest notification templates.
+- Management supervision dashboard deriving live attention items, arrivals, and departures.
+- Automated test verification comprising 70 backend tests and 54 frontend Vitest tests.
+
+External boundaries remain clearly defined: WhatsApp messaging operates in local simulator mode, cloud hosting/backup restore drills remain pre-pilot milestones, and market discovery interviews are prepared as a reviewed protocol pending field execution.

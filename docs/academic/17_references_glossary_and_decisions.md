@@ -84,6 +84,7 @@
 | DEC-014 | 2026-07-28 | Accepted | Academic documentation is written in English. | Team decision |
 | DEC-015 | 2026-07-28 | Accepted | These documents are a living baseline, not immutable final decisions. | Implementation and validation may reveal necessary changes |
 | DEC-016 | 2026-08-22 | Accepted | Grounded chatbot provider and deferred reply processing. | Policy and backend facts run before the configured provider; simulator remains deterministic and outbound delivery remains unconfigured. |
+| DEC-017 | 2026-08-28 | Accepted | Property detail fetches live calendar bookings. | Eliminates mock data dependencies on authenticated property screens and ensures truthful loading, empty, and retryable states. |
 
 ## Open Decisions
 

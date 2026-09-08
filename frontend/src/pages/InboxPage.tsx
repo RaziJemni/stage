@@ -2,6 +2,7 @@ import { Bot, MessageSquare, Search, UserCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { ApiConversation } from '../api/messaging';
+import { WorkstationHeader } from '../components/WorkstationHeader';
 
 export type ConversationFilter = 'all' | 'unread' | 'automatic' | 'manual';
 
@@ -35,14 +36,25 @@ export function InboxPage({
   }), [conversations, propertyNames, search]);
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <header className="border-b border-[#EBE6DD] pb-6">
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
-          <Bot className="h-3.5 w-3.5" /> Local message simulator available; production delivery is not connected
-        </span>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">Guest Messages</h1>
-        <p className="mt-1 text-sm text-[#78716C]">Conversation records and manual replies are saved to your company workspace.</p>
-      </header>
+    <div className="flex flex-col min-h-screen bg-[#FAF8F5]">
+      <WorkstationHeader
+        section="Messages"
+        title="Guest Messages"
+        subtitle="AI Chatbot supervision & WhatsApp communications"
+        actions={
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            <Bot className="h-3.5 w-3.5" /> Local simulator active
+          </span>
+        }
+      />
+
+      <div className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+        <header className="border-b border-[#EBE6DD] pb-4">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
+            <Bot className="h-3.5 w-3.5" /> Local message simulator available; production delivery is not connected
+          </span>
+          <p className="mt-2 text-sm text-[#78716C]">Conversation records and manual replies are saved to your company workspace.</p>
+        </header>
 
       <section className="flex flex-col gap-4 rounded-2xl border border-[#EBE6DD] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-1" aria-label="Conversation filters">
@@ -84,6 +96,7 @@ export function InboxPage({
           })}
         </section>
       )}
+      </div>
     </div>
   );
 }

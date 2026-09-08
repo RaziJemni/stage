@@ -12,7 +12,10 @@ import {
   Users,
   WifiOff,
   XCircle,
+  Languages,
+  Check,
 } from 'lucide-react';
+import { useI18n } from '../i18n/I18nContext';
 import { ApiError } from '../auth/api';
 import { useAuth } from '../auth/useAuth';
 import {
@@ -39,32 +42,153 @@ const feedProviders: Array<{ value: CalendarFeedChannelType; label: string }> = 
 
 export function SettingsPage() {
   const { identity } = useAuth();
-  const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels'>('team');
+  const { locale, setLocale, t } = useI18n();
+  const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels' | 'preferences'>('team');
 
   if (!identity || identity.user.role !== 'manager') return null;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
       <div className="border-b border-[#EBE6DD] pb-6">
-        <span className="rounded-lg border border-[#B6DAEA] bg-[#F0F6FA] px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#0F3D5E]">System administration</span>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">Company Settings & Team Access</h1>
-        <p className="mt-0.5 text-sm text-[#78716C]">Manage authenticated staff and review truthful integration status.</p>
+        <span className="rounded-lg border border-[#B6DAEA] bg-[#F0F6FA] px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-[#0F3D5E]">
+          {t('settings.admin_tag')}
+        </span>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#1C1B18]">{t('settings.title')}</h1>
+        <p className="mt-0.5 text-sm text-[#78716C]">{t('settings.subtitle')}</p>
       </div>
       <div className="flex gap-2 overflow-x-auto border-b border-[#EBE6DD]">
-        <Tab active={activeTab === 'team'} onClick={() => setActiveTab('team')}><Users className="h-4 w-4" /> Team</Tab>
-        <Tab active={activeTab === 'company'} onClick={() => setActiveTab('company')}><Building className="h-4 w-4" /> Company</Tab>
-        <Tab active={activeTab === 'channels'} onClick={() => setActiveTab('channels')}><Globe className="h-4 w-4" /> Integrations</Tab>
+        <Tab active={activeTab === 'team'} onClick={() => setActiveTab('team')}>
+          <Users className="h-4 w-4" /> {t('settings.tab_team')}
+        </Tab>
+        <Tab active={activeTab === 'company'} onClick={() => setActiveTab('company')}>
+          <Building className="h-4 w-4" /> {t('settings.tab_company')}
+        </Tab>
+        <Tab active={activeTab === 'preferences'} onClick={() => setActiveTab('preferences')}>
+          <Languages className="h-4 w-4" /> {t('settings.tab_preferences')}
+        </Tab>
+        <Tab active={activeTab === 'channels'} onClick={() => setActiveTab('channels')}>
+          <Globe className="h-4 w-4" /> {t('settings.tab_channels')}
+        </Tab>
       </div>
       {activeTab === 'team' && <TeamManagementPanel />}
       {activeTab === 'company' && (
-        <div className="max-w-2xl space-y-4 rounded-2xl border border-[#EBE6DD] bg-white p-6 shadow-sm">
-          <div><div className="text-xs font-semibold text-[#78716C]">Company</div><div className="mt-1 font-bold text-[#1C1B18]">{identity.company.name}</div></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div><div className="text-xs font-semibold text-[#78716C]">Timezone</div><div className="mt-1 text-sm">{identity.company.timezone}</div></div><div><div className="text-xs font-semibold text-[#78716C]">Currency</div><div className="mt-1 text-sm">{identity.company.default_currency}</div></div></div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Company profile editing belongs to the later Settings workflow. These values come from the authenticated company record.</div>
+        <div className="space-y-6">
+          <div className="max-w-2xl space-y-4 rounded-2xl border border-[#EBE6DD] bg-white p-6 shadow-sm">
+            <div><div className="text-xs font-semibold text-[#78716C]">Company</div><div className="mt-1 font-bold text-[#1C1B18]">{identity.company.name}</div></div>
+            <div className="grid gap-4 sm:grid-cols-2"><div><div className="text-xs font-semibold text-[#78716C]">Timezone</div><div className="mt-1 text-sm">{identity.company.timezone}</div></div><div><div className="text-xs font-semibold text-[#78716C]">Currency</div><div className="mt-1 text-sm">{identity.company.default_currency}</div></div></div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Company profile editing belongs to the later Settings workflow. These values come from the authenticated company record.</div>
+          </div>
+          <LanguagePreferencesCard locale={locale} setLocale={setLocale} t={t} />
         </div>
+      )}
+      {activeTab === 'preferences' && (
+        <LanguagePreferencesCard locale={locale} setLocale={setLocale} t={t} />
       )}
       {activeTab === 'channels' && <IntegrationsPanel companyTimezone={identity.company.timezone} />}
     </div>
+  );
+}
+
+function LanguagePreferencesCard({
+  locale,
+  setLocale,
+  t
+}: {
+  locale: string;
+  setLocale: (loc: 'fr' | 'en') => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
+  return (
+    <section aria-label="Language Preferences" className="max-w-2xl rounded-2xl border border-[#EBE6DD] bg-white p-6 shadow-sm space-y-5">
+      <div className="flex items-center justify-between pb-3 border-b border-[#EBE6DD]">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F0F6FA] text-[#0F3D5E]">
+            <Languages className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[#1C1B18]">{t('settings.language_title')}</h2>
+            <p className="text-xs text-[#78716C] mt-0.5">{t('settings.language_desc')}</p>
+          </div>
+        </div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-1 rounded-full border border-[#B6DAEA]">
+          {locale === 'fr' ? 'FR' : 'EN'}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {/* French Option (Primary) */}
+        <button
+          type="button"
+          onClick={() => setLocale('fr')}
+          aria-label="Sélectionner Français"
+          className={`flex flex-col justify-between p-4 rounded-xl border text-left transition-all cursor-pointer ${
+            locale === 'fr'
+              ? 'border-[#0F3D5E] bg-[#F0F6FA] shadow-xs ring-2 ring-[#0F3D5E]/10'
+              : 'border-[#EBE6DD] bg-[#FAF8F5] hover:bg-white hover:border-[#DDD7CC]'
+          }`}
+        >
+          <div className="flex items-start justify-between w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🇹🇳 / 🇫🇷</span>
+              <div>
+                <span className="font-bold text-sm text-[#1C1B18] block">Français</span>
+                <span className="text-[11px] text-[#78716C] block">Langue principale</span>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#D96B43] text-white">
+              Défaut
+            </span>
+          </div>
+          <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#EBE6DD]/80">
+            <span className="text-[11px] font-medium text-[#78716C]">
+              Interface en français
+            </span>
+            {locale === 'fr' && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F3D5E] text-white">
+                <Check className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* English Option */}
+        <button
+          type="button"
+          onClick={() => setLocale('en')}
+          aria-label="Select English"
+          className={`flex flex-col justify-between p-4 rounded-xl border text-left transition-all cursor-pointer ${
+            locale === 'en'
+              ? 'border-[#0F3D5E] bg-[#F0F6FA] shadow-xs ring-2 ring-[#0F3D5E]/10'
+              : 'border-[#EBE6DD] bg-[#FAF8F5] hover:bg-white hover:border-[#DDD7CC]'
+          }`}
+        >
+          <div className="flex items-start justify-between w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🇬🇧</span>
+              <div>
+                <span className="font-bold text-sm text-[#1C1B18] block">English</span>
+                <span className="text-[11px] text-[#78716C] block">Secondary language</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#EBE6DD]/80">
+            <span className="text-[11px] font-medium text-[#78716C]">
+              English interface
+            </span>
+            {locale === 'en' && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F3D5E] text-white">
+                <Check className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+        <span>{t('settings.lang_saved_note')}</span>
+      </div>
+    </section>
   );
 }
 

@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import {
-  INITIAL_BOOKINGS
-} from './data/mockData';
-import type { Property, Booking } from './data/mockData';
+import type { Property } from './data/mockData';
 import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
@@ -44,6 +41,7 @@ import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
+import { I18nProvider } from './i18n/I18nContext';
 
 function WorkspaceApp() {
   const { identity, logout } = useAuth();
@@ -54,8 +52,6 @@ function WorkspaceApp() {
   const [loadingProperties, setLoadingProperties] = useState<boolean>(false);
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
   const [showingArchived, setShowingArchived] = useState<boolean>(false);
-
-  const [bookings] = useState<Booking[]>(INITIAL_BOOKINGS);
   const [calendarHasConflict, setCalendarHasConflict] = useState(false);
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -293,7 +289,6 @@ function WorkspaceApp() {
         {activePage === 'property-detail' && selectedProperty && (
           <PropertyDetailPage
             property={selectedProperty}
-            bookings={bookings}
             onUpdateProperty={handleUpdateProperty}
             onArchiveProperty={handleArchiveProperty}
             onUnarchiveProperty={handleUnarchiveProperty}
@@ -370,15 +365,17 @@ function WorkspaceApp() {
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/accept-invite" element={<AcceptInvitePage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/*" element={<WorkspaceApp />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <I18nProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/*" element={<WorkspaceApp />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </I18nProvider>
   );
 }
 

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowRight, KeyRound, Mail, Palmtree } from 'lucide-react';
+import { ArrowRight, KeyRound, Mail } from 'lucide-react';
 import { Link, Navigate, useLocation } from 'react-router';
 import { ApiError } from '../auth/api';
 import { useAuth } from '../auth/useAuth';
+import { VaycaLogo } from '../components/VaycaLogo';
 
 export function LoginPage() {
   const { identity, login } = useAuth();
@@ -73,15 +74,12 @@ export function LoginPage() {
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-[#0F3D5E]/5 blur-3xl" />
-      <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-[#D96B43]/5 blur-3xl" />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#EBE6DD] bg-white p-8 shadow-[0_8px_30px_rgba(28,27,24,0.06)]">
-        <div className="mb-6 text-center">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F3D5E] text-white shadow-[0_4px_14px_rgba(15,61,94,0.25)]">
-            <Palmtree className="h-7 w-7 text-[#E8A838]" />
-          </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#FAF8F5] p-4 text-[#1C1B18]">
+      <div className="w-full max-w-md rounded-2xl border border-[#EBE6DD] bg-white p-8 shadow-[0_8px_30px_rgba(28,27,24,0.06)]">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <VaycaLogo size="xl" className="mb-3" />
           <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#0F3D5E]">Vayca Tunisia</div>
+          <div className="text-[11px] text-[#78716C] font-medium">Vacation Rental Operations</div>
         </div>
         {children}
       </div>

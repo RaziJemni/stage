@@ -113,3 +113,9 @@ Status: **APPROVED BASELINE** -- changes require team review and documentation u
 * Prototype screens must display a visible mock or simulator notice.
 * Do not describe mock data as real-time, live, connected, trained, or automatically sent.
 * Integration cards must distinguish unconfigured, simulator, test, healthy, stale, and failed states.
+
+---
+
+## Academic UI/UX Prototype & Interaction Specification
+
+For detailed component architecture, motion curves, micro-interactions, state transition models, and academic traceability (NFR-UX-01 to NFR-UX-06 and NFR-AI-02), see [Chapter 18: UI/UX Prototype Architecture & Interaction Specification](file:///d:/stage/docs/academic/18_ui_ux_prototype_and_interaction_specification.md).

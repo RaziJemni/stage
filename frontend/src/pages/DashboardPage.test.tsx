@@ -4,13 +4,18 @@ import { DashboardPage } from './DashboardPage';
 import { fetchBookingConflicts, fetchCalendarBookings } from '../api/calendar';
 import { fetchAllConversations } from '../api/messaging';
 import { fetchAllTickets } from '../api/maintenance';
+import { I18nProvider } from '../i18n/I18nContext';
 
 vi.mock('../api/calendar', () => ({ fetchBookingConflicts: vi.fn(), fetchCalendarBookings: vi.fn() }));
 vi.mock('../api/messaging', () => ({ fetchAllConversations: vi.fn() }));
 vi.mock('../api/maintenance', () => ({ fetchAllTickets: vi.fn() }));
 
 const properties = [{ id: 'property-1', name: 'Villa Yasmine' }] as any;
-const page = (overrides = {}) => <DashboardPage properties={properties} companyTimezone="Africa/Tunis" onNavigate={vi.fn()} {...overrides} />;
+const page = (overrides = {}, locale: 'en' | 'fr' = 'en') => (
+  <I18nProvider initialLocale={locale}>
+    <DashboardPage properties={properties} companyTimezone="Africa/Tunis" onNavigate={vi.fn()} {...overrides} />
+  </I18nProvider>
+);
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -53,5 +58,16 @@ describe('DashboardPage', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Dashboard data could not be loaded'));
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(fetchBookingConflicts).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders French dashboard labels when locale is fr', async () => {
+    vi.mocked(fetchBookingConflicts).mockResolvedValue([]);
+    vi.mocked(fetchAllConversations).mockResolvedValue([]);
+    vi.mocked(fetchAllTickets).mockResolvedValue([]);
+    render(page({}, 'fr'));
+    await waitFor(() => expect(screen.getByText('Centre de Commande Opérationnel')).toBeInTheDocument());
+    expect(screen.getByText('Aucun élément d\'attention actuellement')).toBeInTheDocument();
+    expect(screen.getByText('Aucune arrivée de voyageur aujourd\'hui.')).toBeInTheDocument();
+    expect(screen.getByText('Aucun départ de voyageur aujourd\'hui.')).toBeInTheDocument();
   });
 });

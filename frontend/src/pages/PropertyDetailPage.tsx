@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import type { Property, Booking } from '../data/mockData';
+import React, { useCallback, useEffect, useState } from 'react';
+import type { Property } from '../data/mockData';
 import type { PropertyUpdatePayload } from '../api/properties';
+import {
+  fetchCalendarBookings,
+  type CalendarBooking,
+  type BookingSource,
+} from '../api/calendar';
 import { 
   Wifi, 
   Key, 
@@ -22,9 +27,38 @@ import {
   FileText
 } from 'lucide-react';
 
+const sourceBadgeClasses: Record<BookingSource, string> = {
+  airbnb: 'bg-[#FF5A5F] text-white',
+  booking_com: 'bg-[#003580] text-white',
+  direct: 'bg-[#0F3D5E] text-white',
+  manual: 'bg-[#78716C] text-white',
+  other: 'bg-[#57534E] text-white',
+};
+
+const sourceLabels: Record<BookingSource, string> = {
+  airbnb: 'Airbnb',
+  booking_com: 'Booking.com',
+  direct: 'Direct',
+  manual: 'Manual',
+  other: 'Other',
+};
+
+function formatBookingDate(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  } catch {
+    return isoString;
+  }
+}
+
 interface PropertyDetailPageProps {
   property: Property;
-  bookings: Booking[];
   onUpdateProperty?: (propertyId: string, payload: PropertyUpdatePayload) => Promise<void>;
   onArchiveProperty?: (propertyId: string) => Promise<void>;
   onUnarchiveProperty?: (propertyId: string) => Promise<void>;
@@ -33,7 +67,6 @@ interface PropertyDetailPageProps {
 
 export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
   property,
-  bookings,
   onUpdateProperty,
   onArchiveProperty,
   onUnarchiveProperty,
@@ -124,7 +157,38 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
     }
   };
 
-  const propertyBookings = bookings.filter(b => b.propertyId === property.id);
+  // Live Bookings state
+  const [bookings, setBookings] = useState<CalendarBooking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState<boolean>(true);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+
+  const loadBookings = useCallback(async () => {
+    try {
+      setLoadingBookings(true);
+      setBookingsError(null);
+      const now = new Date();
+      const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const rangeEnd = new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000).toISOString();
+      const items = await fetchCalendarBookings({
+        propertyId: property.id,
+        rangeStart,
+        rangeEnd,
+      });
+      const activeBookings = items
+        .filter((b) => b.status !== 'cancelled')
+        .sort((a, b) => new Date(a.check_in).getTime() - new Date(b.check_in).getTime());
+      setBookings(activeBookings);
+    } catch (err: any) {
+      setBookingsError(err.message || 'Failed to load upcoming bookings.');
+    } finally {
+      setLoadingBookings(false);
+    }
+  }, [property.id]);
+
+  useEffect(() => {
+    void loadBookings();
+  }, [loadBookings]);
+
   const isArchived = property.status === 'Maintenance';
 
   return (
@@ -372,41 +436,76 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   <CalendarIcon className="w-4 h-4 text-[#0F3D5E]" />
                   Upcoming Bookings
                 </h2>
-                <span className="text-xs font-semibold text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-0.5 rounded-full">
-                  {propertyBookings.length} Active
-                </span>
+                {!loadingBookings && !bookingsError && (
+                  <span className="text-xs font-semibold text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-0.5 rounded-full">
+                    {bookings.length} Active
+                  </span>
+                )}
               </div>
 
-              {/* Bookings List Cards */}
-              <div className="space-y-3">
-                {propertyBookings.map((bk) => (
-                  <div
-                    key={bk.id}
-                    className={`p-4 rounded-xl border transition-all ${
-                      bk.status === 'Conflict'
-                        ? 'bg-rose-50 border-rose-300'
-                        : 'bg-[#FAF8F5] border-[#EBE6DD]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                        bk.channel === 'Airbnb' ? 'bg-[#FF5A5F]' :
-                        bk.channel === 'Booking.com' ? 'bg-[#003580]' :
-                        'bg-[#0F3D5E]'
-                      }`}>
-                        {bk.channel}
-                      </span>
-                    </div>
+              {loadingBookings && (
+                <div role="status" className="p-6 flex items-center justify-center gap-2 text-xs text-[#78716C]">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#0F3D5E]" />
+                  <span>Loading upcoming bookings…</span>
+                </div>
+              )}
 
-                    <div className="mt-2">
-                      <div className="font-bold text-xs text-[#1C1B18]">{bk.guestName}</div>
-                      <div className="text-[11px] text-[#78716C] mt-0.5">
-                        {bk.startDate} &rarr; {bk.endDate} ({bk.guestsCount} Guests)
+              {bookingsError && (
+                <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{bookingsError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void loadBookings()}
+                    className="self-start font-bold text-rose-900 underline hover:text-rose-950 cursor-pointer"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
+              {!loadingBookings && !bookingsError && bookings.length === 0 && (
+                <div data-testid="empty-bookings" className="text-center py-6 text-xs text-[#78716C] border border-dashed border-[#EBE6DD] rounded-xl p-4">
+                  No upcoming bookings scheduled for this property.
+                </div>
+              )}
+
+              {!loadingBookings && !bookingsError && bookings.length > 0 && (
+                <div className="space-y-3">
+                  {bookings.map((bk) => (
+                    <div
+                      key={bk.id}
+                      className="p-4 rounded-xl border bg-[#FAF8F5] border-[#EBE6DD] transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          sourceBadgeClasses[bk.source_type] || 'bg-[#0F3D5E] text-white'
+                        }`}>
+                          {sourceLabels[bk.source_type] || bk.source_type}
+                        </span>
+                        {bk.status === 'tentative' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            Tentative
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2">
+                        <div className="font-bold text-xs text-[#1C1B18]">
+                          {bk.record_type === 'blocked_period'
+                            ? (bk.guest_name || 'Blocked Period')
+                            : (bk.guest_name || 'Guest details unavailable')}
+                        </div>
+                        <div className="text-[11px] text-[#78716C] mt-0.5">
+                          {formatBookingDate(bk.check_in)} &rarr; {formatBookingDate(bk.check_out)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
             </div>
           </div>
