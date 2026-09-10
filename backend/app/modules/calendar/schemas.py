@@ -194,3 +194,9 @@ class BookingConflictResponse(BaseModel):
     resolved_at: datetime | None
     resolved_by_user_id: UUID | None
     bookings: list[ConflictBookingResponse]
+
+
+class AvailabilityCheckResponse(BaseModel):
+    is_available: bool
+    conflicting_bookings: list[ConflictBookingResponse]
+

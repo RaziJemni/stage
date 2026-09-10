@@ -234,3 +234,24 @@ export async function cancelManualBooking(bookingId: string): Promise<CalendarBo
     method: 'POST',
   });
 }
+
+export interface AvailabilityCheckResponse {
+  is_available: boolean;
+  conflicting_bookings: ConflictBooking[];
+}
+
+export async function checkPropertyAvailability(
+  propertyId: string,
+  params: { checkIn: string; checkOut: string; excludeBookingId?: string }
+): Promise<AvailabilityCheckResponse> {
+  const query = new URLSearchParams({
+    check_in: params.checkIn,
+    check_out: params.checkOut,
+  });
+  if (params.excludeBookingId) {
+    query.set('exclude_booking_id', params.excludeBookingId);
+  }
+  return apiRequest<AvailabilityCheckResponse>(
+    `/api/v1/properties/${propertyId}/availability?${query.toString()}`
+  );
+}

@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalendarPage } from './CalendarPage';
 import { fetchProperties } from '../api/properties';
 import {
   acknowledgeBookingConflict,
+  checkPropertyAvailability,
   createManualBooking,
   fetchBooking,
   fetchBookingConflict,
@@ -20,6 +21,7 @@ vi.mock('../api/properties', () => ({
 vi.mock('../api/calendar', () => ({
   acknowledgeBookingConflict: vi.fn(),
   cancelManualBooking: vi.fn(),
+  checkPropertyAvailability: vi.fn(),
   createManualBooking: vi.fn(),
   fetchBooking: vi.fn(),
   fetchBookingConflict: vi.fn(),
@@ -113,6 +115,10 @@ function configureApi() {
     status: 'tentative',
     notes: 'Edited during live verification',
   });
+  vi.mocked(checkPropertyAvailability).mockResolvedValue({
+    is_available: true,
+    conflicting_bookings: [],
+  });
 }
 
 describe('CalendarPage', () => {
@@ -144,6 +150,7 @@ describe('CalendarPage', () => {
   it('creates a confirmed manual blocked period with the validated payload', async () => {
     render(<CalendarPage companyTimezone="Africa/Tunis" />);
     fireEvent.click(await screen.findByRole('button', { name: /New direct booking/i }));
+    await screen.findByTestId('dates-available-badge');
     fireEvent.change(screen.getByLabelText('Record type'), { target: { value: 'blocked_period' } });
     fireEvent.change(screen.getByLabelText(/Internal note/i), { target: { value: 'Maintenance window' } });
     fireEvent.click(screen.getByRole('button', { name: /Create entry/i }));
@@ -215,5 +222,75 @@ describe('CalendarPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Bookings could not be loaded.');
     expect(screen.queryByText('Sami Guest')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Retry calendar data/i })).toBeInTheDocument();
+  });
+
+  it('displays conflict warning and prevents submission until override is confirmed', async () => {
+    vi.mocked(checkPropertyAvailability).mockResolvedValue({
+      is_available: false,
+      conflicting_bookings: [
+        {
+          id: 'booking-existing-1',
+          property_id: 'property-1',
+          channel_id: null,
+          external_event_id: null,
+          source_type: 'airbnb',
+          record_type: 'reservation',
+          status: 'confirmed',
+          check_in: '2026-08-10T14:00:00Z',
+          check_out: '2026-08-12T10:00:00Z',
+          guest_name: 'Overlapping Guest',
+        },
+      ],
+    });
+
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click(await screen.findByRole('button', { name: /New direct booking/i }));
+
+    // Wait for the conflict warning banner
+    const warning = await screen.findByTestId('conflict-warning-banner');
+    expect(warning).toBeInTheDocument();
+    expect(within(warning).getByText('Overlapping Guest')).toBeInTheDocument();
+    expect(within(warning).getByText('Airbnb')).toBeInTheDocument();
+
+    // Fill in guest name
+    fireEvent.change(screen.getByLabelText(/Guest name/i), { target: { value: 'New Guest' } });
+
+    // Submit button should be disabled because override checkbox is unchecked
+    const submitBtn = screen.getByRole('button', { name: /Create entry/i });
+    expect(submitBtn).toBeDisabled();
+
+    // Check the override checkbox
+    const overrideCheckbox = screen.getByTestId('conflict-override-checkbox');
+    fireEvent.click(overrideCheckbox);
+    expect(overrideCheckbox).toBeChecked();
+    expect(submitBtn).not.toBeDisabled();
+
+    // Submit the form
+    fireEvent.click(submitBtn);
+    await waitFor(() =>
+      expect(createManualBooking).toHaveBeenCalledWith(
+        expect.objectContaining({
+          property_id: 'property-1',
+          guest_name: 'New Guest',
+        })
+      )
+    );
+  });
+
+  it('displays dates available badge when no conflict is detected', async () => {
+    vi.mocked(checkPropertyAvailability).mockResolvedValue({
+      is_available: true,
+      conflicting_bookings: [],
+    });
+
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click(await screen.findByRole('button', { name: /New direct booking/i }));
+
+    const availableBadge = await screen.findByTestId('dates-available-badge');
+    expect(availableBadge).toBeInTheDocument();
+    expect(screen.queryByTestId('conflict-warning-banner')).not.toBeInTheDocument();
+
+    const submitBtn = screen.getByRole('button', { name: /Create entry/i });
+    expect(submitBtn).not.toBeDisabled();
   });
 });

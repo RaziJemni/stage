@@ -489,14 +489,15 @@ def cancel_manual_booking(
     return booking
 
 
-def is_available(
+def check_availability(
     db: Session,
     *,
     company_id: UUID,
     property_id: UUID,
     check_in: datetime,
     check_out: datetime,
-) -> bool:
+    exclude_booking_id: UUID | None = None,
+) -> tuple[bool, list[Booking]]:
     _get_active_property(db, company_id=company_id, property_id=property_id)
     if check_out <= check_in:
         raise ApiProblem(
@@ -505,18 +506,41 @@ def is_available(
             detail="Check-out must be after check-in.",
             code="availability_date_range_invalid",
         )
-    overlapping_booking_exists = db.scalar(
-        select(
-            exists().where(
-                Booking.company_id == company_id,
-                Booking.property_id == property_id,
-                Booking.status.in_(ACTIVE_BOOKING_STATUSES),
-                Booking.check_in < check_out,
-                Booking.check_out > check_in,
-            )
+    query = (
+        select(Booking)
+        .where(
+            Booking.company_id == company_id,
+            Booking.property_id == property_id,
+            Booking.status.in_(ACTIVE_BOOKING_STATUSES),
+            Booking.check_in < check_out,
+            Booking.check_out > check_in,
         )
+        .order_by(Booking.check_in.asc())
     )
-    return not bool(overlapping_booking_exists)
+    if exclude_booking_id is not None:
+        query = query.where(Booking.id != exclude_booking_id)
+
+    conflicting_bookings = list(db.scalars(query).all())
+    return (len(conflicting_bookings) == 0, conflicting_bookings)
+
+
+def is_available(
+    db: Session,
+    *,
+    company_id: UUID,
+    property_id: UUID,
+    check_in: datetime,
+    check_out: datetime,
+) -> bool:
+    available, _ = check_availability(
+        db,
+        company_id=company_id,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
+    )
+    return available
+
 
 
 class CalendarImportError(Exception):

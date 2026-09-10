@@ -121,6 +121,16 @@ export const en: Record<string, string> = {
   'calendar.conflicts_alert': 'Booking conflicts detected',
   'calendar.no_entries': 'No entries in this date range',
   'calendar.feed_health': 'Feed Health',
+  'calendar.conflict_warning_title': 'Warning: Booking conflict detected',
+  'calendar.conflict_warning_desc': 'These dates overlap an existing booking or blocked period:',
+  'calendar.conflict_confirm_checkbox': 'I confirm recording this booking despite the detected conflict',
+  'calendar.conflict_confirm_notice': 'Recording will register an item in the operational conflicts list to resolve.',
+  'calendar.dates_available': 'Dates available',
+  'calendar.checking_availability': 'Checking availability...',
+  'calendar.conflict_guest': 'Guest',
+  'calendar.conflict_blocked': 'Blocked period',
+  'calendar.conflict_dates': 'Dates:',
+  'calendar.conflict_source': 'Channel:',
 
   // Messages / Inbox
   'messages.title': 'Guest Messaging & Escalation Triage',

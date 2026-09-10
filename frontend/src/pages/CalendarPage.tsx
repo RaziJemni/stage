@@ -23,6 +23,7 @@ import { fetchProperties, type ApiProperty, type ApiPropertyPage } from '../api/
 import {
   acknowledgeBookingConflict,
   cancelManualBooking,
+  checkPropertyAvailability,
   createManualBooking,
   fetchBooking,
   fetchBookingConflict,
@@ -30,6 +31,7 @@ import {
   fetchCalendarBookings,
   fetchCalendarFeeds,
   updateManualBooking,
+  type AvailabilityCheckResponse,
   type BookingConflict,
   type BookingRecordType,
   type BookingSource,
@@ -41,6 +43,7 @@ import {
   type FeedHealthStatus,
   type ManualBookingPayload,
 } from '../api/calendar';
+import { useI18n } from '../i18n/I18nContext';
 
 interface CalendarProperty {
   id: string;
@@ -248,6 +251,7 @@ interface BookingEditorProps {
 }
 
 function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, onClose, onSaved }: BookingEditorProps) {
+  const { t } = useI18n();
   const isEditing = Boolean(booking);
   const initialRecordType: BookingRecordType = booking?.record_type ?? 'reservation';
   const [propertyId, setPropertyId] = useState(booking?.property_id ?? defaultPropertyId);
@@ -266,6 +270,63 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityResult, setAvailabilityResult] = useState<AvailabilityCheckResponse | null>(null);
+  const [confirmedConflictOverride, setConfirmedConflictOverride] = useState(false);
+
+  useEffect(() => {
+    setConfirmedConflictOverride(false);
+
+    if (!propertyId || !checkIn || !checkOut) {
+      setAvailabilityResult(null);
+      return;
+    }
+
+    try {
+      const checkInIso = fromFormLocal(checkIn, timezone);
+      const checkOutIso = fromFormLocal(checkOut, timezone);
+
+      if (
+        isNaN(new Date(checkInIso).getTime()) ||
+        isNaN(new Date(checkOutIso).getTime()) ||
+        new Date(checkOutIso) <= new Date(checkInIso)
+      ) {
+        setAvailabilityResult(null);
+        return;
+      }
+
+      let cancelled = false;
+      setCheckingAvailability(true);
+
+      checkPropertyAvailability(propertyId, {
+        checkIn: checkInIso,
+        checkOut: checkOutIso,
+        excludeBookingId: booking?.id,
+      })
+        .then((result) => {
+          if (!cancelled) {
+            setAvailabilityResult(result);
+          }
+        })
+        .catch((availError) => {
+          if (!cancelled) {
+            console.error('Availability check failed:', availError);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setCheckingAvailability(false);
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    } catch {
+      setAvailabilityResult(null);
+    }
+  }, [propertyId, checkIn, checkOut, timezone, booking?.id]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -288,6 +349,11 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
     const checkOutIso = fromFormLocal(checkOut, timezone);
     if (new Date(checkOutIso) <= new Date(checkInIso)) {
       setError('Check-out must be after check-in.');
+      return;
+    }
+
+    if (availabilityResult && !availabilityResult.is_available && !confirmedConflictOverride) {
+      setError(t('calendar.conflict_warning_title'));
       return;
     }
 
@@ -370,6 +436,71 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
             </label>
           </div>
 
+          {checkingAvailability && (
+            <div role="status" className="flex items-center gap-2 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] px-3 py-2 text-xs text-[#78716C]">
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#0F3D5E]" />
+              <span>{t('calendar.checking_availability')}</span>
+            </div>
+          )}
+
+          {!checkingAvailability && availabilityResult && availabilityResult.is_available && (
+            <div data-testid="dates-available-badge" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+              <Check className="h-4 w-4 text-emerald-600" />
+              <span>{t('calendar.dates_available')}</span>
+            </div>
+          )}
+
+          {!checkingAvailability && availabilityResult && !availabilityResult.is_available && (
+            <div role="alert" data-testid="conflict-warning-banner" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-amber-900">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-xs font-bold text-amber-900">{t('calendar.conflict_warning_title')}</p>
+                  <p className="mt-0.5 text-xs text-amber-800">{t('calendar.conflict_warning_desc')}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {availabilityResult.conflicting_bookings.map((conflict) => (
+                  <div
+                    key={conflict.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white/80 p-2 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${sourceBadgeClasses[conflict.source_type]}`}>
+                        {sourceLabels[conflict.source_type]}
+                      </span>
+                      <span className="font-bold text-[#1C1B18] truncate">
+                        {conflict.record_type === 'blocked_period'
+                          ? t('calendar.conflict_blocked')
+                          : conflict.guest_name ?? t('calendar.conflict_guest')}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#78716C]">
+                      {formatDateTime(conflict.check_in, timezone)} – {formatDateTime(conflict.check_out, timezone)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-amber-200/80 pt-2.5 space-y-1.5">
+                <label className="flex items-start gap-2 text-xs font-semibold text-amber-950 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmedConflictOverride}
+                    onChange={(e) => setConfirmedConflictOverride(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-amber-300 text-[#0F3D5E] focus:ring-[#0F3D5E]"
+                    data-testid="conflict-override-checkbox"
+                  />
+                  <span>{t('calendar.conflict_confirm_checkbox')}</span>
+                </label>
+                <p className="text-[11px] text-amber-800/90 pl-6">
+                  {t('calendar.conflict_confirm_notice')}
+                </p>
+              </div>
+            </div>
+          )}
+
           <label className="block text-xs font-semibold text-[#3B3735]">Status
             <select value={status} onChange={(event) => setStatus(event.target.value as 'tentative' | 'confirmed')} className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] px-3 py-2 text-sm font-normal text-[#1C1B18]" disabled={recordType === 'blocked_period'}>
               <option value="confirmed">Confirmed</option>
@@ -384,7 +515,11 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
           {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{error}</div>}
           <div className="flex justify-end gap-2 border-t border-[#EBE6DD] pt-4">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#EBE6DD] px-4 py-2 text-xs font-semibold text-[#3B3735]">Cancel</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D5E] px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
+            <button
+              type="submit"
+              disabled={saving || checkingAvailability || Boolean(availabilityResult && !availabilityResult.is_available && !confirmedConflictOverride)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D5E] px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
               {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 text-[#E8A838]" />}
               {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create entry'}
             </button>

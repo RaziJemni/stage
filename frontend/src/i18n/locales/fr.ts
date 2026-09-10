@@ -121,6 +121,16 @@ export const fr: Record<string, string> = {
   'calendar.conflicts_alert': 'Conflits de réservation détectés',
   'calendar.no_entries': 'Aucune réservation sur cette période',
   'calendar.feed_health': 'Santé des flux',
+  'calendar.conflict_warning_title': 'Attention : Conflit de réservation détecté',
+  'calendar.conflict_warning_desc': 'Ces dates chevauchent une réservation ou période bloquée existante :',
+  'calendar.conflict_confirm_checkbox': 'Je confirme vouloir enregistrer cette réservation malgré le conflit',
+  'calendar.conflict_confirm_notice': 'L\'enregistrement créera un élément dans la liste des conflits opérationnels à résoudre.',
+  'calendar.dates_available': 'Dates disponibles',
+  'calendar.checking_availability': 'Vérification des disponibilités...',
+  'calendar.conflict_guest': 'Voyageur',
+  'calendar.conflict_blocked': 'Période bloquée',
+  'calendar.conflict_dates': 'Dates :',
+  'calendar.conflict_source': 'Canal :',
 
   // Messages / Inbox
   'messages.title': 'Messagerie Voyageurs & Assistance',
