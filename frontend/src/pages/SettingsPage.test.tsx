@@ -212,4 +212,23 @@ describe('SettingsPage integrations', () => {
     expect(screen.getByRole('heading', { name: "Langue de l'interface" })).toBeInTheDocument();
     expect(window.localStorage.getItem('vayca_locale')).toBe('fr');
   });
+
+  it('renders standardized WorkstationHeader with breadcrumbs and admin badge', () => {
+    renderWithLocale(<SettingsPage />, 'fr');
+    expect(screen.getByText('OPÉRATIONS')).toBeInTheDocument();
+    expect(screen.getByText('Paramètres')).toBeInTheDocument();
+    expect(screen.getByText('Administration système')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: "Paramètres de l'entreprise & Accès équipe" })).toBeInTheDocument();
+  });
+
+  it('renders channel integrations in French with localized feed cards and forms', async () => {
+    renderWithLocale(<SettingsPage />, 'fr');
+    fireEvent.click(screen.getByRole('button', { name: /Intégrations/i }));
+    expect(await screen.findByRole('heading', { name: 'Flux de calendrier iCalendar' })).toBeInTheDocument();
+    expect(screen.getByText('Sain')).toBeInTheDocument();
+    expect(screen.getByText('Simulateur uniquement')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Configurer un flux iCalendar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enregistrer le flux' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actualiser maintenant' })).toBeInTheDocument();
+  });
 });

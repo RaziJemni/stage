@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PropertyDetailPage } from './PropertyDetailPage';
 import { fetchCalendarBookings, type CalendarBooking } from '../api/calendar';
+import { I18nProvider } from '../i18n/I18nContext';
 import type { Property } from '../data/mockData';
 
 vi.mock('../api/calendar', () => ({
@@ -73,18 +74,29 @@ const mockBookings: CalendarBooking[] = [
   },
 ];
 
+function renderWithLocale(ui: React.ReactElement, locale: 'en' | 'fr' = 'fr') {
+  return render(
+    <I18nProvider initialLocale={locale}>
+      {ui}
+    </I18nProvider>
+  );
+}
+
 describe('PropertyDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(fetchCalendarBookings).mockResolvedValue(mockBookings);
   });
 
-  it('renders property overview and guidelines truthfully', async () => {
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+  it('renders WorkstationHeader and French property overview by default', async () => {
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
+    // WorkstationHeader elements
+    expect(screen.getByText('OPÉRATIONS')).toBeInTheDocument();
+    expect(screen.getByText('Propriétés')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Dar Sidi Bou Said' })).toBeInTheDocument();
     expect(screen.getByText(/Sidi Bou Said \(Tunis, Tunisia\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Max 6 Guests Capacity/)).toBeInTheDocument();
+    expect(screen.getByText(/Capacité max 6 voyageurs/)).toBeInTheDocument();
     expect(screen.getByText('No smoking inside')).toBeInTheDocument();
     expect(screen.getByText('Quiet hours after 22:00')).toBeInTheDocument();
 
@@ -97,8 +109,8 @@ describe('PropertyDetailPage', () => {
     });
   });
 
-  it('fetches live upcoming bookings and renders active reservations', async () => {
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+  it('fetches live upcoming bookings and renders active reservations in French', async () => {
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
     await waitFor(() => {
       expect(screen.getByText('Sophie Martin')).toBeInTheDocument();
@@ -106,10 +118,10 @@ describe('PropertyDetailPage', () => {
 
     expect(screen.getByText('Karim Ben Salem')).toBeInTheDocument();
     expect(screen.getByText('Maintenance Block')).toBeInTheDocument();
-    expect(screen.getByText('3 Active')).toBeInTheDocument();
+    expect(screen.getByText('3 Actives')).toBeInTheDocument();
     expect(screen.getByText('Airbnb')).toBeInTheDocument();
     expect(screen.getByText('Booking.com')).toBeInTheDocument();
-    expect(screen.getByText('Tentative')).toBeInTheDocument();
+    expect(screen.getByText('Provisoire')).toBeInTheDocument();
     // Cancelled booking must not be shown in active upcoming list
     expect(screen.queryByText('Cancelled Guest')).not.toBeInTheDocument();
   });
@@ -121,9 +133,9 @@ describe('PropertyDetailPage', () => {
     });
     vi.mocked(fetchCalendarBookings).mockReturnValueOnce(bookingPromise);
 
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
-    expect(screen.getByRole('status')).toHaveTextContent(/Loading upcoming bookings/i);
+    expect(screen.getByRole('status')).toHaveTextContent(/Chargement des réservations à venir/i);
 
     resolveBookings!(mockBookings);
 
@@ -135,26 +147,26 @@ describe('PropertyDetailPage', () => {
   it('renders truthful empty state when no upcoming bookings exist', async () => {
     vi.mocked(fetchCalendarBookings).mockResolvedValueOnce([]);
 
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
     await waitFor(() => {
       expect(screen.getByTestId('empty-bookings')).toBeInTheDocument();
     });
-    expect(screen.getByText('No upcoming bookings scheduled for this property.')).toBeInTheDocument();
-    expect(screen.getByText('0 Active')).toBeInTheDocument();
+    expect(screen.getByText('Aucune réservation à venir pour cette propriété.')).toBeInTheDocument();
+    expect(screen.getByText('0 Actives')).toBeInTheDocument();
   });
 
   it('renders retryable error banner when fetching bookings fails and retries on click', async () => {
     vi.mocked(fetchCalendarBookings).mockRejectedValueOnce(new Error('Network connection failed.'));
 
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Network connection failed.');
     });
 
     vi.mocked(fetchCalendarBookings).mockResolvedValueOnce(mockBookings);
-    fireEvent.click(screen.getByRole('button', { name: /Try again/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Réessayer/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Sophie Martin')).toBeInTheDocument();
@@ -162,27 +174,47 @@ describe('PropertyDetailPage', () => {
     expect(fetchCalendarBookings).toHaveBeenCalledTimes(2);
   });
 
-  it('switches between overview and secret credentials tabs', async () => {
-    render(<PropertyDetailPage property={mockProperty} isManager={true} />);
+  it('switches between overview and secret credentials tabs in French', async () => {
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
 
-    fireEvent.click(screen.getByRole('button', { name: /Secret Access Credentials/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Codes d'accès secrets/i }));
 
-    expect(screen.getByText('Sensitive Guest Access Credentials')).toBeInTheDocument();
+    expect(screen.getByText("Identifiants d'accès confidentiels")).toBeInTheDocument();
     expect(screen.getByText('SidiBouSaid_Guest')).toBeInTheDocument();
     expect(screen.getByText('4829#')).toBeInTheDocument();
     expect(screen.getByText('+216 71 000 111')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Property Overview & Guidelines/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Aperçu & Consignes/i }));
     expect(screen.getByText('No smoking inside')).toBeInTheDocument();
   });
 
   it('renders edit and archive buttons for manager, hides them for staff', () => {
-    const { rerender } = render(<PropertyDetailPage property={mockProperty} isManager={true} />);
-    expect(screen.getByRole('button', { name: /Edit Description & Rules/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Archive/i })).toBeInTheDocument();
+    const { rerender } = renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'fr');
+    expect(screen.getByRole('button', { name: /Modifier la propriété/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Archiver/i })).toBeInTheDocument();
 
-    rerender(<PropertyDetailPage property={mockProperty} isManager={false} />);
-    expect(screen.queryByRole('button', { name: /Edit Description & Rules/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Archive/i })).not.toBeInTheDocument();
+    rerender(
+      <I18nProvider initialLocale="fr">
+        <PropertyDetailPage property={mockProperty} isManager={false} />
+      </I18nProvider>
+    );
+    expect(screen.queryByRole('button', { name: /Modifier la propriété/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Archiver/i })).not.toBeInTheDocument();
+  });
+
+  it('switches language dynamically to English', async () => {
+    renderWithLocale(<PropertyDetailPage property={mockProperty} isManager={true} />, 'en');
+
+    expect(screen.getByText('OPERATIONS')).toBeInTheDocument();
+    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.getByText(/Max 6 Guests Capacity/)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Sophie Martin')).toBeInTheDocument();
+    });
+    expect(screen.getByText('3 Active')).toBeInTheDocument();
+    expect(screen.getByText('Tentative')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Edit Property/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Archive/i })).toBeInTheDocument();
   });
 });
