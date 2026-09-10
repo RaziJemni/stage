@@ -1,4 +1,4 @@
-import type { ProblemDetail } from './types';
+import type { AuthIdentity, ProblemDetail } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const CSRF_COOKIE_NAME = import.meta.env.VITE_CSRF_COOKIE_NAME ?? 'vayca_csrf';
@@ -61,4 +61,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     return undefined as T;
   }
   return response.json() as Promise<T>;
+}
+
+export async function updatePreferences(payload: { preferred_language: 'fr' | 'en' }): Promise<AuthIdentity> {
+  return apiRequest<AuthIdentity>('/api/v1/auth/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
 }

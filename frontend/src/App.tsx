@@ -26,6 +26,7 @@ import {
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
+import { updatePreferences } from './auth/api';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 
 // 9 Pages Imports
@@ -364,8 +365,21 @@ function WorkspaceApp() {
 }
 
 export function App() {
+  const { identity } = useAuth();
+
+  const handleLocaleChange = useCallback((newLocale: 'fr' | 'en') => {
+    if (identity) {
+      updatePreferences({ preferred_language: newLocale }).catch((err) => {
+        console.error('Failed to persist language preference to database:', err);
+      });
+    }
+  }, [identity]);
+
   return (
-    <I18nProvider>
+    <I18nProvider
+      userPreferredLanguage={identity?.user?.preferred_language}
+      onLocaleChange={handleLocaleChange}
+    >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

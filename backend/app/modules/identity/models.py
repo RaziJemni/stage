@@ -50,6 +50,9 @@ class AppUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default=UserStatus.INVITED.value,
         nullable=False,
     )
+    preferred_language: Mapped[str] = mapped_column(
+        String(10), default="fr", server_default="fr", nullable=False
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

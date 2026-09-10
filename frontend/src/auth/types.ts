@@ -7,6 +7,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   status: UserStatus;
+  preferred_language?: string;
 }
 
 export interface AuthCompany {

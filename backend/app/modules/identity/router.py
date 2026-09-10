@@ -32,6 +32,7 @@ from app.modules.identity.schemas import (
     TeamListResponse,
     TeamMemberResponse,
     TeamMemberStatusRequest,
+    UserPreferencesRequest,
     UserSummary,
 )
 from app.modules.identity.security import (
@@ -202,6 +203,17 @@ def logout(context: CsrfContext, response: Response, db: Annotated[Session, Depe
 
 @router.get("/auth/me", response_model=AuthResponse)
 def me(context: CurrentContext) -> AuthResponse:
+    return _auth_response(context.user, context.company)
+
+
+@router.patch("/auth/preferences", response_model=AuthResponse)
+def update_preferences(
+    payload: UserPreferencesRequest,
+    context: CsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> AuthResponse:
+    context.user.preferred_language = payload.preferred_language
+    db.commit()
     return _auth_response(context.user, context.company)
 
 

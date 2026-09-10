@@ -54,6 +54,7 @@ class UserSummary(BaseModel):
     email: EmailStr
     role: UserRole
     status: UserStatus
+    preferred_language: str = "fr"
 
 
 class AuthResponse(BaseModel):
@@ -91,3 +92,7 @@ class InvitationResponse(BaseModel):
 
 class TeamMemberStatusRequest(StrictRequest):
     status: Literal["active", "inactive"]
+
+
+class UserPreferencesRequest(StrictRequest):
+    preferred_language: Literal["fr", "en"]
