@@ -33,11 +33,15 @@ class DeterministicChatbotProvider:
             "en": {"Availability": "Availability", "available": "available", "unavailable": "unavailable"},
             "fr": {"Availability": "Disponibilité", "available": "disponible", "unavailable": "indisponible"},
             "ar": {"Availability": "التوفر", "available": "متاح", "unavailable": "غير متاح"},
+            "it": {"Availability": "Disponibilità", "available": "disponibile", "unavailable": "non disponibile"},
+            "de": {"Availability": "Verfügbarkeit", "available": "verfügbar", "unavailable": "nicht verfügbar"},
         }
         templates = {
             "en": "{label}: {value}",
             "fr": "{label} : {value}",
             "ar": "{label}: {value}",
+            "it": "{label}: {value}",
+            "de": "{label}: {value}",
         }
         language_labels = labels[request.language]
         return GeneratedReply(

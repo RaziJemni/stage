@@ -251,3 +251,99 @@ def test_invalid_availability_date_range_and_timezone_escalate_cleanly() -> None
         assert conversation is not None
         assert conversation.handling_mode is HandlingMode.MANUAL
         assert conversation.escalation_reason == "missing_or_uncertain_information"
+
+
+def test_german_property_and_availability_replies_are_grounded() -> None:
+    company_id, property_id = create_context()
+
+    # German Wi-Fi inquiry
+    inbound_wifi = record_inbound(
+        company_id,
+        property_id,
+        content="Guten Tag, wie lautet das WLAN Passwort?",
+        language="de",
+    )
+    with SessionLocal() as db:
+        reply = process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_wifi.id)
+    assert reply is not None
+    assert reply.language == "de"
+    assert reply.content == "Wi-Fi: villa-guest-wifi"
+    assert reply.sender_type.value == "chatbot"
+    assert reply.delivery_status.value == "queued"
+
+    # German availability inquiry (available)
+    inbound_avail = record_inbound(
+        company_id,
+        property_id,
+        content="Ist die Villa verfügbar von 2026-11-01 bis 2026-11-05?",
+        language="de",
+        guest_contact_identifier="+491512345678",
+    )
+    with SessionLocal() as db:
+        reply_avail = process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_avail.id)
+    assert reply_avail is not None
+    assert reply_avail.language == "de"
+    assert reply_avail.content == "Verfügbarkeit: verfügbar"
+
+    # German emergency inquiry escalates
+    inbound_emergency = record_inbound(
+        company_id,
+        property_id,
+        content="Es gibt einen Notfall, bitte sofort helfen!",
+        language="de",
+        guest_contact_identifier="+491512345679",
+    )
+    with SessionLocal() as db:
+        assert process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_emergency.id) is None
+        conversation = messaging_service.get_conversation(db, company_id, inbound_emergency.conversation_id)
+        assert conversation is not None
+        assert conversation.handling_mode is HandlingMode.MANUAL
+        assert conversation.escalation_reason == "emergency"
+
+
+def test_italian_property_and_availability_replies_are_grounded() -> None:
+    company_id, property_id = create_context()
+
+    # Italian check-in inquiry
+    inbound_checkin = record_inbound(
+        company_id,
+        property_id,
+        content="Buongiorno, qual è l'orario di check-in?",
+        language="it",
+    )
+    with SessionLocal() as db:
+        reply = process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_checkin.id)
+    assert reply is not None
+    assert reply.language == "it"
+    assert reply.content == "Check-in: 15:00:00"
+    assert reply.sender_type.value == "chatbot"
+
+    # Italian availability inquiry (available)
+    inbound_avail = record_inbound(
+        company_id,
+        property_id,
+        content="La casa è disponibile dal 2026-11-01 al 2026-11-05?",
+        language="it",
+        guest_contact_identifier="+393401234567",
+    )
+    with SessionLocal() as db:
+        reply_avail = process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_avail.id)
+    assert reply_avail is not None
+    assert reply_avail.language == "it"
+    assert reply_avail.content == "Disponibilità: disponibile"
+
+    # Italian cancellation escalates
+    inbound_cancel = record_inbound(
+        company_id,
+        property_id,
+        content="Vorrei cancellare la mia prenotazione per favore.",
+        language="it",
+        guest_contact_identifier="+393401234568",
+    )
+    with SessionLocal() as db:
+        assert process_inbound_message(db, company_id=company_id, inbound_message_id=inbound_cancel.id) is None
+        conversation = messaging_service.get_conversation(db, company_id, inbound_cancel.conversation_id)
+        assert conversation is not None
+        assert conversation.handling_mode is HandlingMode.MANUAL
+        assert conversation.escalation_reason == "cancellation_or_date_change"
+
