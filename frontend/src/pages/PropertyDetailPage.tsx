@@ -26,6 +26,8 @@ import {
   Lock,
   FileText
 } from 'lucide-react';
+import { WorkstationHeader } from '../components/WorkstationHeader';
+import { useI18n } from '../i18n/I18nContext';
 
 const sourceBadgeClasses: Record<BookingSource, string> = {
   airbnb: 'bg-[#FF5A5F] text-white',
@@ -43,11 +45,11 @@ const sourceLabels: Record<BookingSource, string> = {
   other: 'Other',
 };
 
-function formatBookingDate(isoString: string): string {
+function formatBookingDate(isoString: string, locale?: string): string {
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -72,6 +74,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
   onUnarchiveProperty,
   isManager = true
 }) => {
+  const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<'overview' | 'secret_credentials'>('overview');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -192,166 +195,177 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
   const isArchived = property.status === 'Maintenance';
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
-      
-      {error && (
-        <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+    <div className="flex flex-col min-h-screen bg-[#FAF8F5]">
+      {/* Standardized 64px Header */}
+      <WorkstationHeader
+        section={t('nav.properties')}
+        title={property.name}
+        subtitle={property.city ? `${property.city}, Tunisie` : undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            {isManager && (
+              isArchived ? (
+                <button
+                  type="button"
+                  onClick={handleUnarchive}
+                  disabled={submitting}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> {t('property_detail.restore_btn')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsArchiveModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Archive className="w-3.5 h-3.5" /> {t('property_detail.archive_btn')}
+                </button>
+              )
+            )}
+          </div>
+        }
+      />
 
-      {/* Property Hero Banner */}
-      <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm flex flex-col lg:flex-row gap-6">
-        {property.imageUrl ? (
-          <img
-            src={property.imageUrl}
-            alt={property.name}
-            className="w-full lg:w-72 h-52 rounded-xl object-cover border border-[#EBE6DD] shadow-xs"
-          />
-        ) : (
-          <div className="w-full lg:w-72 h-52 rounded-xl bg-gradient-to-br from-[#0F3D5E] to-[#1E517B] flex flex-col items-center justify-center text-white p-4 text-center border border-[#EBE6DD]">
-            <Building2 className="w-10 h-10 text-[#E8A838] mb-2" />
-            <span className="font-bold text-sm">{property.name}</span>
-            <span className="text-xs text-white/70">{property.city}, Tunisia</span>
+      <div className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-8">
+        {error && (
+          <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        <div className="flex-1 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
-                isArchived
-                  ? 'text-amber-800 bg-amber-50 border-amber-300'
-                  : 'text-emerald-700 bg-emerald-50 border-emerald-200'
-              }`}>
-                {isArchived ? 'Archived' : 'Active'}
+        {/* Property Hero Banner */}
+        <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm flex flex-col lg:flex-row gap-6">
+          {property.imageUrl ? (
+            <img
+              src={property.imageUrl}
+              alt={property.name}
+              className="w-full lg:w-72 h-52 rounded-xl object-cover border border-[#EBE6DD] shadow-xs"
+            />
+          ) : (
+            <div className="w-full lg:w-72 h-52 rounded-xl bg-gradient-to-br from-[#0F3D5E] to-[#1E517B] flex flex-col items-center justify-center text-white p-4 text-center border border-[#EBE6DD]">
+              <Building2 className="w-10 h-10 text-[#E8A838] mb-2" />
+              <span className="font-bold text-sm">{property.name}</span>
+              <span className="text-xs text-white/70">{property.city}, Tunisia</span>
+            </div>
+          )}
+
+          <div className="flex-1 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
+                  isArchived
+                    ? 'text-amber-800 bg-amber-50 border-amber-300'
+                    : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                }`}>
+                  {isArchived ? (t('common.archived') || 'Archived') : (t('common.active') || 'Active')}
+                </span>
+              </div>
+            </div>
+
+            <h2 className="text-2xl font-bold text-[#1C1B18] tracking-tight">{property.name}</h2>
+            <p className="text-xs text-[#78716C] flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-[#D96B43]" /> {property.location} ({property.city}, Tunisia)
+            </p>
+
+            <div className="pt-3 border-t border-[#EBE6DD] flex items-center gap-4 text-xs font-semibold text-[#3B3735]">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#0F3D5E]" /> {t('property_detail.max_guests', { count: property.maxGuests || 0 })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Tab Navigation & Content */}
+        <div className="space-y-6">
+
+          {/* Tab Headers */}
+          <div className="border-b border-[#EBE6DD] flex items-center gap-4 text-xs font-bold">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'border-[#0F3D5E] text-[#0F3D5E]'
+                  : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              {t('property_detail.tab_overview')}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('secret_credentials')}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'secret_credentials'
+                  ? 'border-amber-600 text-amber-900 font-extrabold'
+                  : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
+              }`}
+            >
+              <Lock className="w-4 h-4 text-amber-600" />
+              {t('property_detail.tab_credentials')}
+              <span className="text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                {t('property_detail.checked_in_badge')}
               </span>
-            </div>
-            <div className="flex items-center gap-3">
-              {isManager && (
-                isArchived ? (
-                  <button
-                    onClick={handleUnarchive}
-                    disabled={submitting}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 hover:bg-emerald-100 flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Restore Property
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setIsArchiveModalOpen(true)}
-                    className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Archive className="w-3.5 h-3.5" /> Archive
-                  </button>
-                )
-              )}
-            </div>
+            </button>
           </div>
 
-          <h1 className="text-2xl font-bold text-[#1C1B18] tracking-tight">{property.name}</h1>
-          <p className="text-xs text-[#78716C] flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-[#D96B43]" /> {property.location} ({property.city}, Tunisia)
-          </p>
+          {/* Tab Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          <div className="pt-3 border-t border-[#EBE6DD] flex items-center gap-4 text-xs font-semibold text-[#3B3735]">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#0F3D5E]" /> Max {property.maxGuests || 0} Guests Capacity
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Tab Navigation & Content */}
-      <div className="space-y-6">
-
-        {/* Tab Headers */}
-        <div className="border-b border-[#EBE6DD] flex items-center gap-4 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'overview'
-                ? 'border-[#0F3D5E] text-[#0F3D5E]'
-                : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Property Overview & Guidelines
-          </button>
-
-          <button
-            onClick={() => setActiveTab('secret_credentials')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'secret_credentials'
-                ? 'border-amber-600 text-amber-900 font-extrabold'
-                : 'border-transparent text-[#78716C] hover:text-[#1C1B18]'
-            }`}
-          >
-            <Lock className="w-4 h-4 text-amber-600" />
-            Secret Access Credentials
-            <span className="text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Checked-In Guests
-            </span>
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* Main Left Content (7 Cols) */}
-          <div className="lg:col-span-7 space-y-6">
-            
-            {activeTab === 'overview' ? (
-              /* Overview & Guidelines Tab */
-              <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b border-[#EBE6DD] pb-4">
-                  <div>
-                    <h2 className="font-bold text-base text-[#1C1B18]">Property Description & Guidelines</h2>
-                    <p className="text-xs text-[#78716C]">Public Guest Guidelines & House Policy Directives</p>
-                  </div>
-                  {isManager && !isArchived && (
-                    <button
-                      onClick={handleOpenEdit}
-                      className="px-3 py-1.5 rounded-lg bg-[#FAF8F5] border border-[#EBE6DD] text-xs font-semibold text-[#0F3D5E] hover:bg-[#F0F6FA] flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" /> Edit Description & Rules
-                    </button>
-                  )}
-                </div>
-
-                {/* House Rules & Policies */}
-                <div className="space-y-3">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-[#3B3735] flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4 text-amber-600" />
-                    House Rules & Policy Directives
-                  </h3>
-                  <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EBE6DD] space-y-2 text-xs">
-                    {property.houseRules.length > 0 ? (
-                      property.houseRules.map((rule, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-[#3B3735]">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                          <span>{rule}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-[#78716C] italic">No house rules configured for this property.</span>
+            {/* Main Left Content (7 Cols) */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {activeTab === 'overview' ? (
+                /* Overview & Guidelines Tab */
+                <div className="bg-white rounded-2xl border border-[#EBE6DD] p-6 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-[#EBE6DD] pb-4">
+                    <div>
+                      <h2 className="font-bold text-base text-[#1C1B18]">{t('property_detail.tab_overview')}</h2>
+                      <p className="text-xs text-[#78716C]">{property.location} · {property.city}</p>
+                    </div>
+                    {isManager && !isArchived && (
+                      <button
+                        onClick={handleOpenEdit}
+                        className="px-3 py-1.5 rounded-lg bg-[#FAF8F5] border border-[#EBE6DD] text-xs font-semibold text-[#0F3D5E] hover:bg-[#F0F6FA] flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> {t('property_detail.edit_btn')}
+                      </button>
                     )}
                   </div>
-                </div>
 
-              </div>
-            ) : (
-              /* Secret Access Credentials Tab */
-              <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-sm space-y-6">
+                  {/* House Rules & Policies */}
+                  <div className="space-y-3">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-[#3B3735] flex items-center gap-1.5">
+                      <ShieldAlert className="w-4 h-4 text-amber-600" />
+                      {t('property_detail.house_rules_title')}
+                    </h3>
+                    <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EBE6DD] space-y-2 text-xs">
+                      {property.houseRules.length > 0 ? (
+                        property.houseRules.map((rule, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-[#3B3735]">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{rule}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-[#78716C] italic">{t('property_detail.no_house_rules')}</span>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                /* Secret Access Credentials Tab */
+                <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-sm space-y-6">
 
                 {/* Security Protective Banner */}
                 <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3">
                   <Lock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block text-sm">Sensitive Guest Access Credentials</span>
+                    <span className="font-bold block text-sm">{t('property_detail.credentials_title')}</span>
                     <p className="text-[#78716C] mt-0.5">
-                      This information is restricted to authenticated staff and checked-in guests. Never share Wi-Fi credentials or keypad codes on public channels.
+                      {t('property_detail.credentials_warning')}
                     </p>
                   </div>
                 </div>
@@ -363,16 +377,16 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EBE6DD] space-y-2">
                     <div className="flex items-center justify-between text-xs text-[#78716C] font-semibold">
                       <span className="flex items-center gap-1.5 text-[#0F3D5E]">
-                        <Wifi className="w-4 h-4" /> Guest WiFi Network
+                        <Wifi className="w-4 h-4" /> {t('property_detail.wifi_network')}
                       </span>
-                      {copiedField === 'wifi' && <span className="text-emerald-600 text-[10px] font-bold">Copied!</span>}
+                      {copiedField === 'wifi' && <span className="text-emerald-600 text-[10px] font-bold">{t('settings.team.copied')}</span>}
                     </div>
                     <div className="font-mono text-xs font-bold text-[#1C1B18]">
-                      {property.wifiSSID || <span className="text-[#78716C] font-normal italic">Not configured</span>}
+                      {property.wifiSSID || <span className="text-[#78716C] font-normal italic">{t('property_detail.wifi_not_configured')}</span>}
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t border-[#EBE6DD]">
                       <span className="text-[11px] text-[#78716C]">
-                        Passcode: {property.wifiPass ? <span className="font-mono text-[#1C1B18] font-semibold">{property.wifiPass}</span> : <span className="italic">Not set</span>}
+                        {t('property_detail.wifi_password')}: {property.wifiPass ? <span className="font-mono text-[#1C1B18] font-semibold">{property.wifiPass}</span> : <span className="italic">{t('property_detail.wifi_not_configured')}</span>}
                       </span>
                       {property.wifiPass ? (
                         <button
@@ -389,15 +403,15 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#EBE6DD] space-y-2">
                     <div className="flex items-center justify-between text-xs text-[#78716C] font-semibold">
                       <span className="flex items-center gap-1.5 text-[#D96B43]">
-                        <Key className="w-4 h-4" /> Smart Keypad Code
+                        <Key className="w-4 h-4" /> {t('property_detail.door_code')}
                       </span>
-                      {copiedField === 'door' && <span className="text-emerald-600 text-[10px] font-bold">Copied!</span>}
+                      {copiedField === 'door' && <span className="text-emerald-600 text-[10px] font-bold">{t('settings.team.copied')}</span>}
                     </div>
                     <div className="font-mono text-sm font-bold text-[#1C1B18]">
-                      {property.doorCode || <span className="text-[#78716C] font-normal text-xs italic">Managed per check-in</span>}
+                      {property.doorCode || <span className="text-[#78716C] font-normal text-xs italic">{t('property_detail.wifi_not_configured')}</span>}
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t border-[#EBE6DD]">
-                      <span className="text-[11px] text-[#78716C]">Access credentials</span>
+                      <span className="text-[11px] text-[#78716C]">{t('property_detail.credentials_badge')}</span>
                       {property.doorCode ? (
                         <button
                           onClick={() => handleCopy(property.doorCode, 'door')}
@@ -416,7 +430,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-amber-700" />
-                      <span className="font-semibold text-amber-900">Ops Emergency Hotline:</span>
+                      <span className="font-semibold text-amber-900">{t('property_detail.emergency_contact')}:</span>
                     </div>
                     <span className="font-mono font-bold text-amber-950">{property.emergencyContact}</span>
                   </div>
@@ -434,11 +448,11 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
               <div className="flex items-center justify-between border-b border-[#EBE6DD] pb-3">
                 <h2 className="font-bold text-base text-[#1C1B18] flex items-center gap-2">
                   <CalendarIcon className="w-4 h-4 text-[#0F3D5E]" />
-                  Upcoming Bookings
+                  {t('property_detail.upcoming_bookings_title')}
                 </h2>
                 {!loadingBookings && !bookingsError && (
                   <span className="text-xs font-semibold text-[#0F3D5E] bg-[#F0F6FA] px-2.5 py-0.5 rounded-full">
-                    {bookings.length} Active
+                    {t('property_detail.active_bookings_badge', { count: bookings.length })}
                   </span>
                 )}
               </div>
@@ -446,7 +460,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
               {loadingBookings && (
                 <div role="status" className="p-6 flex items-center justify-center gap-2 text-xs text-[#78716C]">
                   <Loader2 className="w-4 h-4 animate-spin text-[#0F3D5E]" />
-                  <span>Loading upcoming bookings…</span>
+                  <span>{t('property_detail.loading_bookings')}</span>
                 </div>
               )}
 
@@ -461,14 +475,14 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                     onClick={() => void loadBookings()}
                     className="self-start font-bold text-rose-900 underline hover:text-rose-950 cursor-pointer"
                   >
-                    Try again
+                    {t('common.retry')}
                   </button>
                 </div>
               )}
 
               {!loadingBookings && !bookingsError && bookings.length === 0 && (
                 <div data-testid="empty-bookings" className="text-center py-6 text-xs text-[#78716C] border border-dashed border-[#EBE6DD] rounded-xl p-4">
-                  No upcoming bookings scheduled for this property.
+                  {t('property_detail.empty_bookings')}
                 </div>
               )}
 
@@ -487,7 +501,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                         </span>
                         {bk.status === 'tentative' && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                            Tentative
+                            {t('property_detail.status_tentative')}
                           </span>
                         )}
                       </div>
@@ -495,11 +509,11 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                       <div className="mt-2">
                         <div className="font-bold text-xs text-[#1C1B18]">
                           {bk.record_type === 'blocked_period'
-                            ? (bk.guest_name || 'Blocked Period')
-                            : (bk.guest_name || 'Guest details unavailable')}
+                            ? (bk.guest_name || t('property_detail.type_blocked_period'))
+                            : (bk.guest_name || t('property_detail.type_reservation'))}
                         </div>
                         <div className="text-[11px] text-[#78716C] mt-0.5">
-                          {formatBookingDate(bk.check_in)} &rarr; {formatBookingDate(bk.check_out)}
+                          {formatBookingDate(bk.check_in, locale)} &rarr; {formatBookingDate(bk.check_out, locale)}
                         </div>
                       </div>
                     </div>
@@ -521,7 +535,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
             <div className="flex items-center justify-between border-b border-[#EBE6DD] pb-3">
               <h3 className="font-bold text-base text-[#1C1B18] flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-[#0F3D5E]" />
-                Edit Property Info & Secret Access Credentials
+                {t('property_detail.edit_modal_title')}
               </h3>
               <button
                 onClick={() => setIsEditModalOpen(false)}
@@ -533,7 +547,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">Property Name</label>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.edit_name_label')}</label>
                 <input
                   type="text"
                   required
@@ -544,7 +558,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">Region / City</label>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.edit_city_label')}</label>
                 <input
                   type="text"
                   value={editCity}
@@ -555,7 +569,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#3B3735] mb-1">WiFi Network (SSID)</label>
+                  <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.edit_wifi_ssid')}</label>
                   <input
                     type="text"
                     value={editWifiSSID}
@@ -564,7 +578,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#3B3735] mb-1">WiFi Password</label>
+                  <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.edit_wifi_pass')}</label>
                   <input
                     type="text"
                     value={editWifiPass}
@@ -575,7 +589,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">Emergency Hotline Contact</label>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.emergency_contact')}</label>
                 <input
                   type="text"
                   value={editEmergencyContact}
@@ -586,7 +600,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-[#3B3735] mb-1">House Rules (One per line)</label>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('property_detail.edit_rules')}</label>
                 <textarea
                   rows={4}
                   value={editHouseRules}
@@ -602,14 +616,14 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   disabled={submitting}
                   className="w-1/2 py-2.5 rounded-xl border border-[#EBE6DD] font-semibold text-[#78716C] hover:bg-[#FAF8F5] cursor-pointer"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="w-1/2 py-2.5 rounded-xl bg-[#0F3D5E] text-white font-bold hover:bg-[#0C324E] shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.save')}
                 </button>
               </div>
             </form>
@@ -623,11 +637,11 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
           <div className="bg-white rounded-2xl border border-[#EBE6DD] max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-rose-700">
               <Archive className="w-6 h-6 shrink-0" />
-              <h3 className="font-bold text-base text-[#1C1B18]">Archive {property.name}?</h3>
+              <h3 className="font-bold text-base text-[#1C1B18]">{t('property_detail.archive_modal_title')}</h3>
             </div>
 
             <p className="text-xs text-[#78716C] leading-relaxed">
-              Archiving hides this property from active operational views. All historical bookings, message logs, and maintenance tickets remain safely preserved in the database.
+              {t('property_detail.archive_modal_warning')}
             </p>
 
             <div className="pt-3 flex items-center gap-3 text-xs">
@@ -637,7 +651,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                 disabled={submitting}
                 className="w-1/2 py-2.5 rounded-xl border border-[#EBE6DD] font-semibold text-[#78716C] hover:bg-[#FAF8F5] cursor-pointer"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -645,13 +659,14 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                 disabled={submitting}
                 className="w-1/2 py-2.5 rounded-xl bg-rose-700 text-white font-bold hover:bg-rose-800 shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Archive Property'}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('property_detail.archive_btn')}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      </div>
     </div>
   );
 };
