@@ -63,6 +63,14 @@ export const en: Record<string, string> = {
   'dashboard.resolve_conflicts': 'Resolve in Calendar',
   'dashboard.open_conversations': 'Open in Messages',
   'dashboard.triage_tickets': 'Triage in Maintenance',
+  'dashboard.tab_operations': 'Today\'s Operations',
+  'dashboard.tab_analytics': 'Analytics & Insights',
+  'dashboard.occupancy_rate': 'Occupancy Rate',
+  'dashboard.booked_nights': 'Booked Nights',
+  'dashboard.total_reservations': 'Total Reservations',
+  'dashboard.avg_stay': 'Avg Stay Length',
+  'dashboard.channel_distribution': 'Booking Channel Distribution',
+  'dashboard.property_performance': 'Property Occupancy Performance',
 
   // Properties Directory
   'properties.title': 'Property Portfolio & Residence Directory',

@@ -63,6 +63,14 @@ export const fr: Record<string, string> = {
   'dashboard.resolve_conflicts': 'Résoudre dans le Calendrier',
   'dashboard.open_conversations': 'Ouvrir dans la Messagerie',
   'dashboard.triage_tickets': 'Trier dans la Maintenance',
+  'dashboard.tab_operations': 'Opérations du jour',
+  'dashboard.tab_analytics': 'Analytique & Performances',
+  'dashboard.occupancy_rate': 'Taux d\'occupation',
+  'dashboard.booked_nights': 'Nuitées réservées',
+  'dashboard.total_reservations': 'Réservations totales',
+  'dashboard.avg_stay': 'Durée moyenne de séjour',
+  'dashboard.channel_distribution': 'Répartition par canal de réservation',
+  'dashboard.property_performance': 'Performance par propriété',
 
   // Properties Directory
   'properties.title': 'Portefeuille & Répertoire des Résidences',

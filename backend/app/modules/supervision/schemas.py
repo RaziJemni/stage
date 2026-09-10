@@ -1,6 +1,7 @@
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class WhatsAppIntegrationHealthResponse(BaseModel):
@@ -12,3 +13,37 @@ class WhatsAppIntegrationHealthResponse(BaseModel):
     mode: Literal["simulator", "test", "production"]
     health_status: Literal["simulator", "test", "unconfigured"]
     detail: str
+
+
+class ChannelMetric(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    channel: str
+    channel_key: str
+    count: int = Field(ge=0)
+    nights: int = Field(ge=0)
+    percentage: float = Field(ge=0.0, le=100.0)
+
+
+class PropertyOccupancyInsight(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    property_id: UUID
+    property_name: str
+    booked_nights: int = Field(ge=0)
+    occupancy_rate: float = Field(ge=0.0, le=100.0)
+
+
+class PortfolioAnalyticsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    window_days: int = Field(gt=0)
+    start_date: str
+    end_date: str
+    total_properties: int = Field(ge=0)
+    occupancy_rate: float = Field(ge=0.0, le=100.0)
+    total_booked_nights: int = Field(ge=0)
+    total_reservations: int = Field(ge=0)
+    average_length_of_stay: float = Field(ge=0.0)
+    channel_distribution: list[ChannelMetric]
+    property_insights: list[PropertyOccupancyInsight]
