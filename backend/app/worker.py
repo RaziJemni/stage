@@ -24,11 +24,15 @@ celery.conf.update(
             "schedule": timedelta(
                 seconds=int(os.getenv("CALENDAR_SYNC_INTERVAL_SECONDS", "900"))
             ),
-        }
+        },
+        "send-post-stay-review-requests": {
+            "task": "vayca.communication.send_due_review_requests",
+            "schedule": timedelta(minutes=30),
+        },
     },
 )
 
-celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot"])
+celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot", "app.modules.messaging"])
 
 
 @celery.task(name="vayca.healthcheck")

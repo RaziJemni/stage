@@ -68,4 +68,42 @@ describe('ConversationThreadPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(onSendMessage).toHaveBeenCalledWith('I will confirm shortly.');
   });
+
+  it('renders automated post-stay review request with badge', () => {
+    render(<ConversationThreadPage
+      conversation={{
+        id: 'conversation-1',
+        property_id: 'property-1',
+        guest_contact_identifier: '+21699887766',
+        status: 'open',
+        handling_mode: 'automatic',
+        last_message_at: '2026-08-03T12:00:00Z',
+        last_message_sender_type: 'system',
+        escalation_reason: null,
+        unread_message_count: 0,
+      }}
+      messages={[{
+        id: 'message-review-1',
+        conversation_id: 'conversation-1',
+        direction: 'outbound',
+        sender_type: 'system',
+        content: 'Dear Guest, thank you for staying with us!',
+        delivery_status: 'queued',
+        automatically_sent: true,
+        external_message_id: 'review-request-booking-1',
+        created_at: '2026-08-03T12:00:00Z',
+      }]}
+      loading={false}
+      error={null}
+      sending={false}
+      propertyName="Villa Yasmine"
+      onBackToInbox={vi.fn()}
+      onRetry={vi.fn()}
+      onToggleHandlingMode={vi.fn()}
+      onSendMessage={vi.fn()}
+    />);
+    expect(screen.getByText('Post-stay review request')).toBeInTheDocument();
+    expect(screen.getByText(/Automated Sequence.*queued/)).toBeInTheDocument();
+  });
 });
+
