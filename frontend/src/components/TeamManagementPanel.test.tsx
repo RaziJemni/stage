@@ -65,7 +65,7 @@ describe('TeamManagementPanel', () => {
   });
 
   it('toggles invite form and submits new member invitation', async () => {
-    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: { method?: string; body?: string }) => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: RequestInit) => {
       if (path === '/api/v1/team/invitations' && options?.method === 'POST') {
         return {
           member: { id: 'user-4', name: 'Sami Staff', email: 'sami@vayca.tn', role: 'staff', status: 'invited' },
@@ -103,7 +103,7 @@ describe('TeamManagementPanel', () => {
   });
 
   it('deactivates and activates staff member', async () => {
-    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: { method?: string; body?: string }) => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: RequestInit) => {
       if (path === '/api/v1/team/user-2/status' && options?.method === 'PATCH') {
         return { id: 'user-2', name: 'Habib Staff', email: 'habib@vayca.tn', role: 'staff', status: 'inactive' };
       }

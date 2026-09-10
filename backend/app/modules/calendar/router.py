@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.enums import BookingSource, BookingStatus, ConflictStatus
 from app.modules.calendar import service
 from app.modules.calendar.schemas import (
+    AvailabilityCheckResponse,
     BookingCalendarResponse,
     BookingResponse,
     BookingConflictResponse,
@@ -295,3 +296,44 @@ def cancel_manual_booking_endpoint(
         company_id=context.company.id,
         booking_id=booking_id,
     )
+
+
+@router.get(
+    "/properties/{property_id}/availability",
+    response_model=AvailabilityCheckResponse,
+)
+def check_property_availability_endpoint(
+    property_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    check_in: Annotated[datetime, Query()],
+    check_out: Annotated[datetime, Query()],
+    exclude_booking_id: Annotated[UUID | None, Query()] = None,
+) -> AvailabilityCheckResponse:
+    if (
+        check_in.tzinfo is None
+        or check_in.utcoffset() is None
+        or check_out.tzinfo is None
+        or check_out.utcoffset() is None
+    ):
+        raise ApiProblem(
+            status=422,
+            title="Invalid availability range",
+            detail="Check-in and check-out timestamps must include a timezone.",
+            code="availability_timezone_required",
+        )
+    available, conflicting_bookings = service.check_availability(
+        db,
+        company_id=context.company.id,
+        property_id=property_id,
+        check_in=check_in,
+        check_out=check_out,
+        exclude_booking_id=exclude_booking_id,
+    )
+    return AvailabilityCheckResponse(
+        is_available=available,
+        conflicting_bookings=[
+            ConflictBookingResponse.model_validate(b) for b in conflicting_bookings
+        ],
+    )
+

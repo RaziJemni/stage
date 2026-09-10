@@ -679,3 +679,77 @@ def test_calendar_feed_health_classifies_all_states_without_exposing_urls(client
     assert health_by_listing["failed"] == "failed"
     assert health_by_listing["inactive"] == "inactive"
     assert all("calendar_url" not in item for item in response.json()["items"])
+
+
+def test_property_availability_check(client):
+    register_manager(client)
+    property_id = create_property(client)
+
+    # 1. Available range on clean property
+    resp = client.get(
+        f"/api/v1/properties/{property_id}/availability",
+        params={
+            "check_in": "2026-09-01T14:00:00Z",
+            "check_out": "2026-09-05T10:00:00Z",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["is_available"] is True
+    assert data["conflicting_bookings"] == []
+
+    # 2. Create a manual booking
+    create_resp = client.post(
+        "/api/v1/bookings",
+        json={
+            "property_id": property_id,
+            "source_type": "direct",
+            "record_type": "reservation",
+            "status": "confirmed",
+            "check_in": "2026-09-02T14:00:00Z",
+            "check_out": "2026-09-04T10:00:00Z",
+            "guest_name": "Aziz Trabelsi",
+        },
+        headers=csrf_headers(client),
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    booking_id = create_resp.json()["id"]
+
+    # 3. Check overlapping range
+    overlap_resp = client.get(
+        f"/api/v1/properties/{property_id}/availability",
+        params={
+            "check_in": "2026-09-01T14:00:00Z",
+            "check_out": "2026-09-03T10:00:00Z",
+        },
+    )
+    assert overlap_resp.status_code == 200, overlap_resp.text
+    overlap_data = overlap_resp.json()
+    assert overlap_data["is_available"] is False
+    assert len(overlap_data["conflicting_bookings"]) == 1
+    assert overlap_data["conflicting_bookings"][0]["id"] == booking_id
+    assert overlap_data["conflicting_bookings"][0]["guest_name"] == "Aziz Trabelsi"
+
+    # 4. Exclude booking when editing
+    exclude_resp = client.get(
+        f"/api/v1/properties/{property_id}/availability",
+        params={
+            "check_in": "2026-09-01T14:00:00Z",
+            "check_out": "2026-09-03T10:00:00Z",
+            "exclude_booking_id": booking_id,
+        },
+    )
+    assert exclude_resp.status_code == 200, exclude_resp.text
+    assert exclude_resp.json()["is_available"] is True
+    assert exclude_resp.json()["conflicting_bookings"] == []
+
+    # 5. Invalid range validation (check_out <= check_in)
+    invalid_resp = client.get(
+        f"/api/v1/properties/{property_id}/availability",
+        params={
+            "check_in": "2026-09-05T14:00:00Z",
+            "check_out": "2026-09-02T10:00:00Z",
+        },
+    )
+    assert invalid_resp.status_code == 422
+
