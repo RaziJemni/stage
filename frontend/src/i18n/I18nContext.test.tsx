@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { I18nProvider, useI18n } from './I18nContext';
 
@@ -57,5 +57,40 @@ describe('I18n subsystem', () => {
 
     expect(screen.getByTestId('current-locale').textContent).toBe('en');
     expect(screen.getByTestId('dashboard-title').textContent).toBe('Operations Command Center');
+  });
+
+  it('synchronizes locale with userPreferredLanguage and updates localStorage', () => {
+    const { rerender } = render(
+      <I18nProvider userPreferredLanguage={null}>
+        <TestComponent />
+      </I18nProvider>
+    );
+
+    expect(screen.getByTestId('current-locale').textContent).toBe('fr');
+
+    rerender(
+      <I18nProvider userPreferredLanguage="en">
+        <TestComponent />
+      </I18nProvider>
+    );
+
+    expect(screen.getByTestId('current-locale').textContent).toBe('en');
+    expect(window.localStorage.getItem('vayca_locale')).toBe('en');
+  });
+
+  it('calls onLocaleChange callback when locale is changed', () => {
+    const handleLocaleChange = vi.fn();
+
+    render(
+      <I18nProvider onLocaleChange={handleLocaleChange}>
+        <TestComponent />
+      </I18nProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('switch-en'));
+    expect(handleLocaleChange).toHaveBeenCalledWith('en');
+
+    fireEvent.click(screen.getByTestId('switch-fr'));
+    expect(handleLocaleChange).toHaveBeenCalledWith('fr');
   });
 });

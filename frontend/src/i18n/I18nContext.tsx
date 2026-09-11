@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Locale, I18nContextType } from './types';
 import { fr } from './locales/fr';
 import { en } from './locales/en';
@@ -27,12 +27,22 @@ const defaultContextValue: I18nContextType = {
 
 const I18nContext = createContext<I18nContextType>(defaultContextValue);
 
-export const I18nProvider: React.FC<{ children: ReactNode; initialLocale?: Locale }> = ({ 
+export interface I18nProviderProps {
+  children: ReactNode;
+  initialLocale?: Locale;
+  userPreferredLanguage?: string | null;
+  onLocaleChange?: (locale: Locale) => void;
+}
+
+export const I18nProvider: React.FC<I18nProviderProps> = ({ 
   children,
-  initialLocale 
+  initialLocale,
+  userPreferredLanguage,
+  onLocaleChange,
 }) => {
   const [locale, setLocaleState] = useState<Locale>(() => {
     if (initialLocale) return initialLocale;
+    if (userPreferredLanguage === 'fr' || userPreferredLanguage === 'en') return userPreferredLanguage;
     if (typeof window !== 'undefined' && window.localStorage) {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored === 'fr' || stored === 'en') return stored;
@@ -40,12 +50,22 @@ export const I18nProvider: React.FC<{ children: ReactNode; initialLocale?: Local
     return DEFAULT_LOCALE;
   });
 
+  useEffect(() => {
+    if ((userPreferredLanguage === 'fr' || userPreferredLanguage === 'en') && userPreferredLanguage !== locale) {
+      setLocaleState(userPreferredLanguage);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(STORAGE_KEY, userPreferredLanguage);
+      }
+    }
+  }, [userPreferredLanguage, locale]);
+
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(STORAGE_KEY, newLocale);
     }
-  }, []);
+    onLocaleChange?.(newLocale);
+  }, [onLocaleChange]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     const dict = dictionaries[locale] || dictionaries[DEFAULT_LOCALE];

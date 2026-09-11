@@ -299,3 +299,31 @@ def test_redis_login_limiter_enforces_configured_window() -> None:
         assert 0 < ttl <= settings.login_rate_limit_window_seconds
     finally:
         redis_client.delete(key)
+
+
+def test_user_preferred_language_persistence_and_update(client: TestClient) -> None:
+    reg_data = register(client, email="lang_user@example.com")
+    assert reg_data["user"]["preferred_language"] == "fr"
+
+    me_response = client.get("/api/v1/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["user"]["preferred_language"] == "fr"
+
+    update_response = client.patch(
+        "/api/v1/auth/preferences",
+        json={"preferred_language": "en"},
+        headers=csrf_headers(client),
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["user"]["preferred_language"] == "en"
+
+    me_after = client.get("/api/v1/auth/me")
+    assert me_after.status_code == 200
+    assert me_after.json()["user"]["preferred_language"] == "en"
+
+    invalid_patch = client.patch(
+        "/api/v1/auth/preferences",
+        json={"preferred_language": "de"},
+        headers=csrf_headers(client),
+    )
+    assert invalid_patch.status_code == 422
