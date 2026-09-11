@@ -118,6 +118,7 @@ function LanguagePreferencesCard({
   setLocale: (loc: 'fr' | 'en') => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
+  const { preferenceError, clearPreferenceError } = useAuth();
   return (
     <section aria-label="Language Preferences" className="max-w-2xl rounded-2xl border border-[#EBE6DD] bg-white p-6 shadow-sm space-y-5">
       <div className="flex items-center justify-between pb-3 border-b border-[#EBE6DD]">
@@ -204,10 +205,29 @@ function LanguagePreferencesCard({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900">
-        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-        <span>{t('settings.lang_saved_note')}</span>
-      </div>
+      {preferenceError ? (
+        <div role="alert" className="flex items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-900">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <span>{preferenceError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearPreferenceError();
+              setLocale(locale === 'fr' ? 'en' : 'fr');
+            }}
+            className="font-semibold text-red-700 underline hover:text-red-900 cursor-pointer"
+          >
+            {locale === 'fr' ? 'Réessayer' : 'Retry'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-900">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>{t('settings.lang_saved_note')}</span>
+        </div>
+      )}
     </section>
   );
 }

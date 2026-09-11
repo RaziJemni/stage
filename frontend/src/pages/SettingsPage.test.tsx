@@ -231,4 +231,25 @@ describe('SettingsPage integrations', () => {
     expect(screen.getByRole('button', { name: 'Enregistrer le flux' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Actualiser maintenant' })).toBeInTheDocument();
   });
+
+  it('displays preferenceError alert with retry button when preference saving fails', () => {
+    const clearErrorMock = vi.fn();
+    vi.mocked(useAuth).mockReturnValue({
+      identity: managerIdentity,
+      loading: false,
+      startupError: null,
+      preferenceError: 'Failed to persist language preference.',
+      clearPreferenceError: clearErrorMock,
+      updatePreferences: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>);
+
+    renderWithLocale(<SettingsPage />, 'fr');
+    fireEvent.click(screen.getByRole('button', { name: /Préférences & Langue/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to persist language preference.');
+    const retryBtn = screen.getByRole('button', { name: 'Réessayer' });
+    expect(retryBtn).toBeInTheDocument();
+    fireEvent.click(retryBtn);
+    expect(clearErrorMock).toHaveBeenCalled();
+  });
 });

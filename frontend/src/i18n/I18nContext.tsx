@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import type { Locale, I18nContextType } from './types';
 import { fr } from './locales/fr';
 import { en } from './locales/en';
@@ -31,7 +31,7 @@ export interface I18nProviderProps {
   children: ReactNode;
   initialLocale?: Locale;
   userPreferredLanguage?: string | null;
-  onLocaleChange?: (locale: Locale) => void;
+  onLocaleChange?: (locale: Locale) => Promise<void> | void;
 }
 
 export const I18nProvider: React.FC<I18nProviderProps> = ({ 
@@ -50,21 +50,54 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({
     return DEFAULT_LOCALE;
   });
 
-  useEffect(() => {
-    if ((userPreferredLanguage === 'fr' || userPreferredLanguage === 'en') && userPreferredLanguage !== locale) {
-      setLocaleState(userPreferredLanguage);
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(STORAGE_KEY, userPreferredLanguage);
-      }
-    }
-  }, [userPreferredLanguage, locale]);
+  const pendingUserLocaleRef = useRef<Locale | null>(null);
+  const lastSyncedServerLanguage = useRef<string | null | undefined>(userPreferredLanguage);
+  const currentLocaleRef = useRef<Locale>(locale);
 
-  const setLocale = useCallback((newLocale: Locale) => {
+  useEffect(() => {
+    currentLocaleRef.current = locale;
+  }, [locale]);
+
+  useEffect(() => {
+    if (userPreferredLanguage === 'fr' || userPreferredLanguage === 'en') {
+      if (userPreferredLanguage === pendingUserLocaleRef.current) {
+        pendingUserLocaleRef.current = null;
+      }
+      if (pendingUserLocaleRef.current && pendingUserLocaleRef.current !== userPreferredLanguage) {
+        return;
+      }
+      if (userPreferredLanguage !== lastSyncedServerLanguage.current) {
+        lastSyncedServerLanguage.current = userPreferredLanguage;
+        setLocaleState(userPreferredLanguage);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(STORAGE_KEY, userPreferredLanguage);
+        }
+      }
+    } else if (userPreferredLanguage !== undefined) {
+      lastSyncedServerLanguage.current = userPreferredLanguage;
+    }
+  }, [userPreferredLanguage]);
+
+  const setLocale = useCallback(async (newLocale: Locale) => {
+    const previousLocale = currentLocaleRef.current;
+    if (newLocale === previousLocale && !pendingUserLocaleRef.current) return;
+    pendingUserLocaleRef.current = newLocale;
     setLocaleState(newLocale);
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(STORAGE_KEY, newLocale);
     }
-    onLocaleChange?.(newLocale);
+    if (onLocaleChange) {
+      try {
+        await onLocaleChange(newLocale);
+      } catch (err) {
+        pendingUserLocaleRef.current = null;
+        setLocaleState(previousLocale);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(STORAGE_KEY, previousLocale);
+        }
+        console.error('Failed to persist locale change:', err);
+      }
+    }
   }, [onLocaleChange]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {

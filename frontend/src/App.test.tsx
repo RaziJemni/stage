@@ -132,3 +132,72 @@ describe('App inbox unread state', () => {
     await waitFor(() => expect(screen.getByText(/No conversations match this view/)).toBeInTheDocument());
   });
 });
+
+describe('App language preference persistence and active session sync', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    window.localStorage.clear();
+    vi.mocked(propertiesApi.fetchProperties).mockResolvedValue({
+      items: [], page: 1, page_size: 20, total: 0, pages: 0,
+    });
+    vi.mocked(messagingApi.fetchConversations).mockResolvedValue(page());
+    vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(0);
+    vi.mocked(messagingApi.fetchConversationCount).mockResolvedValue(0);
+  });
+
+  it('allows an authenticated manager with persisted "fr" to select "en" and remain in English', async () => {
+    let currentIdentity = {
+      user: { id: 'mgr-1', name: 'Manager', email: 'mgr@example.com', role: 'manager' as const, status: 'active' as const, preferred_language: 'fr' },
+      company: { id: 'company-1', name: 'Agency', timezone: 'Africa/Tunis', default_currency: 'TND' },
+      permissions: ['operations:access'],
+    };
+
+    const updatePreferencesMock = vi.fn().mockImplementation(async (payload: { preferred_language: 'fr' | 'en' }) => {
+      currentIdentity = {
+        ...currentIdentity,
+        user: { ...currentIdentity.user, preferred_language: payload.preferred_language },
+      };
+      return currentIdentity;
+    });
+
+    vi.mocked(useAuth).mockImplementation(() => ({
+      identity: currentIdentity,
+      loading: false,
+      startupError: null,
+      preferenceError: null,
+      clearPreferenceError: vi.fn(),
+      updatePreferences: updatePreferencesMock,
+      login: vi.fn(),
+      register: vi.fn(),
+      acceptInvitation: vi.fn(),
+      logout: vi.fn(),
+    }));
+
+    window.localStorage.setItem('vayca_locale', 'fr');
+    renderApp();
+
+    // App is initially in French
+    expect(screen.getByText('Centre de Commande Opérationnel')).toBeInTheDocument();
+
+    // Navigate to Settings
+    fireEvent.click(screen.getByRole('button', { name: /Paramètres/i }));
+    expect(await screen.findByRole('heading', { name: "Paramètres de l'entreprise & Accès équipe" })).toBeInTheDocument();
+
+    // Open Preferences tab
+    fireEvent.click(screen.getByRole('button', { name: /Préférences & Langue/i }));
+    expect(screen.getByRole('heading', { name: "Langue de l'interface" })).toBeInTheDocument();
+
+    // Select English
+    fireEvent.click(screen.getByRole('button', { name: /Select English/i }));
+
+    // Verify updatePreferences was called
+    expect(updatePreferencesMock).toHaveBeenCalledWith({ preferred_language: 'en' });
+
+    // Verify active session remains in English
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Interface Language' })).toBeInTheDocument();
+      expect(screen.getByText('Company Settings & Team Access')).toBeInTheDocument();
+      expect(window.localStorage.getItem('vayca_locale')).toBe('en');
+    });
+  });
+});
