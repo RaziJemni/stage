@@ -27,6 +27,7 @@ interface DashboardPageProps {
   properties: Property[];
   companyTimezone: string;
   onNavigate: (page: ActivePage) => void;
+  onConflictStateChange?: (hasActiveConflicts: boolean) => void;
 }
 
 function dateKey(value: Date | string, timezone: string): string {
@@ -46,7 +47,7 @@ function labelTime(value: string | null, timezone: string): string {
     : 'No message time';
 }
 
-export function DashboardPage({ properties, companyTimezone, onNavigate }: DashboardPageProps) {
+export function DashboardPage({ properties, companyTimezone, onNavigate, onConflictStateChange }: DashboardPageProps) {
   const { t, locale } = useI18n();
   const [conflicts, setConflicts] = useState<BookingConflict[]>([]);
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
@@ -83,7 +84,9 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
       setPartialError('Some dashboard data is unavailable. Displayed items are current for the sources that loaded.');
     }
     if (conflictResult.status === 'fulfilled' && Array.isArray(conflictResult.value)) {
-      setConflicts(conflictResult.value.filter((item) => item && (item.status === 'open' || item.status === 'acknowledged')));
+      const activeConflicts = conflictResult.value.filter((item) => item && (item.status === 'open' || item.status === 'acknowledged'));
+      setConflicts(activeConflicts);
+      onConflictStateChange?.(activeConflicts.length > 0);
     }
     if (conversationResult.status === 'fulfilled' && Array.isArray(conversationResult.value)) {
       setConversations(conversationResult.value.filter(Boolean));
@@ -98,13 +101,33 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
       setAnalytics(analyticsResult.value);
     }
     if (!background) setLoading(false);
-  }, [analyticsWindow]);
+  }, [analyticsWindow, onConflictStateChange]);
 
   useEffect(() => { 
     void load(); 
   }, [load]);
 
-  useVisiblePolling(() => load(analyticsWindow, true), 10_000);
+  const refreshOperationalAttention = useCallback(async () => {
+    const results = await Promise.allSettled([
+      fetchBookingConflicts(),
+      fetchAllConversations({ handling_mode: 'manual' }),
+      fetchAllTickets({ priority: 'urgent' }),
+    ]);
+    const [conflictResult, conversationResult, ticketResult] = results;
+    if (conflictResult.status === 'fulfilled' && Array.isArray(conflictResult.value)) {
+      const activeConflicts = conflictResult.value.filter((item) => item && (item.status === 'open' || item.status === 'acknowledged'));
+      setConflicts(activeConflicts);
+      onConflictStateChange?.(activeConflicts.length > 0);
+    }
+    if (conversationResult.status === 'fulfilled' && Array.isArray(conversationResult.value)) {
+      setConversations(conversationResult.value.filter(Boolean));
+    }
+    if (ticketResult.status === 'fulfilled' && Array.isArray(ticketResult.value)) {
+      setTickets(ticketResult.value.filter((item) => item && item.status !== 'resolved' && item.status !== 'cancelled'));
+    }
+  }, [onConflictStateChange]);
+
+  useVisiblePolling(refreshOperationalAttention, 10_000);
 
   const safeConflicts = conflicts || [];
   const safeConversations = conversations || [];

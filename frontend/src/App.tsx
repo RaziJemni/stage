@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import type { Property } from './data/mockData';
-import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
+import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchAllTickets, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -73,6 +73,7 @@ function WorkspaceApp() {
   const [contractors, setContractors] = useState<ApiContractor[]>([]);
   const [ticketFilters, setTicketFilters] = useState<TicketFilters>({});
   const [ticketStatusHistories, setTicketStatusHistories] = useState<Record<string, ApiTicketStatusHistory[]>>({});
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -124,6 +125,18 @@ function WorkspaceApp() {
     }
   }, [ticketFilters]);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
+
+  const loadOpenTicketsCount = useCallback(async () => {
+    try {
+      const tickets = await fetchAllTickets();
+      setOpenTicketsCount(tickets.filter((ticket) => ticket.status === 'open' || ticket.status === 'assigned').length);
+    } catch (err) {
+      // Preserve the last known badge rather than imply there is no maintenance work.
+      console.error('Unable to refresh maintenance badge:', err);
+    }
+  }, []);
+
+  useEffect(() => { void loadOpenTicketsCount(); }, [loadOpenTicketsCount]);
 
 
   const loadConversations = useCallback(async (background = false) => {
@@ -202,16 +215,18 @@ function WorkspaceApp() {
   const refreshOperationalState = useCallback(async () => {
     const refreshes: Array<Promise<void>> = [
       loadUnreadMessagesCount(),
-      loadConversationCount(),
-      loadConversations(true),
-      loadTickets(true),
-      refreshCalendarConflict(),
+      loadOpenTicketsCount(),
     ];
+    if (activePage !== 'dashboard') refreshes.push(refreshCalendarConflict());
+    if (activePage === 'inbox') {
+      refreshes.push(loadConversationCount(), loadConversations(true));
+    }
+    if (activePage === 'tickets') refreshes.push(loadTickets(true));
     if (activePage === 'conversation-thread' && selectedConversationId) {
       refreshes.push(loadMessages(selectedConversationId, true));
     }
     await Promise.all(refreshes);
-  }, [activePage, loadConversationCount, loadConversations, loadMessages, loadTickets, loadUnreadMessagesCount, refreshCalendarConflict, selectedConversationId]);
+  }, [activePage, loadConversationCount, loadConversations, loadMessages, loadOpenTicketsCount, loadTickets, loadUnreadMessagesCount, refreshCalendarConflict, selectedConversationId]);
 
   useVisiblePolling(refreshOperationalState, 10_000);
 
@@ -220,7 +235,6 @@ function WorkspaceApp() {
   };
 
   // Sidebar badges represent company-wide state, not the active inbox page or filter.
-  const openTicketsCount = (persistentTickets || []).filter(t => t && (t.status === 'open' || t.status === 'assigned')).length;
   const hasCalendarConflict = calendarHasConflict;
 
   // Page Handlers
@@ -335,6 +349,7 @@ function WorkspaceApp() {
             properties={properties}
             companyTimezone={identity!.company.timezone}
             onNavigate={setActivePage}
+            onConflictStateChange={setCalendarHasConflict}
           />
         )}
 

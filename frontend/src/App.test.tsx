@@ -65,6 +65,7 @@ describe('App inbox unread state', () => {
     vi.mocked(messagingApi.fetchMessages).mockResolvedValue([]);
     vi.mocked(calendarApi.fetchBookingConflicts).mockResolvedValue([]);
     vi.mocked(maintenanceApi.fetchTickets).mockResolvedValue(page([]) as never);
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([]);
     vi.mocked(maintenanceApi.fetchTicketSuggestions).mockResolvedValue(page([]) as never);
     vi.mocked(maintenanceApi.fetchContractors).mockResolvedValue(page([]) as never);
     vi.mocked(messagingApi.markConversationRead).mockResolvedValue({
@@ -156,6 +157,17 @@ describe('App inbox unread state', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     vi.useRealTimers();
   });
+
+  it('keeps the maintenance badge company-wide when the ticket page is filtered', async () => {
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([
+      { id: 'open-ticket', status: 'open' },
+      { id: 'assigned-ticket', status: 'assigned' },
+      { id: 'resolved-ticket', status: 'resolved' },
+    ] as never);
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument());
+  });
 });
 
 describe('App language preference persistence and active session sync', () => {
@@ -168,6 +180,7 @@ describe('App language preference persistence and active session sync', () => {
     vi.mocked(messagingApi.fetchConversations).mockResolvedValue(page());
     vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(0);
     vi.mocked(messagingApi.fetchConversationCount).mockResolvedValue(0);
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([]);
   });
 
   it('allows an authenticated manager with persisted "fr" to select "en" and remain in English', async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardPage } from './DashboardPage';
 import { fetchBookingConflicts, fetchCalendarBookings } from '../api/calendar';
@@ -104,5 +104,23 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Aucun élément d\'attention actuellement')).toBeInTheDocument();
     expect(screen.getByText('Aucune arrivée de voyageur aujourd\'hui.')).toBeInTheDocument();
     expect(screen.getByText('Aucun départ de voyageur aujourd\'hui.')).toBeInTheDocument();
+  });
+  it('polls only urgent attention sources in the background', async () => {
+    vi.useFakeTimers();
+    render(page());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(fetchBookingConflicts).toHaveBeenCalledTimes(2);
+    expect(fetchAllConversations).toHaveBeenCalledTimes(2);
+    expect(fetchAllTickets).toHaveBeenCalledTimes(2);
+    expect(fetchCalendarBookings).toHaveBeenCalledTimes(1);
+    expect(fetchPortfolioAnalytics).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });
