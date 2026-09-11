@@ -27,6 +27,8 @@ import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { fetchBookingConflicts } from './api/calendar';
+import { useVisiblePolling } from './hooks/useVisiblePolling';
 
 // 9 Pages Imports
 import { LoginPage } from './pages/LoginPage';
@@ -98,55 +100,70 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
-  const loadTickets = useCallback(async () => {
-    try {
+  const loadTickets = useCallback(async (background = false) => {
+    if (!background) {
       setLoadingTickets(true);
       setTicketsError(null);
-      const [ticketPage, suggestionPage, contractorPage] = await Promise.all([
-        fetchTickets(ticketFilters),
-        fetchTicketSuggestions(),
-        fetchContractors(true)
-      ]);
+    }
+    try {
+      const ticketPage = await fetchTickets(ticketFilters);
       setPersistentTickets(ticketPage?.items || []);
-      setTicketSuggestions(suggestionPage?.items || []);
-      setContractors(contractorPage?.items || []);
+      if (!background) {
+        const [suggestionPage, contractorPage] = await Promise.all([
+          fetchTicketSuggestions(),
+          fetchContractors(true),
+        ]);
+        setTicketSuggestions(suggestionPage?.items || []);
+        setContractors(contractorPage?.items || []);
+      }
     } catch (err: any) {
-      setTicketsError(err.message || 'Failed to load maintenance work.');
+      if (background) console.error('Unable to refresh maintenance badge:', err);
+      else setTicketsError(err.message || 'Failed to load maintenance work.');
     } finally {
-      setLoadingTickets(false);
+      if (!background) setLoadingTickets(false);
     }
   }, [ticketFilters]);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
 
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (background = false) => {
     try {
-      setLoadingConversations(true);
-      setConversationsError(null);
+      if (!background) {
+        setLoadingConversations(true);
+        setConversationsError(null);
+      }
       const response = await fetchConversations(
         conversationFilter === 'unread' ? { unread: true } : conversationFilter === 'all' ? {} : { handling_mode: conversationFilter },
       );
       setConversations(response.items);
       setSelectedConversationId((current) => current || response.items[0]?.id || '');
     } catch (err: any) {
-      setConversations([]);
-      setConversationsError(err.message || 'Failed to load conversations from the API server.');
+      if (background) console.error('Unable to refresh conversations:', err);
+      else {
+        setConversations([]);
+        setConversationsError(err.message || 'Failed to load conversations from the API server.');
+      }
     } finally {
-      setLoadingConversations(false);
+      if (!background) setLoadingConversations(false);
     }
   }, [conversationFilter]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
+  const loadMessages = useCallback(async (conversationId: string, background = false) => {
     if (!conversationId) return;
     try {
-      setLoadingMessages(true);
-      setMessagesError(null);
+      if (!background) {
+        setLoadingMessages(true);
+        setMessagesError(null);
+      }
       setMessages(await fetchMessages(conversationId));
     } catch (err: any) {
-      setMessages([]);
-      setMessagesError(err.message || 'Failed to load this conversation history.');
+      if (background) console.error('Unable to refresh conversation history:', err);
+      else {
+        setMessages([]);
+        setMessagesError(err.message || 'Failed to load this conversation history.');
+      }
     } finally {
-      setLoadingMessages(false);
+      if (!background) setLoadingMessages(false);
     }
   }, []);
 
@@ -171,6 +188,32 @@ function WorkspaceApp() {
     void loadUnreadMessagesCount();
     void loadConversationCount();
   }, [loadConversationCount, loadConversations, loadUnreadMessagesCount]);
+
+  const refreshCalendarConflict = useCallback(async () => {
+    try {
+      const conflicts = await fetchBookingConflicts();
+      setCalendarHasConflict(conflicts.some((conflict) => conflict.status === 'open' || conflict.status === 'acknowledged'));
+    } catch (err) {
+      // Preserve the last known badge rather than imply there are no conflicts.
+      console.error('Unable to refresh calendar conflict badge:', err);
+    }
+  }, []);
+
+  const refreshOperationalState = useCallback(async () => {
+    const refreshes: Array<Promise<void>> = [
+      loadUnreadMessagesCount(),
+      loadConversationCount(),
+      loadConversations(true),
+      loadTickets(true),
+      refreshCalendarConflict(),
+    ];
+    if (activePage === 'conversation-thread' && selectedConversationId) {
+      refreshes.push(loadMessages(selectedConversationId, true));
+    }
+    await Promise.all(refreshes);
+  }, [activePage, loadConversationCount, loadConversations, loadMessages, loadTickets, loadUnreadMessagesCount, refreshCalendarConflict, selectedConversationId]);
+
+  useVisiblePolling(refreshOperationalState, 10_000);
 
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);

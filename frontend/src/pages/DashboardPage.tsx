@@ -21,6 +21,7 @@ import { fetchPortfolioAnalytics, type PortfolioAnalytics } from '../api/supervi
 import type { Property } from '../data/mockData';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 import { useI18n } from '../i18n/I18nContext';
+import { useVisiblePolling } from '../hooks/useVisiblePolling';
 
 interface DashboardPageProps {
   properties: Property[];
@@ -58,10 +59,12 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
   const [error, setError] = useState<string | null>(null);
   const [partialError, setPartialError] = useState<string | null>(null);
 
-  const load = useCallback(async (windowDays = analyticsWindow) => {
-    setLoading(true); 
-    setError(null); 
-    setPartialError(null);
+  const load = useCallback(async (windowDays = analyticsWindow, background = false) => {
+    if (!background) {
+      setLoading(true);
+      setError(null);
+      setPartialError(null);
+    }
     const now = new Date();
     const rangeStart = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString();
     const rangeEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
@@ -74,9 +77,9 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
     ]);
     const [conflictResult, conversationResult, ticketResult, bookingResult, analyticsResult] = results;
     const failed = results.filter((result) => result.status === 'rejected').length;
-    if (failed === results.length) {
+    if (!background && failed === results.length) {
       setError('Dashboard data could not be loaded. Try again.');
-    } else if (failed > 0) {
+    } else if (!background && failed > 0) {
       setPartialError('Some dashboard data is unavailable. Displayed items are current for the sources that loaded.');
     }
     if (conflictResult.status === 'fulfilled' && Array.isArray(conflictResult.value)) {
@@ -94,12 +97,14 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
     if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
       setAnalytics(analyticsResult.value);
     }
-    setLoading(false);
+    if (!background) setLoading(false);
   }, [analyticsWindow]);
 
   useEffect(() => { 
     void load(); 
   }, [load]);
+
+  useVisiblePolling(() => load(analyticsWindow, true), 10_000);
 
   const safeConflicts = conflicts || [];
   const safeConversations = conversations || [];
