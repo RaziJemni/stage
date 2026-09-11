@@ -17,6 +17,9 @@ export interface AuthContextValue {
   register: (input: RegisterInput) => Promise<void>;
   acceptInvitation: (token: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  preferenceError: string | null;
+  clearPreferenceError: () => void;
+  updatePreferences: (payload: { preferred_language: 'fr' | 'en' }) => Promise<AuthIdentity>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

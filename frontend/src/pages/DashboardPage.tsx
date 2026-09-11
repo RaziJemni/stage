@@ -80,13 +80,13 @@ export function DashboardPage({ properties, companyTimezone, onNavigate }: Dashb
       setPartialError('Some dashboard data is unavailable. Displayed items are current for the sources that loaded.');
     }
     if (conflictResult.status === 'fulfilled' && Array.isArray(conflictResult.value)) {
-      setConflicts(conflictResult.value.filter((item) => item.status === 'open' || item.status === 'acknowledged'));
+      setConflicts(conflictResult.value.filter((item) => item && (item.status === 'open' || item.status === 'acknowledged')));
     }
     if (conversationResult.status === 'fulfilled' && Array.isArray(conversationResult.value)) {
-      setConversations(conversationResult.value);
+      setConversations(conversationResult.value.filter(Boolean));
     }
     if (ticketResult.status === 'fulfilled' && Array.isArray(ticketResult.value)) {
-      setTickets(ticketResult.value.filter((item) => item.status !== 'resolved' && item.status !== 'cancelled'));
+      setTickets(ticketResult.value.filter((item) => item && item.status !== 'resolved' && item.status !== 'cancelled'));
     }
     if (bookingResult.status === 'fulfilled' && Array.isArray(bookingResult.value)) {
       setBookings(bookingResult.value);

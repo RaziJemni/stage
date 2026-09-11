@@ -26,7 +26,6 @@ import {
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
-import { updatePreferences } from './auth/api';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 
 // 9 Pages Imports
@@ -99,7 +98,24 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
-  const loadTickets = useCallback(async () => { try { setLoadingTickets(true); setTicketsError(null); const [ticketPage, suggestionPage, contractorPage] = await Promise.all([fetchTickets(ticketFilters), fetchTicketSuggestions(), fetchContractors(true)]); setPersistentTickets(ticketPage.items); setTicketSuggestions(suggestionPage.items); setContractors(contractorPage.items); } catch (err: any) { setTicketsError(err.message || 'Failed to load maintenance work.'); } finally { setLoadingTickets(false); } }, [ticketFilters]);
+  const loadTickets = useCallback(async () => {
+    try {
+      setLoadingTickets(true);
+      setTicketsError(null);
+      const [ticketPage, suggestionPage, contractorPage] = await Promise.all([
+        fetchTickets(ticketFilters),
+        fetchTicketSuggestions(),
+        fetchContractors(true)
+      ]);
+      setPersistentTickets(ticketPage?.items || []);
+      setTicketSuggestions(suggestionPage?.items || []);
+      setContractors(contractorPage?.items || []);
+    } catch (err: any) {
+      setTicketsError(err.message || 'Failed to load maintenance work.');
+    } finally {
+      setLoadingTickets(false);
+    }
+  }, [ticketFilters]);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
 
 
@@ -161,7 +177,7 @@ function WorkspaceApp() {
   };
 
   // Sidebar badges represent company-wide state, not the active inbox page or filter.
-  const openTicketsCount = persistentTickets.filter(t => t.status === 'open' || t.status === 'assigned').length;
+  const openTicketsCount = (persistentTickets || []).filter(t => t && (t.status === 'open' || t.status === 'assigned')).length;
   const hasCalendarConflict = calendarHasConflict;
 
   // Page Handlers
@@ -365,15 +381,13 @@ function WorkspaceApp() {
 }
 
 export function App() {
-  const { identity } = useAuth();
+  const { identity, updatePreferences } = useAuth();
 
-  const handleLocaleChange = useCallback((newLocale: 'fr' | 'en') => {
+  const handleLocaleChange = useCallback(async (newLocale: 'fr' | 'en') => {
     if (identity) {
-      updatePreferences({ preferred_language: newLocale }).catch((err) => {
-        console.error('Failed to persist language preference to database:', err);
-      });
+      await updatePreferences({ preferred_language: newLocale });
     }
-  }, [identity]);
+  }, [identity, updatePreferences]);
 
   return (
     <I18nProvider

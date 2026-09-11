@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nProvider, useI18n } from './I18nContext';
 
 function TestComponent() {
@@ -92,5 +92,43 @@ describe('I18n subsystem', () => {
 
     fireEvent.click(screen.getByTestId('switch-fr'));
     expect(handleLocaleChange).toHaveBeenCalledWith('fr');
+  });
+
+  it('does not revert user selection when userPreferredLanguage equals the initial locale', () => {
+    render(
+      <I18nProvider userPreferredLanguage="fr">
+        <TestComponent />
+      </I18nProvider>
+    );
+
+    expect(screen.getByTestId('current-locale').textContent).toBe('fr');
+
+    fireEvent.click(screen.getByTestId('switch-en'));
+
+    expect(screen.getByTestId('current-locale').textContent).toBe('en');
+    expect(window.localStorage.getItem('vayca_locale')).toBe('en');
+  });
+
+  it('reverts locale and localStorage when onLocaleChange fails', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failingCallback = vi.fn().mockRejectedValue(new Error('Network failure'));
+
+    render(
+      <I18nProvider userPreferredLanguage="fr" onLocaleChange={failingCallback}>
+        <TestComponent />
+      </I18nProvider>
+    );
+
+    expect(screen.getByTestId('current-locale').textContent).toBe('fr');
+
+    fireEvent.click(screen.getByTestId('switch-en'));
+    expect(failingCallback).toHaveBeenCalledWith('en');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-locale').textContent).toBe('fr');
+      expect(window.localStorage.getItem('vayca_locale')).toBe('fr');
+    });
+
+    consoleErrorSpy.mockRestore();
   });
 });
