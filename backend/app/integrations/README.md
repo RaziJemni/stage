@@ -30,15 +30,14 @@ it makes no network request. `CHATBOT_PROVIDER=openai` requires
 already-authorized fact supplied by the domain service. It is not an outbound
 WhatsApp transport: generated messages remain `queued` until one is approved.
 
-## WhatsApp Simulator
+## WhatsApp Integration Adapters
 
-The implemented local adapter accepts a signed synthetic inbound event at
-`POST /api/v1/integrations/whatsapp/simulator/inbound`. It is enabled only when
-`WHATSAPP_MODE=simulator` and verifies the raw request body with
-`X-Vayca-Simulator-Signature` using HMAC-SHA256 and
-`WHATSAPP_SIMULATOR_WEBHOOK_SECRET`.
+`whatsapp.py` provides external messaging adapters behind `BaseWhatsAppAdapter`:
 
-It resolves the company from the trusted property record, persists messages
-through the shared idempotent messaging service, and does not make an external
-network request. `test` and `production` modes intentionally remain unavailable
-until a provider-specific adapter and credentials are approved.
+- `WHATSAPP_MODE=simulator`: local development default; accepts signed synthetic inbound events at `POST /api/v1/integrations/whatsapp/simulator/inbound` verified with `X-Vayca-Simulator-Signature` using HMAC-SHA256 and `WHATSAPP_SIMULATOR_WEBHOOK_SECRET`. Outbound messages are simulated without network calls.
+- `WHATSAPP_MODE=production` or `WHATSAPP_MODE=test`:
+  - `WHATSAPP_PROVIDER=meta`: Meta WhatsApp Business Cloud API adapter. Transmits outbound messages to `https://graph.facebook.com/v20.0/{phone_number_id}/messages`. Verifies webhooks with `X-Hub-Signature-256` HMAC-SHA256 and GET challenge subscription handshakes at `/api/v1/integrations/whatsapp/webhook`.
+  - `WHATSAPP_PROVIDER=twilio`: Twilio WhatsApp Messaging API adapter using Twilio Messages endpoint and signature checks.
+- Inbound webhooks resolve property context through active open conversations, active/upcoming non-cancelled guest bookings, or configured fallback property ID.
+- Outbound staff replies and chatbot replies are transmitted to guest WhatsApp numbers, transitioning status to `SENT` or `FAILED` with error reasons captured.
+- Delivery status callbacks (`sent`, `delivered`, `failed`) are processed idempotently.

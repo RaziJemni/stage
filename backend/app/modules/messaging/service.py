@@ -8,14 +8,18 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
 from app.api.pagination import PageParams
-from app.modules.chatbot.policy import apply_escalation, classify_message
+from app.core.config import settings
 from app.core.enums import (
+    BookingStatus,
     ConversationStatus,
     DeliveryStatus,
     HandlingMode,
     MessageDirection,
     SenderType,
 )
+from app.integrations.whatsapp import get_whatsapp_adapter
+from app.modules.calendar.models import Booking
+from app.modules.chatbot.policy import apply_escalation, classify_message
 from app.modules.messaging.models import Conversation, Message
 from app.modules.properties.models import Property
 
@@ -121,6 +125,20 @@ def create_message(
         delivery_status=DeliveryStatus.QUEUED,
         automatically_sent=False,
     )
+    adapter = get_whatsapp_adapter()
+    if adapter.mode in {"production", "test"}:
+        delivery = adapter.send_message(
+            to_phone=conversation.guest_contact_identifier,
+            content=content,
+        )
+        if delivery.success:
+            message.delivery_status = DeliveryStatus.SENT
+            if delivery.external_message_id:
+                message.external_message_id = delivery.external_message_id
+        else:
+            message.delivery_status = DeliveryStatus.FAILED
+            message.escalation_reason = delivery.error_detail
+
     db.add(message)
     conversation.handling_mode = HandlingMode.MANUAL
     conversation.assigned_staff_user_id = sender_user_id
@@ -258,3 +276,66 @@ def _require_open_conversation(conversation: Conversation) -> None:
             detail="Closed conversations cannot be updated.",
             code="conversation_closed",
         )
+
+
+def record_delivery_status(
+    db: Session,
+    *,
+    external_message_id: str,
+    status: DeliveryStatus,
+    error_detail: str | None = None,
+    provider_timestamp: datetime | None = None,
+) -> Message | None:
+    message = db.scalar(
+        select(Message).where(Message.external_message_id == external_message_id)
+    )
+    if message is None:
+        return None
+    message.delivery_status = status
+    if error_detail:
+        message.escalation_reason = error_detail
+    if provider_timestamp:
+        message.provider_timestamp = provider_timestamp
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def resolve_property_for_guest(
+    db: Session,
+    *,
+    guest_contact_identifier: str,
+) -> Property | None:
+    # 1. Match active open conversation with this phone number
+    existing_conv = db.scalar(
+        select(Conversation)
+        .where(
+            Conversation.guest_contact_identifier == guest_contact_identifier,
+            Conversation.status == ConversationStatus.OPEN,
+        )
+        .order_by(Conversation.last_message_at.desc().nulls_last())
+    )
+    if existing_conv:
+        return db.scalar(select(Property).where(Property.id == existing_conv.property_id))
+
+    # 2. Match active/upcoming non-cancelled booking with this guest contact
+    booking = db.scalar(
+        select(Booking)
+        .where(
+            Booking.guest_contact == guest_contact_identifier,
+            Booking.status != BookingStatus.CANCELLED,
+        )
+        .order_by(Booking.check_in.desc())
+    )
+    if booking:
+        return db.scalar(select(Property).where(Property.id == booking.property_id))
+
+    # 3. Match configured default property fallback
+    if settings.whatsapp_default_property_id:
+        try:
+            prop_id = UUID(settings.whatsapp_default_property_id)
+            return db.scalar(select(Property).where(Property.id == prop_id))
+        except (ValueError, TypeError):
+            pass
+
+    return None

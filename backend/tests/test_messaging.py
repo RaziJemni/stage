@@ -375,3 +375,173 @@ def test_other_company_cannot_mark_conversation_read(client: TestClient) -> None
     )
     assert response.status_code == 404
     assert response.json()["code"] == "conversation_not_found"
+
+
+def test_whatsapp_webhook_handshake_verification(client: TestClient) -> None:
+    # Valid challenge handshake
+    response = client.get(
+        "/api/v1/integrations/whatsapp/webhook",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "simulator_verify_token",
+            "hub.challenge": "1158201444",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "1158201444"
+
+    # Invalid token rejected
+    failed = client.get(
+        "/api/v1/integrations/whatsapp/webhook",
+        params={
+            "hub.mode": "subscribe",
+            "hub.verify_token": "wrong_token",
+            "hub.challenge": "1158201444",
+        },
+    )
+    assert failed.status_code == 403
+    assert "Verification failed" in failed.text
+
+    # Missing parameters rejected
+    missing = client.get("/api/v1/integrations/whatsapp/webhook")
+    assert missing.status_code == 403
+
+
+def test_whatsapp_webhook_inbound_and_delivery_status(client: TestClient) -> None:
+    manager = register_manager(client)
+    property_data = create_property(client)
+
+    # 1. Create an initial conversation so guest phone can be resolved
+    initial_inbound = client.post(
+        "/api/v1/integrations/whatsapp/simulator/inbound",
+        content=signed_simulator_event({
+            "property_id": property_data["id"],
+            "guest_contact_identifier": "+21699887766",
+            "content": "Initial inquiry",
+            "external_message_id": "initial-msg-001",
+        })[0],
+        headers=signed_simulator_event({
+            "property_id": property_data["id"],
+            "guest_contact_identifier": "+21699887766",
+            "content": "Initial inquiry",
+            "external_message_id": "initial-msg-001",
+        })[1],
+    )
+    assert initial_inbound.status_code == 202
+
+    # 2. Receive inbound message via standard Meta webhook format
+    meta_inbound_payload = {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "id": "123456",
+                "changes": [
+                    {
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {"display_phone_number": "1234", "phone_number_id": "5678"},
+                            "messages": [
+                                {
+                                    "from": "21699887766",
+                                    "id": "wamid.META_INBOUND_001",
+                                    "timestamp": "1710340000",
+                                    "text": {"body": "Inbound from Meta webhook"},
+                                    "type": "text",
+                                }
+                            ],
+                        },
+                        "field": "messages",
+                    }
+                ],
+            }
+        ],
+    }
+    raw_body = json.dumps(meta_inbound_payload, separators=(",", ":")).encode()
+    signature = "sha256=" + hmac.new(
+        settings.whatsapp_simulator_webhook_secret.encode(),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    # Reject invalid signature
+    invalid_sig_res = client.post(
+        "/api/v1/integrations/whatsapp/webhook",
+        content=raw_body,
+        headers={"Content-Type": "application/json", "X-Hub-Signature-256": "sha256=invalid"},
+    )
+    assert invalid_sig_res.status_code == 401
+    assert invalid_sig_res.json()["code"] == "invalid_webhook_signature"
+
+    # Accept valid signed webhook
+    webhook_res = client.post(
+        "/api/v1/integrations/whatsapp/webhook",
+        content=raw_body,
+        headers={"Content-Type": "application/json", "X-Hub-Signature-256": signature},
+    )
+    assert webhook_res.status_code == 200
+    assert webhook_res.json() == {"status": "ok"}
+
+    # Verify inbound message is recorded in the conversation
+    conversations = client.get("/api/v1/conversations").json()["items"]
+    assert len(conversations) == 1
+    conv_id = conversations[0]["id"]
+    messages = client.get(f"/api/v1/conversations/{conv_id}/messages").json()
+    assert any(m["content"] == "Inbound from Meta webhook" for m in messages)
+
+    # 3. Create an outbound message and simulate delivery status callback
+    with SessionLocal() as db:
+        outbound_msg = service.create_message(
+            db,
+            conversation=service.get_conversation(db, UUID(manager["company"]["id"]), UUID(conv_id)),
+            company_id=UUID(manager["company"]["id"]),
+            sender_user_id=UUID(manager["user"]["id"]),
+            content="We will be happy to assist you.",
+        )
+        outbound_msg.external_message_id = "wamid.META_OUTBOUND_001"
+        db.commit()
+
+    meta_status_payload = {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "id": "123456",
+                "changes": [
+                    {
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {"display_phone_number": "1234", "phone_number_id": "5678"},
+                            "statuses": [
+                                {
+                                    "id": "wamid.META_OUTBOUND_001",
+                                    "status": "delivered",
+                                    "timestamp": "1710340500",
+                                    "recipient_id": "21699887766",
+                                }
+                            ],
+                        },
+                        "field": "messages",
+                    }
+                ],
+            }
+        ],
+    }
+    status_raw_body = json.dumps(meta_status_payload, separators=(",", ":")).encode()
+    status_signature = "sha256=" + hmac.new(
+        settings.whatsapp_simulator_webhook_secret.encode(),
+        status_raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    status_res = client.post(
+        "/api/v1/integrations/whatsapp/webhook",
+        content=status_raw_body,
+        headers={"Content-Type": "application/json", "X-Hub-Signature-256": status_signature},
+    )
+    assert status_res.status_code == 200
+    assert status_res.json() == {"status": "ok"}
+
+    # Verify outbound message delivery status updated to 'delivered'
+    updated_messages = client.get(f"/api/v1/conversations/{conv_id}/messages").json()
+    delivered_msg = next(m for m in updated_messages if m["content"] == "We will be happy to assist you.")
+    assert delivered_msg["delivery_status"] == "delivered"
+

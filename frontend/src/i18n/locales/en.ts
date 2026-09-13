@@ -282,6 +282,7 @@ export const en: Record<string, string> = {
   'settings.channels.whatsapp_simulator': 'Simulator only',
   'settings.channels.whatsapp_test': 'Provider test mode',
   'settings.channels.whatsapp_unconfigured': 'Production unconfigured',
+  'settings.channels.whatsapp_healthy': 'Connected in production',
   'settings.channels.status_pending': 'Pending first sync',
   'settings.channels.status_running': 'Sync running',
   'settings.channels.status_healthy': 'Healthy',

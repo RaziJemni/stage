@@ -1,7 +1,10 @@
+import json
 from typing import Annotated
+import urllib.parse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
@@ -9,7 +12,7 @@ from app.api.pagination import Page, PageParams, get_page_params
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.enums import HandlingMode
-from app.integrations.whatsapp import InboundMessageEvent, simulator_adapter
+from app.integrations.whatsapp import InboundMessageEvent, get_whatsapp_adapter, simulator_adapter
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.messaging import service
 from app.modules.chatbot.tasks import process_chatbot_inbound_message
@@ -21,6 +24,7 @@ from app.modules.messaging.schemas import (
     SimulatorInboundEventRequest,
     SimulatorInboundEventResponse,
 )
+from app.modules.properties.models import Property
 
 
 router = APIRouter(
@@ -32,6 +36,103 @@ simulator_router = APIRouter(
     prefix="/integrations/whatsapp",
     tags=["Messages"],
 )
+
+
+@simulator_router.get(
+    "/webhook",
+    summary="Meta WhatsApp webhook subscription handshake verification",
+    tags=["Messages"],
+)
+def verify_whatsapp_webhook_handshake(
+    hub_mode: Annotated[str | None, Query(alias="hub.mode")] = None,
+    hub_verify_token: Annotated[str | None, Query(alias="hub.verify_token")] = None,
+    hub_challenge: Annotated[str | None, Query(alias="hub.challenge")] = None,
+) -> Response:
+    adapter = get_whatsapp_adapter()
+    if hub_mode and hub_verify_token and hub_challenge:
+        verified = adapter.verify_challenge(
+            mode=hub_mode,
+            token=hub_verify_token,
+            challenge=hub_challenge,
+        )
+        if verified:
+            return Response(content=verified, media_type="text/plain")
+    return Response(content="Verification failed", status_code=403, media_type="text/plain")
+
+
+@simulator_router.post(
+    "/webhook",
+    summary="Receive production WhatsApp inbound messages and delivery status callbacks",
+    status_code=status.HTTP_200_OK,
+    tags=["Messages"],
+)
+async def receive_whatsapp_webhook(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    x_hub_signature_256: Annotated[str | None, Header(alias="X-Hub-Signature-256")] = None,
+    x_twilio_signature: Annotated[str | None, Header(alias="X-Twilio-Signature")] = None,
+) -> dict[str, str]:
+    adapter = get_whatsapp_adapter()
+    raw_body = await request.body()
+    signature = x_hub_signature_256 or x_twilio_signature
+    adapter.verify_signature(raw_body=raw_body, signature=signature)
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            payload = json.loads(raw_body.decode("utf-8"))
+        except Exception:
+            payload = {}
+    elif "application/x-www-form-urlencoded" in content_type:
+        parsed_form = urllib.parse.parse_qs(raw_body.decode("utf-8"))
+        payload = {k: v[0] if len(v) == 1 else v for k, v in parsed_form.items()}
+    else:
+        payload = {}
+
+    inbound_events, status_updates = adapter.parse_webhook_payload(payload)
+
+    # 1. Process inbound messages
+    for event in inbound_events:
+        property_obj = None
+        if event.property_id:
+            property_obj = db.scalar(select(Property).where(Property.id == event.property_id))
+        if not property_obj:
+            property_obj = service.resolve_property_for_guest(
+                db, guest_contact_identifier=event.guest_contact_identifier
+            )
+        if not property_obj:
+            continue
+
+        result = service.record_inbound_message(
+            db,
+            company_id=property_obj.company_id,
+            property_id=property_obj.id,
+            guest_contact_identifier=event.guest_contact_identifier,
+            content=event.content,
+            external_message_id=event.external_message_id,
+            provider_timestamp=event.provider_timestamp,
+            language=event.language,
+        )
+        if result.created:
+            try:
+                process_chatbot_inbound_message.apply_async(
+                    args=(str(property_obj.company_id), str(result.message.id)),
+                    retry=False,
+                )
+            except Exception:
+                pass
+
+    # 2. Process delivery status callbacks
+    for status_update in status_updates:
+        service.record_delivery_status(
+            db,
+            external_message_id=status_update.external_message_id,
+            status=status_update.status,
+            error_detail=status_update.error_detail,
+            provider_timestamp=status_update.provider_timestamp,
+        )
+
+    return {"status": "ok"}
 
 
 async def require_simulator_signature(

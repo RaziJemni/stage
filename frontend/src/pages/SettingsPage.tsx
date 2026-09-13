@@ -463,6 +463,7 @@ function WhatsappCard({ health }: { health: WhatsappIntegrationHealth | null }) 
     simulator: { label: t('settings.channels.whatsapp_simulator'), icon: <FlaskConical className="h-4 w-4" />, className: 'border-amber-200 bg-amber-50 text-amber-800' },
     test: { label: t('settings.channels.whatsapp_test'), icon: <CircleDot className="h-4 w-4" />, className: 'border-blue-200 bg-blue-50 text-blue-900' },
     unconfigured: { label: t('settings.channels.whatsapp_unconfigured'), icon: <WifiOff className="h-4 w-4" />, className: 'border-slate-200 bg-slate-50 text-slate-800' },
+    healthy: { label: t('settings.channels.whatsapp_healthy'), icon: <CheckCircle2 className="h-4 w-4" />, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
   };
   const state = copy[health.health_status];
   return (

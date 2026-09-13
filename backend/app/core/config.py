@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     calendar_feed_max_bytes: int = 1_048_576
     whatsapp_mode: str = "simulator"
     whatsapp_simulator_webhook_secret: str = "local_simulator_secret_change_me"
+    whatsapp_provider: str = "meta"
+    whatsapp_phone_number_id: str | None = None
+    whatsapp_access_token: str | None = None
+    whatsapp_api_secret: str | None = None
+    whatsapp_webhook_verify_token: str | None = None
+    whatsapp_business_account_id: str | None = None
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from_number: str | None = None
+    whatsapp_default_property_id: str | None = None
     chatbot_provider: str = "deterministic"
     chatbot_model: str | None = None
     openai_api_key: str | None = None
@@ -44,6 +54,8 @@ class Settings(BaseSettings):
             raise ValueError("COOKIE_SECURE must be true in production")
         if self.whatsapp_mode not in {"simulator", "test", "production"}:
             raise ValueError("WHATSAPP_MODE must be simulator, test, or production")
+        if self.whatsapp_provider not in {"meta", "twilio"}:
+            raise ValueError("WHATSAPP_PROVIDER must be meta or twilio")
         if self.chatbot_provider not in {"deterministic", "openai"}:
             raise ValueError("CHATBOT_PROVIDER must be deterministic or openai")
         if self.email_provider not in {"console", "smtp", "memory"}:
