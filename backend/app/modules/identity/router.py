@@ -361,7 +361,14 @@ def invite_staff(
         expires_at=expires_at(settings.invitation_hours),
     )
     db.add(invitation)
-    invitation_url = invitation_delivery.delivery_url(token)
+    invitation_url = invitation_delivery.deliver_invitation(
+        recipient_email=email,
+        recipient_name=payload.name,
+        company_name=context.company.name,
+        inviter_name=context.user.name,
+        token=token,
+        language=context.user.preferred_language or "fr",
+    )
     db.commit()
     member = TeamMemberResponse(
         **UserSummary.model_validate(user).model_dump(),

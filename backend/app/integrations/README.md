@@ -7,8 +7,19 @@ Planned adapters:
 - iCalendar feed download and parsing
 - WhatsApp simulator, test, and production transports
 - configurable chatbot model provider
+- transactional email adapters (console, memory, SMTP)
 
 Each external integration must support truthful health state, idempotency, failure handling, and deterministic testing.
+
+## Transactional Email Adapter
+
+`backend/app/integrations/email/` implements the transactional email service:
+
+- `EMAIL_PROVIDER=console`: local development default; logs outgoing emails to application logs without external network requests while returning activation links for development convenience.
+- `EMAIL_PROVIDER=memory`: captures sent messages in `InMemoryEmailAdapter.sent_emails` for deterministic testing.
+- `EMAIL_PROVIDER=smtp`: production adapter supporting STARTTLS, SSL (`port 465`), authentication, and custom timeouts via standard Python `smtplib` and `email.message.EmailMessage` (no external heavyweight SDKs).
+- Templates in `templates.py` render bilingual (French & English) HTML and plaintext messages styled with the Sidi Bou Said visual palette and escaped to prevent HTML injection.
+- Delivery failures raise truthful `502 email_delivery_failed` or `503 invitation_delivery_unavailable` ApiProblems, rolling back database changes to prevent orphaned team members or tokens.
 
 ## Chatbot provider
 
