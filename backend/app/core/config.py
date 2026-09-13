@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     chatbot_provider: str = "deterministic"
     chatbot_model: str | None = None
     openai_api_key: str | None = None
+    email_provider: str = "console"
+    email_sender_address: str = "no-reply@vayca.tn"
+    email_sender_name: str = "Vayca"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    smtp_timeout_seconds: int = 10
 
     @property
     def allowed_origin_list(self) -> list[str]:
@@ -37,6 +46,10 @@ class Settings(BaseSettings):
             raise ValueError("WHATSAPP_MODE must be simulator, test, or production")
         if self.chatbot_provider not in {"deterministic", "openai"}:
             raise ValueError("CHATBOT_PROVIDER must be deterministic or openai")
+        if self.email_provider not in {"console", "smtp", "memory"}:
+            raise ValueError("EMAIL_PROVIDER must be console, smtp, or memory")
+        if self.email_provider == "smtp" and not self.smtp_host:
+            raise ValueError("SMTP_HOST must be set when EMAIL_PROVIDER is smtp")
         return self
 
 

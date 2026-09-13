@@ -327,3 +327,82 @@ def test_user_preferred_language_persistence_and_update(client: TestClient) -> N
         headers=csrf_headers(client),
     )
     assert invalid_patch.status_code == 422
+
+
+def test_team_invitation_failure_rolls_back_user_and_invitation(client: TestClient) -> None:
+    from unittest.mock import patch
+    register(client)
+    target_email = "willfail@example.com"
+
+    with patch.object(settings, "email_provider", "smtp"):
+        with patch(
+            "app.integrations.email.adapters.SmtpEmailAdapter.send",
+            side_effect=ApiProblem(
+                status=502,
+                title="Email delivery failed",
+                detail="SMTP server unreachable",
+                code="email_delivery_failed",
+            ),
+        ):
+            response = client.post(
+                "/api/v1/team/invitations",
+                json={"name": "Failed Staff", "email": target_email},
+                headers=csrf_headers(client),
+            )
+            assert response.status_code == 502
+            assert response.json()["code"] == "email_delivery_failed"
+
+    # Verify no orphaned AppUser or UserInvitation records exist
+    with SessionLocal() as db:
+        user = db.query(AppUser).filter(AppUser.email == target_email).first()
+        assert user is None
+
+
+def test_team_invitation_production_smtp_dispatches_email(client: TestClient) -> None:
+    from unittest.mock import MagicMock, patch
+    register(client)
+    target_email = "prodstaff@example.com"
+
+    mock_send = MagicMock(return_value=True)
+    with patch.object(settings, "environment", "production"):
+        with patch.object(settings, "email_provider", "smtp"):
+            with patch("app.integrations.email.adapters.SmtpEmailAdapter.send", mock_send):
+                response = client.post(
+                    "/api/v1/team/invitations",
+                    json={"name": "Prod Staff", "email": target_email},
+                    headers=csrf_headers(client),
+                )
+                assert response.status_code == 201
+                data = response.json()
+                # In production, invitation_url must be None to prevent token exposure
+                assert data["invitation_url"] is None
+                assert data["member"]["email"] == target_email
+                assert data["member"]["status"] == "invited"
+
+    # Verify mock_send was called with an EmailPayload containing the invitation link
+    assert mock_send.call_count == 1
+    sent_payload = mock_send.call_args[0][0]
+    assert sent_payload.to_email == target_email
+    assert sent_payload.to_name == "Prod Staff"
+    assert "/accept-invite?token=" in sent_payload.html_body
+    assert "/accept-invite?token=" in sent_payload.text_body
+
+
+def test_team_invitation_production_unconfigured_raises_503(client: TestClient) -> None:
+    from unittest.mock import patch
+    register(client)
+    target_email = "unconfigured@example.com"
+
+    with patch.object(settings, "environment", "production"):
+        with patch.object(settings, "email_provider", "console"):
+            response = client.post(
+                "/api/v1/team/invitations",
+                json={"name": "Unconfigured Staff", "email": target_email},
+                headers=csrf_headers(client),
+            )
+            assert response.status_code == 503
+            assert response.json()["code"] == "invitation_delivery_unavailable"
+
+    with SessionLocal() as db:
+        user = db.query(AppUser).filter(AppUser.email == target_email).first()
+        assert user is None

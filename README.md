@@ -23,6 +23,8 @@ The Dashboard derives company-scoped attention items, today’s arrivals and dep
 
 While the browser tab is visible, the workspace refreshes shared unread-message, conversation, maintenance-ticket, and conflict indicators every ten seconds; an open conversation thread and the Dashboard refresh their own operational data on the same cadence. Hidden tabs do not poll, and background failures preserve the last known data for staff rather than presenting an inaccurate empty state.
 
+Transactional email delivery is modularized behind a pluggable email adapter architecture (`console`, `memory`, `smtp`), dispatching bilingual (French & English) invitation emails styled with Sidi Bou Said design accents, while isolating the production token activation link, protecting against broken orphaned records on provider network failures, and preserving local development URL fallback.
+
 
 ## Install the Required Software
 
