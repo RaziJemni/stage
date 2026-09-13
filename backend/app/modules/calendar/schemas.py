@@ -1,8 +1,9 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 from app.core.enums import (
     BookingRecordType,
@@ -11,6 +12,8 @@ from app.core.enums import (
     CalendarFeedHealthStatus,
     ChannelType,
     ConflictStatus,
+    PaymentMethod,
+    PaymentStatus,
     SyncStatus,
 )
 
@@ -29,6 +32,10 @@ class ManualBookingCreateRequest(StrictRequest):
     guest_name: str | None = Field(default=None, max_length=160)
     guest_contact: str | None = Field(default=None, max_length=255)
     notes: str | None = Field(default=None, max_length=4000)
+    payment_status: PaymentStatus = PaymentStatus.UNPAID
+    total_amount: Decimal | None = Field(default=None, ge=0)
+    paid_amount: Decimal | None = Field(default=None, ge=0)
+    payment_method: PaymentMethod | None = None
 
     @field_validator("check_in", "check_out")
     @classmethod
@@ -45,6 +52,18 @@ class ManualBookingCreateRequest(StrictRequest):
             raise ValueError("Check-out must be after check-in.")
         return check_out
 
+    @model_validator(mode="after")
+    def validate_payment_amounts(self) -> "ManualBookingCreateRequest":
+        if self.record_type == BookingRecordType.BLOCKED_PERIOD:
+            return self
+        if self.paid_amount is not None and self.total_amount is not None:
+            if self.paid_amount > self.total_amount:
+                raise ValueError("Paid amount cannot exceed total amount.")
+        if self.payment_status == PaymentStatus.PAID_IN_FULL and self.total_amount is not None:
+            if self.paid_amount is None:
+                self.paid_amount = self.total_amount
+        return self
+
 
 class ManualBookingUpdateRequest(StrictRequest):
     status: Literal[BookingStatus.TENTATIVE, BookingStatus.CONFIRMED] | None = None
@@ -53,6 +72,10 @@ class ManualBookingUpdateRequest(StrictRequest):
     guest_name: str | None = Field(default=None, max_length=160)
     guest_contact: str | None = Field(default=None, max_length=255)
     notes: str | None = Field(default=None, max_length=4000)
+    payment_status: PaymentStatus | None = None
+    total_amount: Decimal | None = Field(default=None, ge=0)
+    paid_amount: Decimal | None = Field(default=None, ge=0)
+    payment_method: PaymentMethod | None = None
 
     @field_validator("check_in", "check_out")
     @classmethod
@@ -60,6 +83,13 @@ class ManualBookingUpdateRequest(StrictRequest):
         if value is not None and (value.tzinfo is None or value.utcoffset() is None):
             raise ValueError("Use a timezone-aware timestamp.")
         return value
+
+    @model_validator(mode="after")
+    def validate_payment_amounts(self) -> "ManualBookingUpdateRequest":
+        if self.paid_amount is not None and self.total_amount is not None:
+            if self.paid_amount > self.total_amount:
+                raise ValueError("Paid amount cannot exceed total amount.")
+        return self
 
 
 class BookingResponse(BaseModel):
@@ -77,6 +107,10 @@ class BookingResponse(BaseModel):
     guest_name: str | None
     guest_contact: str | None
     notes: str | None
+    payment_status: PaymentStatus | None = None
+    total_amount: Decimal | None = None
+    paid_amount: Decimal | None = None
+    payment_method: PaymentMethod | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -94,6 +128,7 @@ class BookingCalendarResponse(BaseModel):
     check_in: datetime
     check_out: datetime
     guest_name: str | None
+    payment_status: PaymentStatus | None = None
 
 
 class CalendarFeedRequest(StrictRequest):

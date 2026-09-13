@@ -21,6 +21,9 @@ export interface ApiPage<T> {
   pages: number;
 }
 
+export type PaymentStatus = 'unpaid' | 'deposit_received' | 'paid_in_full';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'card' | 'check' | 'other';
+
 export interface CalendarBooking {
   id: string;
   property_id: string;
@@ -30,11 +33,16 @@ export interface CalendarBooking {
   check_in: string;
   check_out: string;
   guest_name: string | null;
+  payment_status?: PaymentStatus | null;
 }
 
 export interface CalendarBookingDetail extends CalendarBooking {
   guest_contact: string | null;
   notes: string | null;
+  payment_status: PaymentStatus | null;
+  total_amount: number | string | null;
+  paid_amount: number | string | null;
+  payment_method: PaymentMethod | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -109,7 +117,12 @@ export interface ManualBookingPayload {
   check_in: string;
   check_out: string;
   guest_name?: string | null;
+  guest_contact?: string | null;
   notes?: string | null;
+  payment_status?: PaymentStatus | null;
+  total_amount?: number | null;
+  paid_amount?: number | null;
+  payment_method?: PaymentMethod | string | null;
 }
 
 export interface ManualBookingUpdatePayload {
@@ -117,7 +130,12 @@ export interface ManualBookingUpdatePayload {
   check_in?: string;
   check_out?: string;
   guest_name?: string | null;
+  guest_contact?: string | null;
   notes?: string | null;
+  payment_status?: PaymentStatus | null;
+  total_amount?: number | null;
+  paid_amount?: number | null;
+  payment_method?: PaymentMethod | string | null;
 }
 
 async function fetchAllPages<T>(buildPath: (page: number) => string): Promise<T[]> {

@@ -75,6 +75,10 @@ const bookingDetail = {
   ...booking,
   guest_contact: '+21620000000',
   notes: 'Direct reservation note',
+  payment_status: 'unpaid' as const,
+  total_amount: 1200,
+  paid_amount: 0,
+  payment_method: 'cash' as const,
   created_at: '2026-08-01T00:00:00Z',
   updated_at: '2026-08-01T00:00:00Z',
 };
@@ -292,5 +296,80 @@ describe('CalendarPage', () => {
 
     const submitBtn = screen.getByRole('button', { name: /Create entry/i });
     expect(submitBtn).not.toBeDisabled();
+  });
+
+  it('displays direct booking payment status badge and folio breakdown with unpaid balance callout', async () => {
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Sami Guest/i }))[0]);
+
+    expect(await screen.findByRole('heading', { name: /Booking details|Détails de la réservation/i })).toBeInTheDocument();
+    expect(screen.getByTestId('booking-payment-badge')).toHaveTextContent(/Unpaid|Non payé/i);
+    expect(screen.getByTestId('booking-folio-card')).toBeInTheDocument();
+    expect(screen.getByTestId('unpaid-balance-callout')).toHaveTextContent('1200.000 TND');
+  });
+
+  it('displays deposit received status and calculates outstanding balance in drawer', async () => {
+    vi.mocked(fetchBooking).mockResolvedValueOnce({
+      ...bookingDetail,
+      payment_status: 'deposit_received',
+      total_amount: 1500,
+      paid_amount: 500,
+      payment_method: 'bank_transfer',
+    });
+
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Sami Guest/i }))[0]);
+
+    expect(await screen.findByTestId('booking-payment-badge')).toHaveTextContent(/Deposit received|Acompte versé/i);
+    expect(screen.getByTestId('unpaid-balance-callout')).toHaveTextContent('1000.000 TND');
+    expect(screen.getByText('500.000 TND')).toBeInTheDocument();
+    expect(screen.getByText(/Bank transfer|Virement bancaire/i)).toBeInTheDocument();
+  });
+
+  it('creates a direct reservation with payment status, total price, and payment method', async () => {
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click(await screen.findByRole('button', { name: /New direct booking|Nouvelle réservation directe/i }));
+    await screen.findByTestId('dates-available-badge');
+
+    fireEvent.change(screen.getByLabelText(/Guest name|Nom du voyageur/i), { target: { value: 'Leila Guest' } });
+    fireEvent.change(screen.getByLabelText(/Payment status|Statut du paiement/i), { target: { value: 'deposit_received' } });
+    fireEvent.change(screen.getByLabelText(/Total price|Montant total/i), { target: { value: '2000' } });
+    fireEvent.change(screen.getByLabelText(/Paid \/ Deposit|Montant payé \/ Acompte/i), { target: { value: '600' } });
+    fireEvent.change(screen.getByLabelText(/Payment method|Mode de paiement/i), { target: { value: 'card' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Create entry|Créer l'entrée/i }));
+
+    await waitFor(() =>
+      expect(createManualBooking).toHaveBeenCalledWith(
+        expect.objectContaining({
+          property_id: 'property-1',
+          source_type: 'direct',
+          record_type: 'reservation',
+          status: 'confirmed',
+          guest_name: 'Leila Guest',
+          payment_status: 'deposit_received',
+          total_amount: 2000,
+          paid_amount: 600,
+          payment_method: 'card',
+        })
+      )
+    );
+  });
+
+  it('displays settled indicator when reservation is paid in full', async () => {
+    vi.mocked(fetchBooking).mockResolvedValueOnce({
+      ...bookingDetail,
+      payment_status: 'paid_in_full',
+      total_amount: 950,
+      paid_amount: 950,
+      payment_method: 'cash',
+    });
+
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Sami Guest/i }))[0]);
+
+    expect(await screen.findByTestId('booking-payment-badge')).toHaveTextContent(/Paid in full|Payé intégralement/i);
+    expect(screen.getByTestId('settled-balance-callout')).toHaveTextContent('0.000 TND');
+    expect(screen.queryByTestId('unpaid-balance-callout')).not.toBeInTheDocument();
   });
 });

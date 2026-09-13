@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  AlertCircle,
   AlertTriangle,
   Ban,
   Building2,
@@ -18,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { ApiError } from '../auth/api';
+import { AuthContext } from '../auth/context';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 import { fetchProperties, type ApiProperty, type ApiPropertyPage } from '../api/properties';
 import {
@@ -42,6 +44,8 @@ import {
   type ConflictBooking,
   type FeedHealthStatus,
   type ManualBookingPayload,
+  type PaymentMethod,
+  type PaymentStatus,
 } from '../api/calendar';
 import { useI18n } from '../i18n/I18nContext';
 
@@ -244,13 +248,22 @@ function fromFormLocal(value: string, timezone: string): string {
 interface BookingEditorProps {
   propertyOptions: CalendarProperty[];
   timezone: string;
+  currency?: string;
   booking: CalendarBookingDetail | null;
   defaultPropertyId: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }
 
-function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, onClose, onSaved }: BookingEditorProps) {
+function BookingEditor({
+  propertyOptions,
+  timezone,
+  currency = 'TND',
+  booking,
+  defaultPropertyId,
+  onClose,
+  onSaved,
+}: BookingEditorProps) {
   const { t } = useI18n();
   const isEditing = Boolean(booking);
   const initialRecordType: BookingRecordType = booking?.record_type ?? 'reservation';
@@ -261,6 +274,16 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
   );
   const [guestName, setGuestName] = useState(booking?.guest_name ?? '');
   const [notes, setNotes] = useState(booking?.notes ?? '');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
+    booking?.payment_status ?? 'unpaid'
+  );
+  const [totalAmount, setTotalAmount] = useState(
+    booking?.total_amount != null ? String(booking.total_amount) : ''
+  );
+  const [paidAmount, setPaidAmount] = useState(
+    booking?.paid_amount != null ? String(booking.paid_amount) : ''
+  );
+  const [paymentMethod, setPaymentMethod] = useState(booking?.payment_method ?? '');
   const defaultToday = todayInTimezone(timezone);
   const [checkIn, setCheckIn] = useState(
     booking ? toFormLocal(booking.check_in, timezone) : `${defaultToday}T14:00`
@@ -352,6 +375,29 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
       return;
     }
 
+    const parsedTotal = totalAmount.trim() ? parseFloat(totalAmount) : null;
+    const parsedPaid = paidAmount.trim() ? parseFloat(paidAmount) : null;
+
+    if (recordType === 'reservation') {
+      if (parsedTotal !== null && (isNaN(parsedTotal) || parsedTotal < 0)) {
+        setError('Total price must be a valid positive number.');
+        return;
+      }
+      if (parsedPaid !== null && (isNaN(parsedPaid) || parsedPaid < 0)) {
+        setError('Paid amount must be a valid positive number.');
+        return;
+      }
+      if (parsedPaid !== null && parsedTotal !== null && parsedPaid > parsedTotal) {
+        setError('Paid amount cannot exceed total price.');
+        return;
+      }
+    }
+
+    const effectivePaid =
+      paymentStatus === 'paid_in_full' && parsedTotal !== null && parsedPaid === null
+        ? parsedTotal
+        : parsedPaid;
+
     if (availabilityResult && !availabilityResult.is_available && !confirmedConflictOverride) {
       setError(t('calendar.conflict_warning_title'));
       return;
@@ -366,6 +412,10 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
           check_out: checkOutIso,
           guest_name: recordType === 'reservation' ? trimmedGuestName : null,
           notes: notes.trim() || null,
+          payment_status: recordType === 'reservation' ? paymentStatus : null,
+          total_amount: recordType === 'reservation' ? parsedTotal : null,
+          paid_amount: recordType === 'reservation' ? effectivePaid : null,
+          payment_method: recordType === 'reservation' ? ((paymentMethod.trim() as PaymentMethod) || null) : null,
         });
       } else {
         const payload: ManualBookingPayload = {
@@ -377,6 +427,10 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
           check_out: checkOutIso,
           guest_name: recordType === 'reservation' ? trimmedGuestName : null,
           notes: notes.trim() || null,
+          payment_status: recordType === 'reservation' ? paymentStatus : null,
+          total_amount: recordType === 'reservation' ? parsedTotal : null,
+          paid_amount: recordType === 'reservation' ? effectivePaid : null,
+          payment_method: recordType === 'reservation' ? ((paymentMethod.trim() as PaymentMethod) || null) : null,
         };
         await createManualBooking(payload);
       }
@@ -508,6 +562,86 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
             </select>
           </label>
 
+          {recordType === 'reservation' && (
+            <div data-testid="booking-editor-folio-section" className="space-y-3 rounded-2xl border border-[#EBE6DD] bg-[#FAF8F5]/80 p-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#0F3D5E]">
+                {t('calendar.folio_section')}
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-semibold text-[#3B3735]">
+                  {t('calendar.payment_status')}
+                  <select
+                    value={paymentStatus}
+                    onChange={(e) => setPaymentStatus(e.target.value as PaymentStatus)}
+                    className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-sm font-normal text-[#1C1B18]"
+                  >
+                    <option value="unpaid">{t('calendar.payment_unpaid')}</option>
+                    <option value="deposit_received">{t('calendar.payment_deposit_received')}</option>
+                    <option value="paid_in_full">{t('calendar.payment_paid_in_full')}</option>
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-[#3B3735]">
+                  {t('calendar.payment_method')}
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-sm font-normal text-[#1C1B18]"
+                  >
+                    <option value="">Select method</option>
+                    <option value="cash">{t('calendar.method_cash')}</option>
+                    <option value="bank_transfer">{t('calendar.method_bank_transfer')}</option>
+                    <option value="card">{t('calendar.method_card')}</option>
+                    <option value="check">{t('calendar.method_check')}</option>
+                    <option value="other">{t('calendar.method_other')}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-semibold text-[#3B3735]">
+                  {t('calendar.total_amount')} ({currency})
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    placeholder="0.000"
+                    value={totalAmount}
+                    onChange={(e) => setTotalAmount(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-sm font-normal text-[#1C1B18]"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-[#3B3735]">
+                  {t('calendar.paid_amount')} ({currency})
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    placeholder="0.000"
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-sm font-normal text-[#1C1B18]"
+                  />
+                </label>
+              </div>
+
+              {totalAmount.trim() && !isNaN(parseFloat(totalAmount)) && (
+                <div className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-xs border border-[#EBE6DD]">
+                  <span className="font-semibold text-[#78716C]">{t('calendar.outstanding_balance')}:</span>
+                  <span className="font-bold text-[#1C1B18]">
+                    {Math.max(
+                      0,
+                      parseFloat(totalAmount) -
+                        (paymentStatus === 'paid_in_full'
+                          ? parseFloat(totalAmount)
+                          : parseFloat(paidAmount || '0'))
+                    ).toFixed(3)}{' '}
+                    {currency}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <label className="block text-xs font-semibold text-[#3B3735]">Internal note <span className="font-normal text-[#78716C]">(optional)</span>
             <textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={4000} rows={3} className="mt-1 w-full rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] px-3 py-2 text-sm font-normal text-[#1C1B18]" />
           </label>
@@ -531,6 +665,8 @@ function BookingEditor({ propertyOptions, timezone, booking, defaultPropertyId, 
 }
 
 export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onSelectProperty, onConflictStateChange }) => {
+  const auth = useContext(AuthContext);
+  const currency = auth?.identity?.company?.default_currency ?? 'TND';
   const [rangeStart, setRangeStart] = useState(() => todayInTimezone(companyTimezone));
   const rangeEnd = addDays(rangeStart, VIEW_DAYS);
   const [properties, setProperties] = useState<CalendarProperty[]>([]);
@@ -755,9 +891,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
         </>
       )}
 
-      {(detailLoading || selectedBooking || selectedConflict) && <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#1C1B18]/25 p-0 md:items-center md:p-6"><section role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title" className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EBE6DD] bg-white p-5 shadow-[0_8px_30px_rgba(28,27,24,0.16)] md:rounded-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-wider text-[#D96B43]">Calendar detail</p><h2 id="calendar-detail-title" className="mt-1 text-xl font-bold text-[#1C1B18]">{selectedConflict ? 'Booking conflict' : 'Booking details'}</h2></div><button type="button" aria-label="Close calendar detail" onClick={() => { setSelectedBooking(null); setSelectedConflict(null); }} className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5]"><X className="h-4 w-4" /></button></div>{detailLoading ? <div role="status" className="flex items-center gap-2 py-10 text-sm text-[#78716C]"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading details…</div> : detailError ? <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{detailError}</div> : selectedConflict ? <ConflictDetail conflict={selectedConflict} propertyById={propertyById} timezone={companyTimezone} acknowledgementNote={acknowledgementNote} setAcknowledgementNote={setAcknowledgementNote} acknowledging={acknowledging} actionError={actionError} onAcknowledge={() => void acknowledgeSelectedConflict()} /> : selectedBooking ? <BookingDetail booking={selectedBooking} propertyById={propertyById} timezone={companyTimezone} actionError={actionError} onEdit={() => { setEditingBooking(selectedBooking); setSelectedBooking(null); setShowEditor(true); }} onCancel={() => void cancelSelectedBooking()} /> : null}</section></div>}
+      {(detailLoading || selectedBooking || selectedConflict) && <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#1C1B18]/25 p-0 md:items-center md:p-6"><section role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title" className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EBE6DD] bg-white p-5 shadow-[0_8px_30px_rgba(28,27,24,0.16)] md:rounded-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-wider text-[#D96B43]">Calendar detail</p><h2 id="calendar-detail-title" className="mt-1 text-xl font-bold text-[#1C1B18]">{selectedConflict ? 'Booking conflict' : 'Booking details'}</h2></div><button type="button" aria-label="Close calendar detail" onClick={() => { setSelectedBooking(null); setSelectedConflict(null); }} className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5]"><X className="h-4 w-4" /></button></div>{detailLoading ? <div role="status" className="flex items-center gap-2 py-10 text-sm text-[#78716C]"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading details…</div> : detailError ? <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{detailError}</div> : selectedConflict ? <ConflictDetail conflict={selectedConflict} propertyById={propertyById} timezone={companyTimezone} acknowledgementNote={acknowledgementNote} setAcknowledgementNote={setAcknowledgementNote} acknowledging={acknowledging} actionError={actionError} onAcknowledge={() => void acknowledgeSelectedConflict()} /> : selectedBooking ? <BookingDetail booking={selectedBooking} propertyById={propertyById} timezone={companyTimezone} currency={currency} actionError={actionError} onEdit={() => { setEditingBooking(selectedBooking); setSelectedBooking(null); setShowEditor(true); }} onCancel={() => void cancelSelectedBooking()} /> : null}</section></div>}
 
-      {showEditor && <BookingEditor propertyOptions={properties} timezone={companyTimezone} booking={editingBooking} defaultPropertyId={selectedPropertyId || properties[0]?.id || ''} onClose={() => { setShowEditor(false); setEditingBooking(null); setSelectedBooking(null); }} onSaved={refreshCalendar} />}
+      {showEditor && <BookingEditor propertyOptions={properties} timezone={companyTimezone} currency={currency} booking={editingBooking} defaultPropertyId={selectedPropertyId || properties[0]?.id || ''} onClose={() => { setShowEditor(false); setEditingBooking(null); setSelectedBooking(null); }} onSaved={refreshCalendar} />}
       </div>
     </div>
   );
@@ -782,14 +918,208 @@ interface BookingDetailProps {
   booking: CalendarBookingDetail;
   propertyById: Map<string, CalendarProperty>;
   timezone: string;
+  currency?: string;
   actionError: string | null;
   onEdit: () => void;
   onCancel: () => void;
 }
 
-function BookingDetail({ booking, propertyById, timezone, actionError, onEdit, onCancel }: BookingDetailProps) {
+function BookingDetail({
+  booking,
+  propertyById,
+  timezone,
+  currency = 'TND',
+  actionError,
+  onEdit,
+  onCancel,
+}: BookingDetailProps) {
+  const { t } = useI18n();
   const isManual = booking.source_type === 'direct' || booking.source_type === 'manual';
-  return <div className="mt-5 space-y-4"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-md px-2 py-1 text-[11px] font-bold ${sourceBadgeClasses[booking.source_type]}`}>{sourceLabels[booking.source_type]}</span><span className="rounded-md border border-[#EBE6DD] bg-[#FAF8F5] px-2 py-1 text-[11px] font-bold text-[#3B3735]">{booking.record_type === 'blocked_period' ? 'Blocked period' : 'Reservation'}</span><span className="rounded-md border border-[#EBE6DD] bg-white px-2 py-1 text-[11px] font-bold capitalize text-[#3B3735]">{statusLabels[booking.status]}</span></div><div><h3 className="text-lg font-bold text-[#1C1B18]">{booking.record_type === 'blocked_period' ? 'Blocked period' : booking.guest_name ?? 'Unnamed reservation'}</h3><p className="mt-1 text-xs text-[#78716C]">{propertyById.get(booking.property_id)?.name ?? 'Property unavailable'} · {formatDateTime(booking.check_in, timezone)} – {formatDateTime(booking.check_out, timezone)}</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C]">Booking ID</p><p className="mt-1 break-all text-xs font-semibold text-[#1C1B18]">{booking.id}</p></div><div className="rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-3"><p className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C]">Last updated</p><p className="mt-1 text-xs font-semibold text-[#1C1B18]">{formatDateTime(booking.updated_at, timezone)}</p></div></div>{booking.notes && <div className="rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-xs text-[#3B3735]"><span className="font-bold">Internal note:</span> {booking.notes}</div>}{booking.status === 'cancelled' && <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"><Ban className="h-4 w-4" /> This record is cancelled and no longer blocks availability.</div>}{!isManual && <div className="flex items-center gap-2 rounded-xl border border-[#B6DAEA] bg-[#F0F6FA] px-3 py-2 text-xs text-[#0F3D5E]"><CircleAlert className="h-4 w-4" /> Imported records are read-only in Vayca. Manage changes in the source channel.</div>}{isManual && booking.status !== 'cancelled' && <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBE6DD] pt-4"><button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"><Ban className="h-3.5 w-3.5" /> Cancel booking</button><button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F3D5E] px-3 py-2 text-xs font-bold text-white"><Edit3 className="h-3.5 w-3.5 text-[#E8A838]" /> Edit entry</button></div>}{actionError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{actionError}</div>}</div>;
+  const isReservation = booking.record_type === 'reservation';
+
+  const totalAmount =
+    booking.total_amount != null ? parseFloat(String(booking.total_amount)) : null;
+  const rawPaidAmount =
+    booking.paid_amount != null ? parseFloat(String(booking.paid_amount)) : null;
+  const effectivePaid =
+    booking.payment_status === 'paid_in_full' && totalAmount != null && rawPaidAmount === null
+      ? totalAmount
+      : rawPaidAmount ?? 0;
+  const outstandingBalance =
+    totalAmount != null
+      ? Math.max(0, totalAmount - (booking.payment_status === 'paid_in_full' ? totalAmount : effectivePaid))
+      : null;
+  const hasUnpaidBalance =
+    booking.payment_status === 'unpaid' ||
+    (outstandingBalance !== null && outstandingBalance > 0);
+
+  const paymentBadgeClasses: Record<string, string> = {
+    unpaid: 'border-amber-200 bg-amber-50 text-amber-900',
+    deposit_received: 'border-azure-200 bg-azure-50 text-azure-800',
+    paid_in_full: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  };
+
+  const paymentLabels: Record<string, string> = {
+    unpaid: t('calendar.payment_unpaid'),
+    deposit_received: t('calendar.payment_deposit_received'),
+    paid_in_full: t('calendar.payment_paid_in_full'),
+  };
+
+  const methodLabels: Record<string, string> = {
+    cash: t('calendar.method_cash'),
+    bank_transfer: t('calendar.method_bank_transfer'),
+    card: t('calendar.method_card'),
+    check: t('calendar.method_check'),
+    other: t('calendar.method_other'),
+  };
+
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-md px-2 py-1 text-[11px] font-bold ${sourceBadgeClasses[booking.source_type]}`}>
+          {sourceLabels[booking.source_type]}
+        </span>
+        <span className="rounded-md border border-[#EBE6DD] bg-[#FAF8F5] px-2 py-1 text-[11px] font-bold text-[#3B3735]">
+          {booking.record_type === 'blocked_period' ? 'Blocked period' : 'Reservation'}
+        </span>
+        <span className="rounded-md border border-[#EBE6DD] bg-white px-2 py-1 text-[11px] font-bold capitalize text-[#3B3735]">
+          {statusLabels[booking.status]}
+        </span>
+        {isReservation && booking.payment_status && (
+          <span
+            data-testid="booking-payment-badge"
+            className={`rounded-md border px-2 py-1 text-[11px] font-bold ${paymentBadgeClasses[booking.payment_status] ?? 'border-slate-200 bg-slate-50 text-slate-700'}`}
+          >
+            {paymentLabels[booking.payment_status] ?? booking.payment_status}
+          </span>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-lg font-bold text-[#1C1B18]">
+          {booking.record_type === 'blocked_period' ? 'Blocked period' : booking.guest_name ?? 'Unnamed reservation'}
+        </h3>
+        <p className="mt-1 text-xs text-[#78716C]">
+          {propertyById.get(booking.property_id)?.name ?? 'Property unavailable'} · {formatDateTime(booking.check_in, timezone)} – {formatDateTime(booking.check_out, timezone)}
+        </p>
+      </div>
+
+      {isReservation && (
+        <div data-testid="booking-folio-card" className="space-y-3 rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-3.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F3D5E]">
+              {t('calendar.folio_section')}
+            </span>
+            {booking.payment_status && (
+              <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${paymentBadgeClasses[booking.payment_status]}`}>
+                {paymentLabels[booking.payment_status]}
+              </span>
+            )}
+          </div>
+
+          {/* Unpaid balance warning banner */}
+          {hasUnpaidBalance ? (
+            <div data-testid="unpaid-balance-callout" className="flex items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs text-amber-950">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                <span className="font-bold">{t('calendar.unpaid_balance_alert')}</span>
+              </div>
+              <span className="font-extrabold text-amber-900">
+                {outstandingBalance !== null
+                  ? `${outstandingBalance.toFixed(3)} ${currency}`
+                  : totalAmount !== null
+                    ? `${totalAmount.toFixed(3)} ${currency}`
+                    : t('calendar.payment_unpaid')}
+              </span>
+            </div>
+          ) : booking.payment_status === 'paid_in_full' ? (
+            <div data-testid="settled-balance-callout" className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs text-emerald-950">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span className="font-bold">{t('calendar.balance_settled')}</span>
+              </div>
+              <span className="font-extrabold text-emerald-800">
+                0.000 {currency}
+              </span>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <div className="rounded-lg bg-white p-2 border border-[#EBE6DD]">
+              <p className="text-[10px] font-semibold text-[#78716C] uppercase">{t('calendar.total_amount')}</p>
+              <p className="mt-1 font-bold text-[#1C1B18]">
+                {totalAmount !== null ? `${totalAmount.toFixed(3)} ${currency}` : '—'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-2 border border-[#EBE6DD]">
+              <p className="text-[10px] font-semibold text-[#78716C] uppercase">{t('calendar.paid_amount')}</p>
+              <p className="mt-1 font-bold text-[#1C1B18]">
+                {effectivePaid > 0 ? `${effectivePaid.toFixed(3)} ${currency}` : totalAmount !== null ? `0.000 ${currency}` : '—'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-2 border border-[#EBE6DD]">
+              <p className="text-[10px] font-semibold text-[#78716C] uppercase">{t('calendar.outstanding_balance')}</p>
+              <p className={`mt-1 font-bold ${outstandingBalance !== null && outstandingBalance > 0 ? 'text-amber-700' : 'text-[#1C1B18]'}`}>
+                {outstandingBalance !== null ? `${outstandingBalance.toFixed(3)} ${currency}` : '—'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white p-2 border border-[#EBE6DD]">
+              <p className="text-[10px] font-semibold text-[#78716C] uppercase">{t('calendar.payment_method')}</p>
+              <p className="mt-1 font-bold text-[#1C1B18]">
+                {booking.payment_method ? methodLabels[booking.payment_method] ?? booking.payment_method : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C]">Booking ID</p>
+          <p className="mt-1 break-all text-xs font-semibold text-[#1C1B18]">{booking.id}</p>
+        </div>
+        <div className="rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C]">Last updated</p>
+          <p className="mt-1 text-xs font-semibold text-[#1C1B18]">{formatDateTime(booking.updated_at, timezone)}</p>
+        </div>
+      </div>
+
+      {booking.notes && (
+        <div className="rounded-xl border border-[#EBE6DD] bg-white px-3 py-2 text-xs text-[#3B3735]">
+          <span className="font-bold">Internal note:</span> {booking.notes}
+        </div>
+      )}
+
+      {booking.status === 'cancelled' && (
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <Ban className="h-4 w-4" /> This record is cancelled and no longer blocks availability.
+        </div>
+      )}
+
+      {!isManual && (
+        <div className="flex items-center gap-2 rounded-xl border border-[#B6DAEA] bg-[#F0F6FA] px-3 py-2 text-xs text-[#0F3D5E]">
+          <CircleAlert className="h-4 w-4" /> Imported records are read-only in Vayca. Manage changes in the source channel.
+        </div>
+      )}
+
+      {isManual && booking.status !== 'cancelled' && (
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBE6DD] pt-4">
+          <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+            <Ban className="h-3.5 w-3.5" /> Cancel booking
+          </button>
+          <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F3D5E] px-3 py-2 text-xs font-bold text-white">
+            <Edit3 className="h-3.5 w-3.5 text-[#E8A838]" /> Edit entry
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
+          {actionError}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default CalendarPage;

@@ -457,3 +457,83 @@ def test_conflicts_ignore_adjacent_and_cancelled_bookings_and_enforce_tenant_sco
 
     # Keep variables explicit so this test documents the adjacent/cancelled pair inputs.
     assert adjacent["id"] != first["id"]
+
+
+def test_direct_booking_payment_tracking_lifecycle_and_validation(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+
+    # 1. Create a direct booking with deposit_received
+    created = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_id,
+            payment_status="deposit_received",
+            total_amount="1200.000",
+            paid_amount="400.000",
+            payment_method="bank_transfer",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert created.status_code == 201, created.text
+    booking = created.json()
+    assert booking["payment_status"] == "deposit_received"
+    assert float(booking["total_amount"]) == 1200.0
+    assert float(booking["paid_amount"]) == 400.0
+    assert booking["payment_method"] == "bank_transfer"
+
+    # 2. Get booking detail verifies fields are persisted
+    fetched = client.get(f"/api/v1/bookings/{booking['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["payment_status"] == "deposit_received"
+    assert float(fetched.json()["total_amount"]) == 1200.0
+    assert float(fetched.json()["paid_amount"]) == 400.0
+    assert fetched.json()["payment_method"] == "bank_transfer"
+
+    # 3. Update payment status to paid_in_full
+    updated = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={
+            "payment_status": "paid_in_full",
+            "paid_amount": "1200.000",
+            "payment_method": "cash",
+        },
+        headers=csrf_headers(client),
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["payment_status"] == "paid_in_full"
+    assert float(updated.json()["paid_amount"]) == 1200.0
+    assert updated.json()["payment_method"] == "cash"
+
+    # 4. Reject invalid payment amounts: paid > total
+    excess_paid = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={"paid_amount": "1500.000"},
+        headers=csrf_headers(client),
+    )
+    assert excess_paid.status_code == 422
+
+    # 5. Reject negative amount on creation
+    negative_total = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_id, total_amount="-50.000"),
+        headers=csrf_headers(client),
+    )
+    assert negative_total.status_code == 422
+
+    # 6. Blocked period clears payment tracking fields
+    blocked = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_id,
+            record_type="blocked_period",
+            payment_status="paid_in_full",
+            total_amount="500.000",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert blocked.status_code == 201
+    assert blocked.json()["payment_status"] is None
+    assert blocked.json()["total_amount"] is None
+
