@@ -54,13 +54,14 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
   const [bookings, setBookings] = useState<CalendarBooking[]>([]);
   const [analytics, setAnalytics] = useState<PortfolioAnalytics | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'operations' | 'analytics'>('operations');
   const [analyticsWindow, setAnalyticsWindow] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [partialError, setPartialError] = useState<string | null>(null);
 
-  const load = useCallback(async (windowDays = analyticsWindow, background = false) => {
+  const load = useCallback(async (windowDays = analyticsWindow, propertyId = selectedPropertyId, background = false) => {
     if (!background) {
       setLoading(true);
       setError(null);
@@ -74,7 +75,7 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
       fetchAllConversations({ handling_mode: 'manual' }),
       fetchAllTickets({ priority: 'urgent' }),
       fetchCalendarBookings({ rangeStart, rangeEnd }),
-      fetchPortfolioAnalytics(windowDays),
+      fetchPortfolioAnalytics(windowDays, propertyId || undefined),
     ]);
     const [conflictResult, conversationResult, ticketResult, bookingResult, analyticsResult] = results;
     const failed = results.filter((result) => result.status === 'rejected').length;
@@ -101,7 +102,7 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
       setAnalytics(analyticsResult.value);
     }
     if (!background) setLoading(false);
-  }, [analyticsWindow, onConflictStateChange]);
+  }, [analyticsWindow, selectedPropertyId, onConflictStateChange]);
 
   useEffect(() => { 
     void load(); 
@@ -129,39 +130,61 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
 
   useVisiblePolling(refreshOperationalAttention, 10_000);
 
-  const safeConflicts = conflicts || [];
-  const safeConversations = conversations || [];
-  const safeTickets = tickets || [];
-  const safeBookings = bookings || [];
   const safeProperties = properties || [];
+  const propertyById = useMemo(() => 
+    Object.fromEntries((properties || []).map((property) => [property.id, property.name])), 
+    [properties]
+  );
+
+  const filteredConflicts = useMemo(() => {
+    const list = conflicts || [];
+    return selectedPropertyId ? list.filter((c) => c.property_id === selectedPropertyId) : list;
+  }, [conflicts, selectedPropertyId]);
+
+  const filteredConversations = useMemo(() => {
+    const list = conversations || [];
+    return selectedPropertyId ? list.filter((c) => c.property_id === selectedPropertyId) : list;
+  }, [conversations, selectedPropertyId]);
+
+  const filteredTickets = useMemo(() => {
+    const list = tickets || [];
+    return selectedPropertyId ? list.filter((t) => t.property_id === selectedPropertyId) : list;
+  }, [tickets, selectedPropertyId]);
+
+  const filteredBookings = useMemo(() => {
+    const list = bookings || [];
+    return selectedPropertyId ? list.filter((b) => b.property_id === selectedPropertyId) : list;
+  }, [bookings, selectedPropertyId]);
+
+  const attentionTotal = filteredConflicts.length + filteredConversations.length + filteredTickets.length;
 
   const handleWindowChange = (days: number) => {
     setAnalyticsWindow(days);
-    void load(days);
+    void load(days, selectedPropertyId);
+  };
+
+  const handlePropertyChange = (propId: string) => {
+    setSelectedPropertyId(propId);
+    void load(analyticsWindow, propId);
   };
 
   const today = dateKey(new Date(), companyTimezone);
   const arrivals = useMemo(() => 
-    safeBookings.filter((booking) => 
+    filteredBookings.filter((booking) => 
       booking.record_type === 'reservation' && 
       booking.status !== 'cancelled' && 
       dateKey(booking.check_in, companyTimezone) === today
     ), 
-    [safeBookings, companyTimezone, today]
+    [filteredBookings, companyTimezone, today]
   );
   const departures = useMemo(() => 
-    safeBookings.filter((booking) => 
+    filteredBookings.filter((booking) => 
       booking.record_type === 'reservation' && 
       booking.status !== 'cancelled' && 
       dateKey(booking.check_out, companyTimezone) === today
     ), 
-    [safeBookings, companyTimezone, today]
+    [filteredBookings, companyTimezone, today]
   );
-  const propertyById = useMemo(() => 
-    Object.fromEntries(safeProperties.map((property) => [property.id, property.name])), 
-    [safeProperties]
-  );
-  const attentionTotal = safeConflicts.length + safeConversations.length + safeTickets.length;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#FAF8F5]">
@@ -172,6 +195,22 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
         subtitle={t('dashboard.subtitle')}
         actions={
           <div className="flex items-center gap-2.5">
+            {/* Property Filter Selector */}
+            <div className="flex items-center">
+              <select
+                aria-label={t('dashboard.filter_property_label')}
+                value={selectedPropertyId}
+                onChange={(e) => handlePropertyChange(e.target.value)}
+                className="rounded-lg border border-[#EBE6DD] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#3B3735] hover:bg-[#FAF8F5] transition-colors shadow-xs cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-[#0F3D5E]"
+              >
+                <option value="">{t('dashboard.filter_all_properties')}</option>
+                {safeProperties.map((prop) => (
+                  <option key={prop.id} value={prop.id}>
+                    {prop.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             {activeTab === 'analytics' && (
               <div className="flex rounded-xl border border-[#EBE6DD] bg-white p-1 text-xs font-medium shadow-xs">
                 {[14, 30, 60].map((days) => (
@@ -269,8 +308,8 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
 
         {!loading && !error && activeTab === 'operations' && (
           <>
-            {/* 4 Calm Operational KPI Tiles (No pastel circles or arbitrary graphs) */}
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 5 Calm Operational KPI Tiles (No pastel circles or arbitrary graphs) */}
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <Metric 
                 icon={<ShieldAlert className="h-4 w-4" />} 
                 label={t('dashboard.attention_items')} 
@@ -278,6 +317,21 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
                 detail={t('dashboard.attention_sub')} 
                 isUrgent={attentionTotal > 0}
               />
+              <article className="rounded-xl border border-[#EBE6DD] bg-white p-4 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#78716C]">{t('dashboard.occupancy_tile_label')}</span>
+                  <span className="rounded-lg bg-[#F0F6FA] p-1.5 text-[#0F3D5E]"><TrendingUp className="h-4 w-4" /></span>
+                </div>
+                <p className="mt-2 text-2xl font-extrabold tracking-tight text-[#1C1B18]">{analytics ? `${analytics.occupancy_rate}%` : '0%'}</p>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#EBE6DD]">
+                  <div className="h-full rounded-full bg-[#0F3D5E] transition-all duration-500" style={{ width: `${Math.min(100, analytics?.occupancy_rate ?? 0)}%` }} />
+                </div>
+                <p className="mt-2 text-[11px] text-[#78716C] truncate">
+                  {analytics
+                    ? `${analytics.total_booked_nights} / ${analytics.total_available_nights ?? (analytics.total_properties * analytics.window_days)} room-nights`
+                    : '30-day capacity'}
+                </p>
+              </article>
               <Metric 
                 icon={<CalendarDays className="h-4 w-4" />} 
                 label={t('dashboard.arrivals_today')} 
@@ -292,9 +346,9 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
               />
               <Metric 
                 icon={<CheckSquare className="h-4 w-4" />} 
-                label={t('dashboard.active_properties')} 
-                value={safeProperties.length} 
-                detail={t('dashboard.active_properties_sub')} 
+                label={selectedPropertyId ? (propertyById[selectedPropertyId] ?? t('dashboard.selected_property')) : t('dashboard.active_properties')} 
+                value={selectedPropertyId ? 1 : safeProperties.length} 
+                detail={selectedPropertyId ? t('dashboard.selected_property') : t('dashboard.active_properties_sub')} 
               />
             </section>
 
@@ -309,14 +363,14 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
               <section className="grid gap-4 lg:grid-cols-3">
                 <AttentionCard 
                   title={locale === 'fr' ? 'Conflits de réservation' : 'Booking conflicts'} 
-                  count={safeConflicts.length} 
+                  count={filteredConflicts.length} 
                   icon={<AlertTriangle className="h-4 w-4 text-rose-600" />} 
                   empty={locale === 'fr' ? 'Aucun conflit à examiner.' : 'No booking conflicts need review.'} 
                   action={locale === 'fr' ? 'Ouvrir le Calendrier' : 'Open Calendar'} 
                   onAction={() => onNavigate('calendar')}
                   theme="rose"
                 >
-                  {safeConflicts.slice(0, 3).map((conflict) => (
+                  {filteredConflicts.slice(0, 3).map((conflict) => (
                     <li key={conflict.id} className="p-3 bg-[#FEF2F2] rounded-lg border border-[#FECACA]/60 text-xs">
                       <strong className="text-[#1C1B18] font-bold block">{propertyById[conflict.property_id] ?? 'Property unavailable'}</strong>
                       <span className="text-rose-700 font-medium mt-0.5 block">
@@ -328,14 +382,14 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
 
                 <AttentionCard 
                   title={locale === 'fr' ? 'Attention requise' : 'Staff attention'} 
-                  count={safeConversations.length} 
+                  count={filteredConversations.length} 
                   icon={<MessageSquare className="h-4 w-4 text-[#D96B43]" />} 
                   empty={locale === 'fr' ? 'Aucune conversation ne requiert d\'intervention.' : 'No conversations need staff attention.'} 
                   action={locale === 'fr' ? 'Ouvrir la Messagerie' : 'Open Messages'} 
                   onAction={() => onNavigate('inbox')}
                   theme="terracotta"
                 >
-                  {safeConversations.slice(0, 3).map((conversation) => (
+                  {filteredConversations.slice(0, 3).map((conversation) => (
                     <li key={conversation.id} className="p-3 bg-[#FDF4F0] rounded-lg border border-[#FBE6DC] text-xs">
                       <strong className="text-[#1C1B18] font-bold block">{propertyById[conversation.property_id] ?? 'Property unavailable'}</strong>
                       <span className="text-[#D96B43] font-medium mt-0.5 block">
@@ -347,14 +401,14 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
 
                 <AttentionCard 
                   title={locale === 'fr' ? 'Maintenance urgente' : 'Urgent maintenance'} 
-                  count={safeTickets.length} 
+                  count={filteredTickets.length} 
                   icon={<Ticket className="h-4 w-4 text-[#0F3D5E]" />} 
                   empty={locale === 'fr' ? 'Aucun ticket urgent actif.' : 'No urgent active tickets.'} 
                   action={locale === 'fr' ? 'Ouvrir la Maintenance' : 'Open Maintenance'} 
                   onAction={() => onNavigate('tickets')}
                   theme="azure"
                 >
-                  {safeTickets.slice(0, 3).map((ticket) => (
+                  {filteredTickets.slice(0, 3).map((ticket) => (
                     <li key={ticket.id} className="p-3 bg-[#F0F6FA] rounded-lg border border-[#B6DAEA]/60 text-xs">
                       <strong className="text-[#1C1B18] font-bold block">{ticket.title}</strong>
                       <span className="text-[#0F3D5E] font-medium mt-0.5 block">

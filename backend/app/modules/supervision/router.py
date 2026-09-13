@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -69,9 +71,11 @@ def portfolio_analytics_endpoint(
     context: CurrentContext,
     db: Session = Depends(get_db),
     window_days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    property_id: UUID | None = Query(None, description="Optional property ID to filter analytics"),
 ) -> PortfolioAnalyticsResponse:
     return get_portfolio_analytics(
         db,
         company_id=context.company.id,
         window_days=window_days,
+        property_id=property_id,
     )

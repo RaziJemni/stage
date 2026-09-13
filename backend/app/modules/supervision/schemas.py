@@ -31,6 +31,8 @@ class PropertyOccupancyInsight(BaseModel):
     property_id: UUID
     property_name: str
     booked_nights: int = Field(ge=0)
+    available_nights: int = Field(ge=0, default=0)
+    blocked_nights: int = Field(ge=0, default=0)
     occupancy_rate: float = Field(ge=0.0, le=100.0)
 
 
@@ -40,9 +42,12 @@ class PortfolioAnalyticsResponse(BaseModel):
     window_days: int = Field(gt=0)
     start_date: str
     end_date: str
+    property_id: UUID | None = None
     total_properties: int = Field(ge=0)
     occupancy_rate: float = Field(ge=0.0, le=100.0)
     total_booked_nights: int = Field(ge=0)
+    total_available_nights: int = Field(ge=0, default=0)
+    total_blocked_nights: int = Field(ge=0, default=0)
     total_reservations: int = Field(ge=0)
     average_length_of_stay: float = Field(ge=0.0)
     channel_distribution: list[ChannelMetric]
