@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -23,6 +25,7 @@ from app.core.enums import (
     BookingSource,
     BookingStatus,
     ConflictStatus,
+    PaymentStatus,
     SyncStatus,
     enum_type,
 )
@@ -76,6 +79,12 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             ondelete="RESTRICT",
         ),
         CheckConstraint("check_out > check_in", name="booking_date_range"),
+        CheckConstraint("total_amount IS NULL OR total_amount >= 0", name="booking_total_amount_positive"),
+        CheckConstraint("paid_amount IS NULL OR paid_amount >= 0", name="booking_paid_amount_positive"),
+        CheckConstraint(
+            "payment_method IS NULL OR payment_method IN ('cash', 'bank_transfer', 'card', 'check', 'other')",
+            name="booking_payment_method_valid",
+        ),
         UniqueConstraint("company_id", "id", name="uq_bookings_company_id_id"),
     )
 
@@ -99,6 +108,14 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     record_type: Mapped[BookingRecordType] = mapped_column(
         enum_type(BookingRecordType, "booking_record_type"), nullable=False
     )
+    payment_status: Mapped[PaymentStatus | None] = mapped_column(
+        enum_type(PaymentStatus, "payment_status"),
+        nullable=True,
+        index=True,
+    )
+    total_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
+    paid_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
+    payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
     external_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     notes: Mapped[str | None] = mapped_column(Text)

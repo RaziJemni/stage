@@ -68,6 +68,20 @@ class BookingRecordType(str, Enum):
     BLOCKED_PERIOD = "blocked_period"
 
 
+class PaymentStatus(str, Enum):
+    UNPAID = "unpaid"
+    DEPOSIT_RECEIVED = "deposit_received"
+    PAID_IN_FULL = "paid_in_full"
+
+
+class PaymentMethod(str, Enum):
+    CASH = "cash"
+    BANK_TRANSFER = "bank_transfer"
+    CARD = "card"
+    CHECK = "check"
+    OTHER = "other"
+
+
 class ConflictStatus(str, Enum):
     OPEN = "open"
     ACKNOWLEDGED = "acknowledged"

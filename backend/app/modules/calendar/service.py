@@ -24,6 +24,8 @@ from app.core.enums import (
     CalendarFeedHealthStatus,
     ChannelType,
     ConflictStatus,
+    PaymentMethod,
+    PaymentStatus,
     PropertyStatus,
     SyncStatus,
 )
@@ -391,6 +393,7 @@ def create_manual_booking(
         property_id=payload.property_id,
         for_update=True,
     )
+    is_reservation = payload.record_type == BookingRecordType.RESERVATION
     booking = Booking(
         company_id=company_id,
         property_id=payload.property_id,
@@ -402,6 +405,10 @@ def create_manual_booking(
         guest_name=payload.guest_name,
         guest_contact=payload.guest_contact,
         notes=payload.notes,
+        payment_status=payload.payment_status if is_reservation else None,
+        total_amount=payload.total_amount if is_reservation else None,
+        paid_amount=payload.paid_amount if is_reservation else None,
+        payment_method=payload.payment_method.value if (is_reservation and payload.payment_method) else None,
     )
     db.add(booking)
     db.flush()
@@ -444,6 +451,31 @@ def update_manual_booking(
             detail="Check-out must be after check-in.",
             code="booking_date_range_invalid",
         )
+
+    if booking.record_type == BookingRecordType.BLOCKED_PERIOD:
+        updates.pop("payment_status", None)
+        updates.pop("total_amount", None)
+        updates.pop("paid_amount", None)
+        updates.pop("payment_method", None)
+    else:
+        if "payment_method" in updates and payload.payment_method is not None:
+            updates["payment_method"] = payload.payment_method.value
+        target_total = updates.get("total_amount", booking.total_amount)
+        target_paid = updates.get("paid_amount", booking.paid_amount)
+        if target_paid is not None and target_total is not None and target_paid > target_total:
+            raise ApiProblem(
+                status=422,
+                title="Invalid payment amounts",
+                detail="Paid amount cannot exceed total amount.",
+                code="payment_amount_invalid",
+            )
+        if (
+            updates.get("payment_status") == PaymentStatus.PAID_IN_FULL
+            and target_total is not None
+            and "paid_amount" not in updates
+        ):
+            updates["paid_amount"] = target_total
+
     for field, value in updates.items():
         setattr(booking, field, value)
     db.flush()
