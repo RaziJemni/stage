@@ -20,6 +20,7 @@ from app.integrations.chatbot import (
 )
 from app.modules.calendar.service import is_available
 from app.modules.chatbot.policy import PolicyOutcome, apply_escalation, classify_message
+from app.integrations.whatsapp import get_whatsapp_adapter
 from app.modules.messaging.models import Conversation, Message
 from app.modules.properties.models import Property
 
@@ -206,6 +207,21 @@ def _persist_reply(
         automatically_sent=True,
         model_version=generated.model_version,
     )
+    adapter = get_whatsapp_adapter()
+    if adapter.mode in {"production", "test"}:
+        delivery = adapter.send_message(
+            to_phone=conversation.guest_contact_identifier,
+            content=generated.content,
+        )
+        if delivery.success:
+            reply.delivery_status = DeliveryStatus.SENT
+            if delivery.external_message_id:
+                reply.external_message_id = delivery.external_message_id
+        else:
+            reply.delivery_status = DeliveryStatus.FAILED
+            reply.escalation_reason = delivery.error_detail
+            _escalate(db, conversation, "outbound_delivery_failed")
+
     db.add(reply)
     conversation.last_message_at = inbound.provider_timestamp or inbound.created_at
     try:

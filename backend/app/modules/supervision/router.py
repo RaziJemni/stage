@@ -29,6 +29,19 @@ def _whatsapp_health() -> WhatsAppIntegrationHealthResponse:
             health_status="test",
             detail="Provider test mode; production delivery is not connected.",
         )
+    provider = settings.whatsapp_provider.lower()
+    if provider == "meta" and settings.whatsapp_phone_number_id and settings.whatsapp_access_token:
+        return WhatsAppIntegrationHealthResponse(
+            mode="production",
+            health_status="healthy",
+            detail="Meta WhatsApp Cloud API configured for production delivery.",
+        )
+    if provider == "twilio" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
+        return WhatsAppIntegrationHealthResponse(
+            mode="production",
+            health_status="healthy",
+            detail="Twilio WhatsApp API configured for production delivery.",
+        )
     return WhatsAppIntegrationHealthResponse(
         mode="production",
         health_status="unconfigured",

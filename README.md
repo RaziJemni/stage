@@ -25,6 +25,9 @@ While the browser tab is visible, the workspace refreshes shared unread-message,
 
 Transactional email delivery is modularized behind a pluggable email adapter architecture (`console`, `memory`, `smtp`), dispatching bilingual (French & English) invitation emails styled with Sidi Bou Said design accents, while isolating the production token activation link, protecting against broken orphaned records on provider network failures, and preserving local development URL fallback.
 
+Outbound guest messaging and webhook ingestion are powered by a multi-provider WhatsApp adapter supporting local simulation, Meta WhatsApp Business Cloud API, and Twilio WhatsApp Messaging. Inbound webhooks resolve property context through active guest stays or configured fallbacks, while staff and grounded chatbot replies transmit outbound messages to guest WhatsApp numbers, transitioning delivery states to `SENT` or `FAILED` and tracking provider delivery callbacks (`delivered`, `read`, `failed`) idempotently.
+
+
 
 ## Install the Required Software
 

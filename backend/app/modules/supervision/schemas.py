@@ -11,7 +11,7 @@ class WhatsAppIntegrationHealthResponse(BaseModel):
 
     integration: Literal["whatsapp"] = "whatsapp"
     mode: Literal["simulator", "test", "production"]
-    health_status: Literal["simulator", "test", "unconfigured"]
+    health_status: Literal["simulator", "test", "unconfigured", "healthy"]
     detail: str
 
 

@@ -1,7 +1,7 @@
 import { apiRequest } from '../auth/api';
 
 export type WhatsappMode = 'simulator' | 'test' | 'production';
-export type WhatsappHealthStatus = 'simulator' | 'test' | 'unconfigured';
+export type WhatsappHealthStatus = 'simulator' | 'test' | 'unconfigured' | 'healthy';
 
 export interface WhatsappIntegrationHealth {
   integration: 'whatsapp';
