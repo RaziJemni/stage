@@ -70,7 +70,21 @@ describe('DashboardPage', () => {
     expect(screen.getByText('18')).toBeInTheDocument();
     expect(screen.getByText('Airbnb')).toBeInTheDocument();
     expect(screen.getByText(/66.7%/)).toBeInTheDocument();
-    expect(screen.getByText('Villa Yasmine')).toBeInTheDocument();
+    expect(screen.getAllByText('Villa Yasmine')).toHaveLength(2);
+  });
+
+  it('renders operational 30d occupancy tile and filters by property', async () => {
+    render(page());
+    await waitFor(() => expect(screen.getByText('Occupancy Rate (30d)')).toBeInTheDocument());
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText(/18 \/ 30 room-nights/)).toBeInTheDocument();
+
+    const select = screen.getByLabelText('Filter property');
+    fireEvent.change(select, { target: { value: 'property-1' } });
+
+    await waitFor(() => {
+      expect(fetchPortfolioAnalytics).toHaveBeenCalledWith(30, 'property-1');
+    });
   });
 
   it('shows empty operational states when source APIs have no items', async () => {

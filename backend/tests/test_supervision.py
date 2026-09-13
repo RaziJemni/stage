@@ -270,3 +270,238 @@ def test_analytics_tenant_isolation(client: TestClient) -> None:
         assert res.json()["total_properties"] == 0
         assert res.json()["total_booked_nights"] == 0
 
+
+def test_analytics_excludes_blocked_maintenance_periods(client: TestClient) -> None:
+    from datetime import UTC, datetime, timedelta
+    from uuid import UUID
+    from app.core.enums import BookingRecordType, BookingSource, BookingStatus, PropertyStatus
+    from app.modules.calendar.models import Booking
+    from app.modules.properties.models import Property
+
+    manager = register_manager(client)
+    company_id = UUID(manager["company"]["id"])
+
+    now = datetime.now(UTC)
+    day1 = now + timedelta(days=1)
+    day7 = now + timedelta(days=7)   # 6 nights reservation
+    day10 = now + timedelta(days=10)
+    day14 = now + timedelta(days=14)  # 4 nights maintenance block
+    day20 = now + timedelta(days=20)
+    day25 = now + timedelta(days=25)  # 5 nights cancelled maintenance block
+
+    with SessionLocal() as db:
+        prop = Property(
+            company_id=company_id,
+            name="Villa Maintenance Test",
+            status=PropertyStatus.ACTIVE,
+        )
+        db.add(prop)
+        db.commit()
+        db.refresh(prop)
+
+        # Confirmed reservation: 6 nights
+        b1 = Booking(
+            company_id=company_id,
+            property_id=prop.id,
+            source_type=BookingSource.DIRECT,
+            record_type=BookingRecordType.RESERVATION,
+            status=BookingStatus.CONFIRMED,
+            check_in=day1,
+            check_out=day7,
+            guest_name="Guest 1",
+        )
+        # Confirmed maintenance blocked period: 4 nights
+        b2 = Booking(
+            company_id=company_id,
+            property_id=prop.id,
+            source_type=BookingSource.MANUAL,
+            record_type=BookingRecordType.BLOCKED_PERIOD,
+            status=BookingStatus.CONFIRMED,
+            check_in=day10,
+            check_out=day14,
+            notes="AC Maintenance Block",
+        )
+        # Cancelled maintenance blocked period: 5 nights (should be ignored)
+        b3 = Booking(
+            company_id=company_id,
+            property_id=prop.id,
+            source_type=BookingSource.MANUAL,
+            record_type=BookingRecordType.BLOCKED_PERIOD,
+            status=BookingStatus.CANCELLED,
+            check_in=day20,
+            check_out=day25,
+            notes="Cancelled Plumbing Work",
+        )
+        db.add_all([b1, b2, b3])
+        db.commit()
+
+    response = client.get("/api/v1/supervision/analytics?window_days=30")
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["total_properties"] == 1
+    assert data["total_booked_nights"] == 6
+    assert data["total_blocked_nights"] == 4
+    # Available room nights: 30 - 4 = 26
+    assert data["total_available_nights"] == 26
+    # Occupancy rate: 6 / 26 * 100 = 23.076... -> 23.1%
+    assert data["occupancy_rate"] == 23.1
+    insight = data["property_insights"][0]
+    assert insight["booked_nights"] == 6
+    assert insight["blocked_nights"] == 4
+    assert insight["available_nights"] == 26
+    assert insight["occupancy_rate"] == 23.1
+
+
+def test_analytics_property_filter(client: TestClient) -> None:
+    from datetime import UTC, datetime, timedelta
+    from uuid import UUID
+    from app.core.enums import BookingRecordType, BookingSource, BookingStatus, PropertyStatus
+    from app.modules.calendar.models import Booking
+    from app.modules.properties.models import Property
+
+    manager = register_manager(client)
+    company_id = UUID(manager["company"]["id"])
+
+    now = datetime.now(UTC)
+    day2 = now + timedelta(days=2)
+    day8 = now + timedelta(days=8)   # 6 nights
+    day10 = now + timedelta(days=10)
+    day22 = now + timedelta(days=22)  # 12 nights
+
+    with SessionLocal() as db:
+        prop1 = Property(company_id=company_id, name="Property Alpha", status=PropertyStatus.ACTIVE)
+        prop2 = Property(company_id=company_id, name="Property Beta", status=PropertyStatus.ACTIVE)
+        db.add_all([prop1, prop2])
+        db.commit()
+        db.refresh(prop1)
+        db.refresh(prop2)
+
+        b1 = Booking(
+            company_id=company_id,
+            property_id=prop1.id,
+            source_type=BookingSource.DIRECT,
+            record_type=BookingRecordType.RESERVATION,
+            status=BookingStatus.CONFIRMED,
+            check_in=day2,
+            check_out=day8,
+        )
+        b2 = Booking(
+            company_id=company_id,
+            property_id=prop2.id,
+            source_type=BookingSource.AIRBNB,
+            record_type=BookingRecordType.RESERVATION,
+            status=BookingStatus.CONFIRMED,
+            check_in=day10,
+            check_out=day22,
+        )
+        db.add_all([b1, b2])
+        db.commit()
+
+        prop1_id = str(prop1.id)
+        prop2_id = str(prop2.id)
+
+    # Filter by Property Alpha
+    res_alpha = client.get(f"/api/v1/supervision/analytics?property_id={prop1_id}&window_days=30")
+    assert res_alpha.status_code == 200
+    data_alpha = res_alpha.json()
+    assert data_alpha["total_properties"] == 1
+    assert data_alpha["property_id"] == prop1_id
+    assert data_alpha["total_booked_nights"] == 6
+    assert data_alpha["occupancy_rate"] == 20.0  # 6 / 30 * 100
+    assert len(data_alpha["property_insights"]) == 1
+    assert data_alpha["property_insights"][0]["property_name"] == "Property Alpha"
+
+    # Filter by Property Beta
+    res_beta = client.get(f"/api/v1/supervision/analytics?property_id={prop2_id}&window_days=30")
+    assert res_beta.status_code == 200
+    data_beta = res_beta.json()
+    assert data_beta["total_properties"] == 1
+    assert data_beta["property_id"] == prop2_id
+    assert data_beta["total_booked_nights"] == 12
+    assert data_beta["occupancy_rate"] == 40.0  # 12 / 30 * 100
+
+    # Unfiltered portfolio-wide
+    res_all = client.get("/api/v1/supervision/analytics?window_days=30")
+    assert res_all.status_code == 200
+    data_all = res_all.json()
+    assert data_all["total_properties"] == 2
+    assert data_all["property_id"] is None
+    assert data_all["total_booked_nights"] == 18
+    assert data_all["occupancy_rate"] == 30.0  # 18 / 60 * 100
+
+    # Non-existent property returns empty metrics
+    res_unknown = client.get(f"/api/v1/supervision/analytics?property_id={uuid4()}&window_days=30")
+    assert res_unknown.status_code == 200
+    assert res_unknown.json()["total_properties"] == 0
+    assert res_unknown.json()["occupancy_rate"] == 0.0
+
+
+def test_analytics_same_day_checkin_checkout_and_fully_blocked(client: TestClient) -> None:
+    from datetime import UTC, datetime, time, timedelta
+    from uuid import UUID
+    from app.core.enums import BookingRecordType, BookingSource, BookingStatus, PropertyStatus
+    from app.modules.calendar.models import Booking
+    from app.modules.properties.models import Property
+
+    manager = register_manager(client)
+    company_id = UUID(manager["company"]["id"])
+
+    # Same-day check-in and check-out on the same calendar day in Africa/Tunis
+    now = datetime.now(UTC)
+    same_date = (now + timedelta(days=5)).date()
+    day5_morning = datetime.combine(same_date, time(10, 0), tzinfo=UTC)
+    day5_evening = datetime.combine(same_date, time(18, 0), tzinfo=UTC)
+
+    # Fully blocked property for the entire 30 days
+    day0 = now
+    day30 = now + timedelta(days=30)
+
+    with SessionLocal() as db:
+        prop_dayuse = Property(company_id=company_id, name="Day-use Villa", status=PropertyStatus.ACTIVE)
+        prop_blocked = Property(company_id=company_id, name="Fully Blocked Villa", status=PropertyStatus.ACTIVE)
+        db.add_all([prop_dayuse, prop_blocked])
+        db.commit()
+        db.refresh(prop_dayuse)
+        db.refresh(prop_blocked)
+
+        b_same_day = Booking(
+            company_id=company_id,
+            property_id=prop_dayuse.id,
+            source_type=BookingSource.DIRECT,
+            record_type=BookingRecordType.RESERVATION,
+            status=BookingStatus.CONFIRMED,
+            check_in=day5_morning,
+            check_out=day5_evening,
+            guest_name="Day Guest",
+        )
+        b_full_block = Booking(
+            company_id=company_id,
+            property_id=prop_blocked.id,
+            source_type=BookingSource.MANUAL,
+            record_type=BookingRecordType.BLOCKED_PERIOD,
+            status=BookingStatus.CONFIRMED,
+            check_in=day0,
+            check_out=day30,
+            notes="Full Renovation",
+        )
+        db.add_all([b_same_day, b_full_block])
+        db.commit()
+
+    # Same day check-in/out produces 0 booked nights cleanly
+    res_dayuse = client.get(f"/api/v1/supervision/analytics?property_id={prop_dayuse.id}&window_days=30")
+    assert res_dayuse.status_code == 200
+    data_dayuse = res_dayuse.json()
+    assert data_dayuse["total_booked_nights"] == 0
+    assert data_dayuse["occupancy_rate"] == 0.0
+    assert data_dayuse["total_reservations"] == 1
+    assert data_dayuse["average_length_of_stay"] == 0.0
+
+    # Fully blocked property produces 0 available nights and 0.0% occupancy without ZeroDivisionError
+    res_blocked = client.get(f"/api/v1/supervision/analytics?property_id={prop_blocked.id}&window_days=30")
+    assert res_blocked.status_code == 200
+    data_blocked = res_blocked.json()
+    assert data_blocked["total_available_nights"] == 0
+    assert data_blocked["occupancy_rate"] == 0.0
+
+
