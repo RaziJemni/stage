@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import type { Property } from './data/mockData';
-import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
+import { assignContractor, confirmTicketSuggestion, createContractor, createTicket, fetchAllTickets, fetchContractors, fetchTickets, fetchTicketStatusHistory, fetchTicketSuggestions, rejectTicketSuggestion, sendTicketGuestUpdate, updateContractor, updateTicketStatus, type ApiContractor, type ApiTicket, type ApiTicketStatusHistory, type ApiTicketSuggestion, type TicketFilters, type TicketPriority, type TicketStatus } from './api/maintenance';
 import {
   fetchProperties,
   createProperty,
@@ -27,6 +27,8 @@ import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
 import { useAuth } from './auth/useAuth';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { fetchBookingConflicts } from './api/calendar';
+import { useVisiblePolling } from './hooks/useVisiblePolling';
 
 // 9 Pages Imports
 import { LoginPage } from './pages/LoginPage';
@@ -71,6 +73,7 @@ function WorkspaceApp() {
   const [contractors, setContractors] = useState<ApiContractor[]>([]);
   const [ticketFilters, setTicketFilters] = useState<TicketFilters>({});
   const [ticketStatusHistories, setTicketStatusHistories] = useState<Record<string, ApiTicketStatusHistory[]>>({});
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
 
   // Selection states for detail views
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
@@ -98,55 +101,82 @@ function WorkspaceApp() {
     void load();
   }, [showingArchived]);
 
-  const loadTickets = useCallback(async () => {
-    try {
+  const loadTickets = useCallback(async (background = false) => {
+    if (!background) {
       setLoadingTickets(true);
       setTicketsError(null);
-      const [ticketPage, suggestionPage, contractorPage] = await Promise.all([
-        fetchTickets(ticketFilters),
-        fetchTicketSuggestions(),
-        fetchContractors(true)
-      ]);
+    }
+    try {
+      const ticketPage = await fetchTickets(ticketFilters);
       setPersistentTickets(ticketPage?.items || []);
-      setTicketSuggestions(suggestionPage?.items || []);
-      setContractors(contractorPage?.items || []);
+      if (!background) {
+        const [suggestionPage, contractorPage] = await Promise.all([
+          fetchTicketSuggestions(),
+          fetchContractors(true),
+        ]);
+        setTicketSuggestions(suggestionPage?.items || []);
+        setContractors(contractorPage?.items || []);
+      }
     } catch (err: any) {
-      setTicketsError(err.message || 'Failed to load maintenance work.');
+      if (background) console.error('Unable to refresh maintenance badge:', err);
+      else setTicketsError(err.message || 'Failed to load maintenance work.');
     } finally {
-      setLoadingTickets(false);
+      if (!background) setLoadingTickets(false);
     }
   }, [ticketFilters]);
   useEffect(() => { void loadTickets(); }, [loadTickets]);
 
-
-  const loadConversations = useCallback(async () => {
+  const loadOpenTicketsCount = useCallback(async () => {
     try {
-      setLoadingConversations(true);
-      setConversationsError(null);
+      const tickets = await fetchAllTickets();
+      setOpenTicketsCount(tickets.filter((ticket) => ticket.status === 'open' || ticket.status === 'assigned').length);
+    } catch (err) {
+      // Preserve the last known badge rather than imply there is no maintenance work.
+      console.error('Unable to refresh maintenance badge:', err);
+    }
+  }, []);
+
+  useEffect(() => { void loadOpenTicketsCount(); }, [loadOpenTicketsCount]);
+
+
+  const loadConversations = useCallback(async (background = false) => {
+    try {
+      if (!background) {
+        setLoadingConversations(true);
+        setConversationsError(null);
+      }
       const response = await fetchConversations(
         conversationFilter === 'unread' ? { unread: true } : conversationFilter === 'all' ? {} : { handling_mode: conversationFilter },
       );
       setConversations(response.items);
       setSelectedConversationId((current) => current || response.items[0]?.id || '');
     } catch (err: any) {
-      setConversations([]);
-      setConversationsError(err.message || 'Failed to load conversations from the API server.');
+      if (background) console.error('Unable to refresh conversations:', err);
+      else {
+        setConversations([]);
+        setConversationsError(err.message || 'Failed to load conversations from the API server.');
+      }
     } finally {
-      setLoadingConversations(false);
+      if (!background) setLoadingConversations(false);
     }
   }, [conversationFilter]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
+  const loadMessages = useCallback(async (conversationId: string, background = false) => {
     if (!conversationId) return;
     try {
-      setLoadingMessages(true);
-      setMessagesError(null);
+      if (!background) {
+        setLoadingMessages(true);
+        setMessagesError(null);
+      }
       setMessages(await fetchMessages(conversationId));
     } catch (err: any) {
-      setMessages([]);
-      setMessagesError(err.message || 'Failed to load this conversation history.');
+      if (background) console.error('Unable to refresh conversation history:', err);
+      else {
+        setMessages([]);
+        setMessagesError(err.message || 'Failed to load this conversation history.');
+      }
     } finally {
-      setLoadingMessages(false);
+      if (!background) setLoadingMessages(false);
     }
   }, []);
 
@@ -172,12 +202,39 @@ function WorkspaceApp() {
     void loadConversationCount();
   }, [loadConversationCount, loadConversations, loadUnreadMessagesCount]);
 
+  const refreshCalendarConflict = useCallback(async () => {
+    try {
+      const conflicts = await fetchBookingConflicts();
+      setCalendarHasConflict(conflicts.some((conflict) => conflict.status === 'open' || conflict.status === 'acknowledged'));
+    } catch (err) {
+      // Preserve the last known badge rather than imply there are no conflicts.
+      console.error('Unable to refresh calendar conflict badge:', err);
+    }
+  }, []);
+
+  const refreshOperationalState = useCallback(async () => {
+    const refreshes: Array<Promise<void>> = [
+      loadUnreadMessagesCount(),
+      loadOpenTicketsCount(),
+    ];
+    if (activePage !== 'dashboard') refreshes.push(refreshCalendarConflict());
+    if (activePage === 'inbox') {
+      refreshes.push(loadConversationCount(), loadConversations(true));
+    }
+    if (activePage === 'tickets') refreshes.push(loadTickets(true));
+    if (activePage === 'conversation-thread' && selectedConversationId) {
+      refreshes.push(loadMessages(selectedConversationId, true));
+    }
+    await Promise.all(refreshes);
+  }, [activePage, loadConversationCount, loadConversations, loadMessages, loadOpenTicketsCount, loadTickets, loadUnreadMessagesCount, refreshCalendarConflict, selectedConversationId]);
+
+  useVisiblePolling(refreshOperationalState, 10_000);
+
   const handleToggleIncludeArchived = (include: boolean) => {
     setShowingArchived(include);
   };
 
   // Sidebar badges represent company-wide state, not the active inbox page or filter.
-  const openTicketsCount = (persistentTickets || []).filter(t => t && (t.status === 'open' || t.status === 'assigned')).length;
   const hasCalendarConflict = calendarHasConflict;
 
   // Page Handlers
@@ -292,6 +349,7 @@ function WorkspaceApp() {
             properties={properties}
             companyTimezone={identity!.company.timezone}
             onNavigate={setActivePage}
+            onConflictStateChange={setCalendarHasConflict}
           />
         )}
 

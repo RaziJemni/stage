@@ -1,13 +1,17 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
 import * as messagingApi from './api/messaging';
+import * as calendarApi from './api/calendar';
+import * as maintenanceApi from './api/maintenance';
 import * as propertiesApi from './api/properties';
 import { useAuth } from './auth/useAuth';
 
 vi.mock('./api/messaging');
+vi.mock('./api/calendar');
+vi.mock('./api/maintenance');
 vi.mock('./api/properties');
 vi.mock('./auth/useAuth', () => ({ useAuth: vi.fn() }));
 
@@ -59,6 +63,11 @@ describe('App inbox unread state', () => {
     vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(7);
     vi.mocked(messagingApi.fetchConversationCount).mockResolvedValue(9);
     vi.mocked(messagingApi.fetchMessages).mockResolvedValue([]);
+    vi.mocked(calendarApi.fetchBookingConflicts).mockResolvedValue([]);
+    vi.mocked(maintenanceApi.fetchTickets).mockResolvedValue(page([]) as never);
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([]);
+    vi.mocked(maintenanceApi.fetchTicketSuggestions).mockResolvedValue(page([]) as never);
+    vi.mocked(maintenanceApi.fetchContractors).mockResolvedValue(page([]) as never);
     vi.mocked(messagingApi.markConversationRead).mockResolvedValue({
       ...conversation,
       unread_message_count: 0,
@@ -131,6 +140,34 @@ describe('App inbox unread state', () => {
 
     await waitFor(() => expect(screen.getByText(/No conversations match this view/)).toBeInTheDocument());
   });
+
+  it('refreshes the shared unread badge while the application is visible', async () => {
+    vi.useFakeTimers();
+    let unreadCount = 0;
+    vi.mocked(messagingApi.fetchUnreadConversationCount).mockImplementation(async () => unreadCount);
+    renderApp();
+    await act(async () => { await Promise.resolve(); });
+
+    unreadCount = 3;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(messagingApi.fetchUnreadConversationCount).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('3')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('keeps the maintenance badge company-wide when the ticket page is filtered', async () => {
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([
+      { id: 'open-ticket', status: 'open' },
+      { id: 'assigned-ticket', status: 'assigned' },
+      { id: 'resolved-ticket', status: 'resolved' },
+    ] as never);
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument());
+  });
 });
 
 describe('App language preference persistence and active session sync', () => {
@@ -143,6 +180,7 @@ describe('App language preference persistence and active session sync', () => {
     vi.mocked(messagingApi.fetchConversations).mockResolvedValue(page());
     vi.mocked(messagingApi.fetchUnreadConversationCount).mockResolvedValue(0);
     vi.mocked(messagingApi.fetchConversationCount).mockResolvedValue(0);
+    vi.mocked(maintenanceApi.fetchAllTickets).mockResolvedValue([]);
   });
 
   it('allows an authenticated manager with persisted "fr" to select "en" and remain in English', async () => {

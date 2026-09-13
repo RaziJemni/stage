@@ -21,6 +21,8 @@ Property management is connected to the authenticated API: managers can create, 
 
 The Dashboard derives company-scoped attention items, today’s arrivals and departures, and basic portfolio counts from persistent source APIs, with links to the relevant operational workflow. Supervision now provides an operational portfolio analytics endpoint computing occupancy rates, total booked nights, average stay duration, channel distribution, and per-property occupancy insights across customizable operational time windows. Post-stay review-request sequences automatically evaluate completed guest reservations, dispatch safety-guarded multilingual review requests across messaging channels with idempotency, and suppress requests when unresolved urgent maintenance or complaints occurred during the stay. The workstation interface standardizes sticky 64px `WorkstationHeader` breadcrumbs and actions across all primary views (Dashboard, Calendar, Messages, Conversation Thread, Maintenance, Properties, Property Detail, and Settings), with complete French (`fr`) default localization tailored for Tunisian property operators, symmetrical dynamic English (`en`) switching, interactive language selection in Settings, and persistent user language preferences stored in PostgreSQL across user sessions and devices.
 
+While the browser tab is visible, the workspace refreshes shared unread-message, conversation, maintenance-ticket, and conflict indicators every ten seconds; an open conversation thread and the Dashboard refresh their own operational data on the same cadence. Hidden tabs do not poll, and background failures preserve the last known data for staff rather than presenting an inaccurate empty state.
+
 
 ## Install the Required Software
 
