@@ -273,3 +273,39 @@ export async function checkPropertyAvailability(
     `/api/v1/properties/${propertyId}/availability?${query.toString()}`
   );
 }
+
+export interface BookingReceiptData {
+  invoice_number: string;
+  issue_date: string;
+  booking_id: string;
+  property_id: string;
+  company_name: string;
+  property_name: string;
+  property_address: string | null;
+  property_city: string | null;
+  guest_name: string | null;
+  guest_contact: string | null;
+  check_in: string;
+  check_out: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  nights: number;
+  currency: string;
+  unit_nightly_rate: number | string | null;
+  total_amount: number | string | null;
+  paid_amount: number | string | null;
+  outstanding_balance: number | string | null;
+  payment_status: PaymentStatus | null;
+  payment_method: string | null;
+  status: BookingStatus;
+  source_type: BookingSource;
+  notes: string | null;
+}
+
+export async function fetchBookingReceiptData(bookingId: string): Promise<BookingReceiptData> {
+  return apiRequest<BookingReceiptData>(`/api/v1/bookings/${bookingId}/receipt/data`);
+}
+
+export function getBookingReceiptHtmlUrl(bookingId: string, lang = 'fr'): string {
+  return `/api/v1/bookings/${bookingId}/receipt?lang=${encodeURIComponent(lang)}`;
+}

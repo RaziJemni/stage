@@ -28,6 +28,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { WorkstationHeader } from '../components/WorkstationHeader';
+import { BookingReceiptModal } from '../components/BookingReceiptModal';
 import { useI18n } from '../i18n/I18nContext';
 import { fetchOwners, type ApiOwner } from '../api/owners';
 
@@ -173,6 +174,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
   const [bookings, setBookings] = useState<CalendarBooking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState<boolean>(true);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [receiptBookingId, setReceiptBookingId] = useState<string | null>(null);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -526,15 +528,30 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                         )}
                       </div>
 
-                      <div className="mt-2">
-                        <div className="font-bold text-xs text-[#1C1B18]">
-                          {bk.record_type === 'blocked_period'
-                            ? (bk.guest_name || t('property_detail.type_blocked_period'))
-                            : (bk.guest_name || t('property_detail.type_reservation'))}
+                      <div className="mt-2 flex items-end justify-between">
+                        <div>
+                          <div className="font-bold text-xs text-[#1C1B18]">
+                            {bk.record_type === 'blocked_period'
+                              ? (bk.guest_name || t('property_detail.type_blocked_period'))
+                              : (bk.guest_name || t('property_detail.type_reservation'))}
+                          </div>
+                          <div className="text-[11px] text-[#78716C] mt-0.5">
+                            {formatBookingDate(bk.check_in, locale)} &rarr; {formatBookingDate(bk.check_out, locale)}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-[#78716C] mt-0.5">
-                          {formatBookingDate(bk.check_in, locale)} &rarr; {formatBookingDate(bk.check_out, locale)}
-                        </div>
+
+                        {bk.record_type === 'reservation' && (
+                          <button
+                            type="button"
+                            onClick={() => setReceiptBookingId(bk.id)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#B6DAEA] bg-white px-2 py-1 text-[11px] font-semibold text-[#0F3D5E] hover:bg-[#F0F6FA] transition-colors cursor-pointer"
+                            data-testid={`receipt-btn-${bk.id}`}
+                            title={t('calendar.receipt_btn')}
+                          >
+                            <FileText className="w-3 h-3 text-[#0F3D5E]" />
+                            <span>{t('calendar.receipt_btn')}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -701,6 +718,13 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {receiptBookingId && (
+        <BookingReceiptModal
+          bookingId={receiptBookingId}
+          onClose={() => setReceiptBookingId(null)}
+        />
       )}
 
       </div>
