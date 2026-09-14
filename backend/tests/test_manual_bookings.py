@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.main import create_app
 from app.modules.calendar import service
+from app.modules.calendar.models import BookingPricingDecision
 
 
 def alembic_config() -> Config:
@@ -171,6 +172,108 @@ def test_manager_and_staff_create_update_and_cancel_direct_bookings(
     )
     assert edit_cancelled.status_code == 409
     assert edit_cancelled.json()["code"] == "booking_cancelled"
+
+
+def test_manager_configures_pricing_and_staff_gets_a_direct_quote(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    saved = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 20, "minimum_nights": 2, "seasonal_rules": [{"name": "Summer", "start_date": "2026-08-01", "end_date": "2026-08-31", "nightly_rate": 150, "minimum_nights": 3}]},
+        headers=csrf_headers(client),
+    )
+    assert saved.status_code == 200, saved.text
+    staff_client = activate_staff(client)
+    quote = staff_client.post(
+        f"/api/v1/properties/{property_data['id']}/pricing/quote",
+        json={"check_in": "2026-08-14T14:00:00Z", "check_out": "2026-08-17T10:00:00Z"},
+        headers=csrf_headers(staff_client),
+    )
+    assert quote.status_code == 200, quote.text
+    assert quote.json()["total_amount"] == "510.000"
+    assert quote.json()["minimum_nights"] == 3
+    assert quote.json()["meets_minimum_stay"] is True
+
+    overlapping = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": [{"name": "Early August", "start_date": "2026-08-01", "end_date": "2026-08-15", "nightly_rate": 100}, {"name": "Late August", "start_date": "2026-08-15", "end_date": "2026-08-31", "nightly_rate": 100}]},
+        headers=csrf_headers(client),
+    )
+    assert overlapping.status_code == 422
+
+
+def test_direct_booking_requires_current_price_decision_and_audits_override(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    configured = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 2, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert configured.status_code == 200, configured.text
+
+    without_decision = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=200),
+        headers=csrf_headers(client),
+    )
+    assert without_decision.status_code == 422
+    assert without_decision.json()["code"] == "pricing_decision_required"
+
+    missing_reason = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=180, pricing_decision={"quoted_total": 200, "approved_total": 180}),
+        headers=csrf_headers(client),
+    )
+    assert missing_reason.status_code == 422
+
+    created = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=180, pricing_decision={"quoted_total": 200, "approved_total": 180, "override_reason": "Returning guest discount"}),
+        headers=csrf_headers(client),
+    )
+    assert created.status_code == 201, created.text
+    with SessionLocal() as db:
+        decision = db.scalar(sa.select(BookingPricingDecision).where(BookingPricingDecision.booking_id == created.json()["id"]))
+        assert decision is not None
+        assert decision.quoted_total == 200
+        assert decision.approved_total == 180
+        assert decision.override_reason == "Returning guest discount"
+        assert decision.quote_snapshot["total_amount"] == "200.000"
+
+
+def test_pricing_quote_rejects_cross_company_property_and_stale_quote(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    configured = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert configured.status_code == 200, configured.text
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+    forbidden = other_client.post(
+        f"/api/v1/properties/{property_data['id']}/pricing/quote",
+        json={"check_in": "2026-08-10T14:00:00Z", "check_out": "2026-08-12T10:00:00Z"},
+        headers=csrf_headers(other_client),
+    )
+    assert forbidden.status_code == 404
+    assert forbidden.json()["code"] == "property_not_found"
+
+    changed = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 125, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert changed.status_code == 200
+    stale = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=200, pricing_decision={"quoted_total": 200, "approved_total": 200}),
+        headers=csrf_headers(client),
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "pricing_quote_stale"
 
 
 def test_booking_dates_and_authentication_are_validated(client: TestClient) -> None:

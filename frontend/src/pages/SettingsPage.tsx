@@ -35,6 +35,7 @@ import {
 } from '../api/integrations';
 import { TeamManagementPanel } from '../components/TeamManagementPanel';
 import { OwnersManagementPanel } from '../components/OwnersManagementPanel';
+import { PricingManagementPanel } from '../components/PricingManagementPanel';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 
 const feedProviders: Array<{ value: CalendarFeedChannelType; label: string }> = [
@@ -111,7 +112,7 @@ export function SettingsPage() {
         {activeTab === 'preferences' && (
           <LanguagePreferencesCard locale={locale} setLocale={setLocale} t={t} />
         )}
-        {activeTab === 'channels' && <IntegrationsPanel companyTimezone={identity.company.timezone} />}
+        {activeTab === 'channels' && <><IntegrationsPanel companyTimezone={identity.company.timezone} /><PricingManagementPanel /></>}
       </div>
     </div>
   );

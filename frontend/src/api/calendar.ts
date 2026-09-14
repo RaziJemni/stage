@@ -83,6 +83,30 @@ export interface CalendarSyncQueuedResponse {
   status: 'queued';
 }
 
+export interface PricingQuote {
+  property_id: string;
+  nights: number;
+  minimum_nights: number;
+  meets_minimum_stay: boolean;
+  total_amount: number | string;
+  nightly_breakdown: Array<{ date: string; rate: number | string; seasonal_rule: string | null; weekend_adjustment_applied: boolean }>;
+}
+
+export interface SeasonalPricingRule { id?: string; name: string; start_date: string; end_date: string; nightly_rate: number | string; minimum_nights: number | null; }
+export interface PricingProfile { property_id: string; base_nightly_rate: number | string; weekend_adjustment_percent: number | string; minimum_nights: number; seasonal_rules: SeasonalPricingRule[]; }
+
+export async function fetchPricingProfile(propertyId: string): Promise<PricingProfile> {
+  return apiRequest<PricingProfile>(`/api/v1/properties/${propertyId}/pricing`);
+}
+
+export async function savePricingProfile(propertyId: string, payload: Omit<PricingProfile, 'property_id'>): Promise<PricingProfile> {
+  return apiRequest<PricingProfile>(`/api/v1/properties/${propertyId}/pricing`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function quoteDirectBooking(propertyId: string, checkIn: string, checkOut: string): Promise<PricingQuote> {
+  return apiRequest<PricingQuote>(`/api/v1/properties/${propertyId}/pricing/quote`, { method: 'POST', body: JSON.stringify({ check_in: checkIn, check_out: checkOut }) });
+}
+
 export interface ConflictBooking {
   id: string;
   property_id: string;
@@ -123,6 +147,11 @@ export interface ManualBookingPayload {
   total_amount?: number | null;
   paid_amount?: number | null;
   payment_method?: PaymentMethod | string | null;
+  pricing_decision?: {
+    quoted_total: number;
+    approved_total: number;
+    override_reason?: string | null;
+  } | null;
 }
 
 export interface ManualBookingUpdatePayload {
