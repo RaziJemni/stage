@@ -28,6 +28,8 @@ class PropertyStatus(str, Enum):
 class ChannelType(str, Enum):
     AIRBNB = "airbnb"
     BOOKING_COM = "booking_com"
+    VRBO = "vrbo"
+    EXPEDIA = "expedia"
     DIRECT = "direct"
     OTHER = "other"
 
@@ -52,6 +54,8 @@ class CalendarFeedHealthStatus(str, Enum):
 class BookingSource(str, Enum):
     AIRBNB = "airbnb"
     BOOKING_COM = "booking_com"
+    VRBO = "vrbo"
+    EXPEDIA = "expedia"
     DIRECT = "direct"
     MANUAL = "manual"
     OTHER = "other"

@@ -890,7 +890,12 @@ def _record_type(summary: str) -> BookingRecordType:
 
 
 def _booking_source(channel_type: ChannelType) -> BookingSource:
-    return {ChannelType.AIRBNB: BookingSource.AIRBNB, ChannelType.BOOKING_COM: BookingSource.BOOKING_COM}.get(channel_type, BookingSource.OTHER)
+    return {
+        ChannelType.AIRBNB: BookingSource.AIRBNB,
+        ChannelType.BOOKING_COM: BookingSource.BOOKING_COM,
+        ChannelType.VRBO: BookingSource.VRBO,
+        ChannelType.EXPEDIA: BookingSource.EXPEDIA,
+    }.get(channel_type, BookingSource.OTHER)
 
 
 def _as_text(value: object) -> str:

@@ -1,6 +1,6 @@
 import { apiRequest } from '../auth/api';
 
-export type BookingSource = 'airbnb' | 'booking_com' | 'direct' | 'manual' | 'other';
+export type BookingSource = 'airbnb' | 'booking_com' | 'vrbo' | 'expedia' | 'direct' | 'manual' | 'other';
 export type BookingStatus = 'tentative' | 'confirmed' | 'cancelled';
 export type BookingRecordType = 'reservation' | 'blocked_period';
 export type ConflictStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
@@ -50,7 +50,7 @@ export interface CalendarBookingDetail extends CalendarBooking {
 export interface CalendarFeedHealth {
   id: string;
   property_id: string;
-  channel_type: 'airbnb' | 'booking_com' | 'direct' | 'other';
+  channel_type: 'airbnb' | 'booking_com' | 'vrbo' | 'expedia' | 'direct' | 'other';
   is_active: boolean;
   health_status: FeedHealthStatus;
   last_successful_sync_at: string | null;
@@ -59,7 +59,7 @@ export interface CalendarFeedHealth {
   last_error_summary: string | null;
 }
 
-export type CalendarFeedChannelType = 'airbnb' | 'booking_com' | 'other';
+export type CalendarFeedChannelType = 'airbnb' | 'booking_com' | 'vrbo' | 'expedia' | 'other';
 
 export interface CalendarFeedConfigPayload {
   channel_type: CalendarFeedChannelType;

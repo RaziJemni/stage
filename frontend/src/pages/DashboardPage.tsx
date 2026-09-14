@@ -515,6 +515,8 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
                             className={`h-full rounded-full transition-all duration-500 ${
                               channel.channel_key === 'airbnb' ? 'bg-[#FF5A5F]' :
                               channel.channel_key === 'booking_com' ? 'bg-[#003580]' :
+                              channel.channel_key === 'vrbo' ? 'bg-[#196B24]' :
+                              channel.channel_key === 'expedia' ? 'bg-[#D97706]' :
                               channel.channel_key === 'direct' || channel.channel_key === 'manual' ? 'bg-[#0F3D5E]' :
                               'bg-[#D96B43]'
                             }`}

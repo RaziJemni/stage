@@ -40,6 +40,8 @@ import { WorkstationHeader } from '../components/WorkstationHeader';
 const feedProviders: Array<{ value: CalendarFeedChannelType; label: string }> = [
   { value: 'airbnb', label: 'Airbnb' },
   { value: 'booking_com', label: 'Booking.com' },
+  { value: 'vrbo', label: 'Vrbo' },
+  { value: 'expedia', label: 'Expedia' },
   { value: 'other', label: 'Other iCalendar' },
 ];
 

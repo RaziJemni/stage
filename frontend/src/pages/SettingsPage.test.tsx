@@ -171,6 +171,25 @@ describe('SettingsPage integrations', () => {
     expect(screen.queryByText('https://replacement.example/feed.ics')).not.toBeInTheDocument();
   });
 
+  it('offers Vrbo and Expedia iCalendar feed providers', async () => {
+    await openIntegrations();
+    const provider = screen.getByLabelText('Feed provider');
+    expect(screen.getByRole('option', { name: 'Vrbo' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Expedia' })).toBeInTheDocument();
+
+    fireEvent.change(provider, { target: { value: 'vrbo' } });
+    fireEvent.change(screen.getByLabelText('iCalendar feed URL'), {
+      target: { value: 'https://calendar.example.test/vrbo.ics' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save feed' }));
+
+    await waitFor(() => expect(configureCalendarFeed).toHaveBeenCalledWith('property-1', {
+      channel_type: 'vrbo',
+      calendar_url: 'https://calendar.example.test/vrbo.ics',
+      external_listing_id: null,
+    }));
+  });
+
   it('queues a feed refresh and reports that health is still pending worker output', async () => {
     await openIntegrations();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));

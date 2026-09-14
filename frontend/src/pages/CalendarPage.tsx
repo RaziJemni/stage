@@ -73,6 +73,8 @@ const PAGE_SIZE = 100;
 const sourceLabels: Record<BookingSource, string> = {
   airbnb: 'Airbnb',
   booking_com: 'Booking.com',
+  vrbo: 'Vrbo',
+  expedia: 'Expedia',
   direct: 'Direct',
   manual: 'Manual',
   other: 'Other',
@@ -97,6 +99,8 @@ const feedHealthLabels: Record<FeedHealthStatus, string> = {
 const sourceBadgeClasses: Record<BookingSource, string> = {
   airbnb: 'bg-[#FF5A5F] text-white',
   booking_com: 'bg-[#003580] text-white',
+  vrbo: 'bg-[#196B24] text-white',
+  expedia: 'bg-[#D97706] text-white',
   direct: 'bg-[#0F3D5E] text-white',
   manual: 'bg-[#78716C] text-white',
   other: 'bg-[#57534E] text-white',
@@ -859,7 +863,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
           <label className="text-xs font-semibold text-[#78716C]">Source
             <select value={selectedSource} onChange={(event) => setSelectedSource(event.target.value as BookingSource | '')} className="mt-1 block min-w-[160px] rounded-xl border border-[#EBE6DD] bg-[#FAF8F5] px-3 py-2 text-xs font-semibold text-[#1C1B18]">
               <option value="">All sources</option>
-              {(['airbnb', 'booking_com', 'direct', 'manual', 'other'] as BookingSource[]).map((source) => <option key={source} value={source}>{sourceLabels[source]}</option>)}
+              {(['airbnb', 'booking_com', 'vrbo', 'expedia', 'direct', 'manual', 'other'] as BookingSource[]).map((source) => <option key={source} value={source}>{sourceLabels[source]}</option>)}
             </select>
           </label>
           <label className="text-xs font-semibold text-[#78716C]">Status
@@ -872,7 +876,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#78716C]" aria-label="Booking source legend">
-          {(['airbnb', 'booking_com', 'direct', 'manual'] as BookingSource[]).map((source) => <span key={source} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${sourceBadgeClasses[source].split(' ')[0]}`} /> {sourceLabels[source]}</span>)}
+          {(['airbnb', 'booking_com', 'vrbo', 'expedia', 'direct', 'manual'] as BookingSource[]).map((source) => <span key={source} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${sourceBadgeClasses[source].split(' ')[0]}`} /> {sourceLabels[source]}</span>)}
           <span className="inline-flex items-center gap-1.5 font-semibold text-rose-700"><span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Conflict</span>
         </div>
       </div>
