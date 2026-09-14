@@ -35,6 +35,8 @@ import { fetchOwners, type ApiOwner } from '../api/owners';
 const sourceBadgeClasses: Record<BookingSource, string> = {
   airbnb: 'bg-[#FF5A5F] text-white',
   booking_com: 'bg-[#003580] text-white',
+  vrbo: 'bg-[#196B24] text-white',
+  expedia: 'bg-[#D97706] text-white',
   direct: 'bg-[#0F3D5E] text-white',
   manual: 'bg-[#78716C] text-white',
   other: 'bg-[#57534E] text-white',
@@ -43,6 +45,8 @@ const sourceBadgeClasses: Record<BookingSource, string> = {
 const sourceLabels: Record<BookingSource, string> = {
   airbnb: 'Airbnb',
   booking_com: 'Booking.com',
+  vrbo: 'Vrbo',
+  expedia: 'Expedia',
   direct: 'Direct',
   manual: 'Manual',
   other: 'Other',

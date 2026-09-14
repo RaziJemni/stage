@@ -20,6 +20,8 @@ CHANNEL_DISPLAY_NAMES: dict[str, str] = {
     BookingSource.DIRECT.value: "Direct Booking",
     BookingSource.AIRBNB.value: "Airbnb",
     BookingSource.BOOKING_COM.value: "Booking.com",
+    BookingSource.VRBO.value: "Vrbo",
+    BookingSource.EXPEDIA.value: "Expedia",
     BookingSource.OTHER.value: "Other Channel",
 }
 

@@ -13,7 +13,7 @@ from sqlalchemy.engine import make_url
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.enums import BookingRecordType, BookingStatus, ChannelType, SyncStatus
+from app.core.enums import BookingRecordType, BookingSource, BookingStatus, ChannelType, SyncStatus
 from app.main import create_app
 from app.modules.calendar import service
 from app.modules.calendar.models import CalendarSyncRun
@@ -75,6 +75,11 @@ SUMMARY:Invalid event without an identifier
 END:VEVENT
 END:VCALENDAR
 """
+
+
+FIXTURES_DIR = Path(__file__).with_name("fixtures")
+VRBO_FEED = (FIXTURES_DIR / "vrbo_calendar.ics").read_bytes()
+EXPEDIA_FEED = (FIXTURES_DIR / "expedia_calendar.ics").read_bytes()
 
 
 def alembic_config() -> Config:
@@ -158,11 +163,13 @@ def activate_staff(manager_client: TestClient) -> TestClient:
     return staff_client
 
 
-def configure_feed(client: TestClient, property_id: str) -> dict:
+def configure_feed(
+    client: TestClient, property_id: str, channel_type: str = "airbnb"
+) -> dict:
     response = client.post(
         f"/api/v1/properties/{property_id}/calendar-feeds",
         json={
-            "channel_type": "airbnb",
+            "channel_type": channel_type,
             "calendar_url": "https://calendar.example.test/villa.ics",
             "external_listing_id": "villa-yasmine",
         },
@@ -177,12 +184,43 @@ def test_manager_configures_feed_and_another_company_cannot_access_it(client: Te
     property_id = create_property(client)
     feed = configure_feed(client, property_id)
     assert feed["channel_type"] == "airbnb"
-
     other_client = TestClient(client.app)
     register_manager(other_client)
     inaccessible = other_client.get(f"/api/v1/calendar-feeds/{feed['id']}/sync-runs")
     assert inaccessible.status_code == 404
 
+
+@pytest.mark.parametrize(
+    ("channel_type", "booking_source", "feed_fixture"),
+    [
+        ("vrbo", BookingSource.VRBO, VRBO_FEED),
+        ("expedia", BookingSource.EXPEDIA, EXPEDIA_FEED),
+    ],
+)
+def test_vrbo_and_expedia_feeds_import_with_their_source_type(
+    client: TestClient,
+    channel_type: str,
+    booking_source: BookingSource,
+    feed_fixture: bytes,
+) -> None:
+    identity = register_manager(client)
+    property_id = create_property(client)
+    feed = configure_feed(client, property_id, channel_type)
+
+    with SessionLocal() as db:
+        sync_run = service.sync_channel(
+            db,
+            company_id=identity["company"]["id"],
+            channel_id=feed["id"],
+            fetcher=lambda _: feed_fixture,
+        )
+        assert sync_run.status is SyncStatus.SUCCEEDED, sync_run.error_summary
+        assert {
+            booking.source_type
+            for booking in db.scalars(
+                sa.select(service.Booking).where(service.Booking.channel_id == feed["id"])
+            )
+        } == {booking_source}
 
 def test_feed_rejects_direct_channel_and_missing_csrf(client: TestClient) -> None:
     register_manager(client)

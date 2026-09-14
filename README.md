@@ -12,6 +12,7 @@ The repository currently provides:
 - versioned PostgreSQL migrations through Alembic;
 - manager and staff registration, login, sessions, invitations, roles, and protected pages;
 - manager-controlled staff property assignments and Operations/Maintenance capability flags, enforced by server-side company and property scopes;
+- explicit Airbnb, Booking.com, Vrbo, and Expedia read-only iCalendar feed sources, using the existing asynchronous import and truthful sync-health workflow;
 - an interactive frontend for the planned operational modules;
 - automated backend, database, and frontend tests;
 - a repeatable cross-module MVP validation scenario and [synthetic-data demonstration runbook](docs/validation/issue-33-mvp-validation.md);
