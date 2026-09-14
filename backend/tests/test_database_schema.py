@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "messages",
     "owners",
     "properties",
+    "staff_property_assignments",
     "ticket_assignments",
     "ticket_status_history",
     "ticket_suggestions",
@@ -101,6 +102,18 @@ def test_booking_conflict_acknowledgement_is_tenant_scoped(
         == ["company_id", "acknowledged_by_user_id"]
         and foreign_key["referred_table"] == "app_users"
         and foreign_key["referred_columns"] == ["company_id", "id"]
+        for foreign_key in foreign_keys
+    )
+
+
+def test_staff_property_assignments_are_company_scoped(migrated_engine: Engine) -> None:
+    inspector = sa.inspect(migrated_engine)
+    columns = {column["name"] for column in inspector.get_columns("app_users")}
+    assert {"operations_access", "maintenance_access"}.issubset(columns)
+    foreign_keys = inspector.get_foreign_keys("staff_property_assignments")
+    assert any(
+        foreign_key["constrained_columns"] == ["company_id", "property_id"]
+        and foreign_key["referred_table"] == "properties"
         for foreign_key in foreign_keys
     )
 

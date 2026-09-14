@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -53,7 +53,26 @@ class AppUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     preferred_language: Mapped[str] = mapped_column(
         String(10), default="fr", server_default="fr", nullable=False
     )
+    operations_access: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
+    maintenance_access: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StaffPropertyAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "staff_property_assignments"
+    __table_args__ = (
+        UniqueConstraint("company_id", "user_id", "property_id", name="uq_staff_property_assignment"),
+        ForeignKeyConstraint(["company_id", "user_id"], ["app_users.company_id", "app_users.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["company_id", "property_id"], ["properties.company_id", "properties.id"], ondelete="CASCADE"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
 
 
 class AuthSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):

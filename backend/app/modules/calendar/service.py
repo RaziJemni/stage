@@ -159,8 +159,11 @@ def list_booking_conflicts(
     params: PageParams,
     property_id: UUID | None = None,
     status: ConflictStatus | None = None,
+    property_ids: set[UUID] | None = None,
 ) -> tuple[list[tuple[BookingConflict, list[Booking]]], int]:
     statement = select(BookingConflict).where(BookingConflict.company_id == company_id)
+    if property_ids is not None:
+        statement = statement.where(BookingConflict.property_id.in_(property_ids))
     if property_id is not None:
         statement = statement.where(BookingConflict.property_id == property_id)
     if status is None:
@@ -287,12 +290,15 @@ def list_bookings(
     property_id: UUID | None = None,
     source_type: BookingSource | None = None,
     status: BookingStatus | None = None,
+    property_ids: set[UUID] | None = None,
 ) -> tuple[list[Booking], int]:
     statement = select(Booking).where(
         Booking.company_id == company_id,
         Booking.check_in < range_end,
         Booking.check_out > range_start,
     )
+    if property_ids is not None:
+        statement = statement.where(Booking.property_id.in_(property_ids))
     if property_id is not None:
         statement = statement.where(Booking.property_id == property_id)
     if source_type is not None:

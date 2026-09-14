@@ -25,12 +25,15 @@ def list_properties(
     city: str | None = None,
     include_archived: bool = False,
     owner_id: UUID | None = None,
+    property_ids: set[UUID] | None = None,
 ) -> tuple[list[PropertyResponse], int]:
     stmt = (
         select(Property, Owner.name.label("owner_name"))
         .outerjoin(Owner, Property.owner_id == Owner.id)
         .where(Property.company_id == company_id)
     )
+    if property_ids is not None:
+        stmt = stmt.where(Property.id.in_(property_ids))
 
     if not include_archived:
         stmt = stmt.where(Property.status != PropertyStatus.ARCHIVED)
@@ -67,13 +70,16 @@ def get_property(db: Session, company_id: UUID, property_id: UUID) -> Property |
 
 
 def get_property_response(
-    db: Session, company_id: UUID, property_id: UUID
+    db: Session, company_id: UUID, property_id: UUID, property_ids: set[UUID] | None = None
 ) -> PropertyResponse | None:
-    row = db.execute(
+    statement = (
         select(Property, Owner.name.label("owner_name"))
         .outerjoin(Owner, Property.owner_id == Owner.id)
         .where(Property.company_id == company_id, Property.id == property_id)
-    ).first()
+    )
+    if property_ids is not None:
+        statement = statement.where(Property.id.in_(property_ids))
+    row = db.execute(statement).first()
     if not row:
         return None
     prop, o_name = row

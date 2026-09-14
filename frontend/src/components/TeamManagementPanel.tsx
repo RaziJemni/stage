@@ -25,6 +25,12 @@ export function TeamManagementPanel() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [invitationUrl, setInvitationUrl] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Array<{ id: string; name: string }>>([]);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+  const [operationsAccess, setOperationsAccess] = useState(true);
+  const [maintenanceAccess, setMaintenanceAccess] = useState(true);
+  const [savingAccess, setSavingAccess] = useState(false);
 
   const loadTeam = useCallback(async () => {
     setLoading(true);
@@ -40,6 +46,37 @@ export function TeamManagementPanel() {
   }, []);
 
   useEffect(() => { void loadTeam(); }, [loadTeam]);
+
+  useEffect(() => {
+    void apiRequest<{ items: Array<{ id: string; name: string }> }>('/api/v1/properties?page_size=100')
+      .then((result) => setProperties(Array.isArray(result.items) ? result.items : []))
+      .catch(() => setProperties([]));
+  }, []);
+
+  const openAccessEditor = (member: TeamMember) => {
+    setEditingMember(member);
+    setSelectedPropertyIds(member.property_ids ?? []);
+    setOperationsAccess(member.operations_access ?? true);
+    setMaintenanceAccess(member.maintenance_access ?? true);
+  };
+
+  const saveAccess = async () => {
+    if (!editingMember) return;
+    setSavingAccess(true);
+    setError(null);
+    try {
+      const updated = await apiRequest<TeamMember>(`/api/v1/team/${editingMember.id}/access`, {
+        method: 'PUT',
+        body: JSON.stringify({ property_ids: selectedPropertyIds, operations_access: operationsAccess, maintenance_access: maintenanceAccess }),
+      });
+      setMembers((current) => current.map((member) => member.id === updated.id ? updated : member));
+      setEditingMember(null);
+    } catch (caught: unknown) {
+      setError(caught instanceof ApiError ? caught.message : 'The staff access could not be updated.');
+    } finally {
+      setSavingAccess(false);
+    }
+  };
 
   const invite = async (event: FormEvent) => {
     event.preventDefault();
@@ -107,6 +144,16 @@ export function TeamManagementPanel() {
       )}
 
       {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</div>}
+      {editingMember && (
+        <section aria-label="Staff property access" className="rounded-2xl border border-[#B6DAEA] bg-[#F0F6FA] p-4 space-y-4">
+          <div><h2 className="text-sm font-bold text-[#1C1B18]">Access for {editingMember.name}</h2><p className="mt-1 text-xs text-[#57534E]">No property selected means company-wide property access.</p></div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {properties.map((property) => <label key={property.id} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs text-[#3B3735]"><input type="checkbox" checked={selectedPropertyIds.includes(property.id)} onChange={(event) => setSelectedPropertyIds((current) => event.target.checked ? [...current, property.id] : current.filter((id) => id !== property.id))} />{property.name}</label>)}
+          </div>
+          <div className="flex flex-wrap gap-4 text-xs font-semibold text-[#3B3735]"><label className="flex items-center gap-2"><input type="checkbox" checked={operationsAccess} onChange={(event) => setOperationsAccess(event.target.checked)} />Operations</label><label className="flex items-center gap-2"><input type="checkbox" checked={maintenanceAccess} onChange={(event) => setMaintenanceAccess(event.target.checked)} />Maintenance</label></div>
+          <div className="flex gap-2"><button type="button" onClick={() => void saveAccess()} disabled={savingAccess} className="rounded-lg bg-[#0F3D5E] px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{savingAccess ? 'Saving…' : 'Save access'}</button><button type="button" onClick={() => setEditingMember(null)} disabled={savingAccess} className="rounded-lg border border-[#D6D0C7] bg-white px-3 py-2 text-xs font-bold text-[#3B3735]">Cancel</button></div>
+        </section>
+      )}
       {loading ? (
         <div className="rounded-2xl border border-[#EBE6DD] bg-white p-8 text-center text-sm text-[#78716C]">{t('settings.team.loading')}</div>
       ) : members.length === 0 ? (
@@ -130,7 +177,7 @@ export function TeamManagementPanel() {
                   <td className="px-5 py-4 text-[#3B3735]">{member.email}</td>
                   <td className="px-5 py-4 font-bold text-[#0F3D5E]">{member.role === 'manager' ? t('settings.team.role_manager') : t('settings.team.role_staff')}</td>
                   <td className="px-5 py-4"><StatusBadge status={member.status} t={t} /></td>
-                  <td className="px-5 py-4 text-right">{member.role === 'staff' && member.status !== 'invited' && <button disabled={updatingMemberId === member.id} onClick={() => void changeStatus(member)} className="font-bold text-[#0F3D5E] hover:underline disabled:cursor-not-allowed disabled:opacity-50">{updatingMemberId === member.id ? t('settings.team.updating') : member.status === 'active' ? t('settings.team.action_deactivate') : t('settings.team.action_activate')}</button>}</td>
+                  <td className="px-5 py-4 text-right space-x-3">{member.role === 'staff' && <button type="button" onClick={() => openAccessEditor(member)} className="font-bold text-[#0F3D5E] hover:underline">Manage access</button>}{member.role === 'staff' && member.status !== 'invited' && <button disabled={updatingMemberId === member.id} onClick={() => void changeStatus(member)} className="font-bold text-[#0F3D5E] hover:underline disabled:cursor-not-allowed disabled:opacity-50">{updatingMemberId === member.id ? t('settings.team.updating') : member.status === 'active' ? t('settings.team.action_deactivate') : t('settings.team.action_activate')}</button>}</td>
                 </tr>
               ))}
             </tbody>

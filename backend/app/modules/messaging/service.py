@@ -34,13 +34,15 @@ def get_conversation(
     db: Session,
     company_id: UUID,
     conversation_id: UUID,
+    property_ids: set[UUID] | None = None,
 ) -> Conversation | None:
-    return db.scalar(
-        select(Conversation).where(
+    statement = select(Conversation).where(
             Conversation.company_id == company_id,
             Conversation.id == conversation_id,
         )
-    )
+    if property_ids is not None:
+        statement = statement.where(Conversation.property_id.in_(property_ids))
+    return db.scalar(statement)
 
 
 def get_property_for_inbound_event(db: Session, *, property_id: UUID) -> Property:
@@ -78,8 +80,11 @@ def list_conversations(
     params: PageParams,
     unread: bool | None = None,
     handling_mode: HandlingMode | None = None,
+    property_ids: set[UUID] | None = None,
 ) -> tuple[list[Conversation], int]:
     statement = select(Conversation).where(Conversation.company_id == company_id)
+    if property_ids is not None:
+        statement = statement.where(Conversation.property_id.in_(property_ids))
     if unread:
         statement = statement.where(Conversation.unread_message_count > 0)
     if handling_mode is not None:

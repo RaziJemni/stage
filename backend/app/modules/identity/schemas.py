@@ -55,6 +55,8 @@ class UserSummary(BaseModel):
     role: UserRole
     status: UserStatus
     preferred_language: str = "fr"
+    operations_access: bool = True
+    maintenance_access: bool = True
 
 
 class AuthResponse(BaseModel):
@@ -66,6 +68,7 @@ class AuthResponse(BaseModel):
 class TeamMemberResponse(UserSummary):
     last_login_at: datetime | None
     invitation_expires_at: datetime | None = None
+    property_ids: list[UUID] = []
 
 
 class TeamListResponse(BaseModel):
@@ -92,6 +95,12 @@ class InvitationResponse(BaseModel):
 
 class TeamMemberStatusRequest(StrictRequest):
     status: Literal["active", "inactive"]
+
+
+class TeamMemberAccessRequest(StrictRequest):
+    property_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    operations_access: bool = True
+    maintenance_access: bool = True
 
 
 class UserPreferencesRequest(StrictRequest):
