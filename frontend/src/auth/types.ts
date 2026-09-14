@@ -26,6 +26,9 @@ export interface AuthIdentity {
 export interface TeamMember extends AuthUser {
   last_login_at: string | null;
   invitation_expires_at: string | null;
+  property_ids?: string[];
+  operations_access?: boolean;
+  maintenance_access?: boolean;
 }
 
 export interface ProblemDetail {

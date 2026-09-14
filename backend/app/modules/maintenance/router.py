@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
+from app.modules.identity.authorization import assigned_property_ids, require_capability, require_property_access
 from app.modules.maintenance import service
 from app.core.enums import TicketPriority, TicketStatus
 from app.modules.maintenance.schemas import (
@@ -29,6 +30,11 @@ router = APIRouter(prefix="/tickets", tags=["Maintenance"])
 contractor_router = APIRouter(prefix="/contractors", tags=["Maintenance"])
 
 
+def _require_ticket_access(db: Session, context: CurrentContext, ticket_id: UUID) -> None:
+    ticket = service._get_ticket(db, company_id=context.company.id, ticket_id=ticket_id)
+    require_property_access(db, context, ticket.property_id, "maintenance")
+
+
 @contractor_router.get("", response_model=Page[ContractorResponse])
 def list_contractors(
     context: CurrentContext,
@@ -36,6 +42,7 @@ def list_contractors(
     page_params: Annotated[PageParams, Depends(get_page_params)],
     include_inactive: bool = False,
 ) -> Page[ContractorResponse]:
+    require_capability(context, "maintenance")
     items, total = service.list_contractors(
         db,
         company_id=context.company.id,
@@ -51,6 +58,7 @@ def create_contractor(
     payload: ContractorCreateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> ContractorResponse:
+    require_capability(context, "maintenance")
     return service.create_contractor(db, company_id=context.company.id, payload=payload)
 
 
@@ -61,6 +69,7 @@ def update_contractor(
     payload: ContractorUpdateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> ContractorResponse:
+    require_capability(context, "maintenance")
     return service.update_contractor(
         db,
         company_id=context.company.id,
@@ -79,6 +88,7 @@ def list_tickets(
     status: TicketStatus | None = None,
     contractor_id: UUID | None = None,
 ) -> Page[TicketResponse]:
+    require_capability(context, "maintenance")
     items, total = service.list_tickets(
         db,
         company_id=context.company.id,
@@ -87,28 +97,33 @@ def list_tickets(
         priority=priority,
         status=status,
         contractor_id=contractor_id,
+        property_ids=assigned_property_ids(db, context),
     )
     return Page.create(items=items, params=page_params, total=total)
 
 
 @router.post("", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 def create_ticket(context: CsrfContext, payload: TicketCreateRequest, db: Annotated[Session, Depends(get_db)]) -> TicketResponse:
+    require_property_access(db, context, payload.property_id, "maintenance")
     return service.create_ticket(db, company_id=context.company.id, user_id=context.user.id, payload=payload)
 
 
 @router.get("/suggestions", response_model=Page[TicketSuggestionResponse])
 def list_suggestions(context: CurrentContext, db: Annotated[Session, Depends(get_db)], page_params: Annotated[PageParams, Depends(get_page_params)]) -> Page[TicketSuggestionResponse]:
+    require_capability(context, "maintenance")
     items, total = service.list_ticket_suggestions(db, company_id=context.company.id, params=page_params)
     return Page.create(items=items, params=page_params, total=total)
 
 
 @router.post("/suggestions/{suggestion_id}/confirm", response_model=TicketSuggestionResponse)
 def confirm_suggestion(suggestion_id: UUID, context: CsrfContext, payload: TicketSuggestionReviewRequest, db: Annotated[Session, Depends(get_db)]) -> TicketSuggestionResponse:
+    require_capability(context, "maintenance")
     return service.review_ticket_suggestion(db, company_id=context.company.id, user_id=context.user.id, suggestion_id=suggestion_id, payload=payload, confirm=True)
 
 
 @router.post("/suggestions/{suggestion_id}/reject", response_model=TicketSuggestionResponse)
 def reject_suggestion(suggestion_id: UUID, context: CsrfContext, db: Annotated[Session, Depends(get_db)]) -> TicketSuggestionResponse:
+    require_capability(context, "maintenance")
     return service.review_ticket_suggestion(db, company_id=context.company.id, user_id=context.user.id, suggestion_id=suggestion_id, payload=None, confirm=False)
 
 
@@ -118,6 +133,7 @@ def list_ticket_assignments(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[TicketAssignmentResponse]:
+    _require_ticket_access(db, context, ticket_id)
     return service.list_ticket_assignments(
         db, company_id=context.company.id, ticket_id=ticket_id
     )
@@ -130,6 +146,7 @@ def assign_contractor(
     payload: TicketAssignmentCreateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TicketAssignmentResponse:
+    _require_ticket_access(db, context, ticket_id)
     return service.assign_contractor(
         db,
         company_id=context.company.id,
@@ -146,6 +163,7 @@ def update_ticket_status(
     payload: TicketStatusUpdateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TicketResponse:
+    _require_ticket_access(db, context, ticket_id)
     return service.update_ticket_status(
         db,
         company_id=context.company.id,
@@ -161,6 +179,7 @@ def list_ticket_status_history(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[TicketStatusHistoryResponse]:
+    _require_ticket_access(db, context, ticket_id)
     return service.list_ticket_status_history(
         db, company_id=context.company.id, ticket_id=ticket_id
     )
@@ -173,6 +192,7 @@ def send_ticket_guest_update(
     payload: TicketGuestUpdateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TicketGuestUpdateResponse:
+    _require_ticket_access(db, context, ticket_id)
     message = service.send_guest_update(
         db,
         company_id=context.company.id,

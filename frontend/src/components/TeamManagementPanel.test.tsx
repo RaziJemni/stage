@@ -127,4 +127,21 @@ describe('TeamManagementPanel', () => {
 
     expect(await screen.findByRole('button', { name: 'Activer' })).toBeInTheDocument();
   });
+
+  it('lets a manager save scoped properties and capability flags for staff', async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: RequestInit) => {
+      if (path.startsWith('/api/v1/properties')) return { items: [{ id: 'property-1', name: 'Villa Yasmine' }] } as never;
+      if (path === '/api/v1/team/user-2/access' && options?.method === 'PUT') return { ...mockMembers[1], property_ids: ['property-1'], operations_access: true, maintenance_access: false } as never;
+      return { items: mockMembers } as never;
+    });
+    renderWithLocale(<TeamManagementPanel />, 'en');
+    await screen.findByText('Habib Staff');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Manage access' })[0]);
+    fireEvent.click(await screen.findByLabelText('Villa Yasmine'));
+    fireEvent.click(screen.getByLabelText('Maintenance'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/v1/team/user-2/access', {
+      method: 'PUT', body: JSON.stringify({ property_ids: ['property-1'], operations_access: true, maintenance_access: false }),
+    }));
+  });
 });

@@ -29,6 +29,7 @@ from app.modules.calendar.schemas import (
 )
 from app.modules.calendar.tasks import sync_calendar_channel
 from app.modules.identity.dependencies import CsrfContext, CurrentContext, ManagerCsrfContext
+from app.modules.identity.authorization import assigned_property_ids, require_capability, require_property_access
 
 
 router = APIRouter(tags=["Calendar"])
@@ -108,12 +109,14 @@ def list_booking_conflicts_endpoint(
         ConflictStatus | None, Query(alias="status")
     ] = None,
 ) -> Page[BookingConflictResponse]:
+    require_capability(context, "operations")
     items, total = service.list_booking_conflicts(
         db,
         company_id=context.company.id,
         params=page_params,
         property_id=property_id,
         status=conflict_status,
+        property_ids=assigned_property_ids(db, context),
     )
     return Page.create(
         items=[_conflict_response(conflict, bookings) for conflict, bookings in items],
@@ -133,6 +136,7 @@ def get_booking_conflict_endpoint(
     conflict, bookings = service.get_booking_conflict(
         db, company_id=context.company.id, conflict_id=conflict_id
     )
+    require_property_access(db, context, conflict.property_id, "operations")
     return _conflict_response(conflict, bookings)
 
 
@@ -146,6 +150,8 @@ def acknowledge_booking_conflict_endpoint(
     context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> BookingConflictResponse:
+    conflict, _ = service.get_booking_conflict(db, company_id=context.company.id, conflict_id=conflict_id)
+    require_property_access(db, context, conflict.property_id, "operations")
     conflict, bookings = service.acknowledge_booking_conflict(
         db,
         company_id=context.company.id,
@@ -167,6 +173,7 @@ def list_bookings_endpoint(
     source_type: Annotated[BookingSource | None, Query()] = None,
     booking_status: Annotated[BookingStatus | None, Query(alias="status")] = None,
 ) -> Page[BookingCalendarResponse]:
+    require_capability(context, "operations")
     _validate_calendar_range(range_start, range_end)
     items, total = service.list_bookings(
         db,
@@ -177,6 +184,7 @@ def list_bookings_endpoint(
         property_id=property_id,
         source_type=source_type,
         status=booking_status,
+        property_ids=assigned_property_ids(db, context),
     )
     return Page.create(
         items=[BookingCalendarResponse.model_validate(item) for item in items],
@@ -191,7 +199,9 @@ def get_booking_endpoint(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> BookingResponse:
-    return service.get_booking(db, company_id=context.company.id, booking_id=booking_id)
+    booking = service.get_booking(db, company_id=context.company.id, booking_id=booking_id)
+    require_property_access(db, context, booking.property_id, "operations")
+    return booking
 
 
 @router.get("/bookings/{booking_id}/receipt/data", response_model=BookingReceiptDataResponse)
@@ -337,6 +347,7 @@ def check_property_availability_endpoint(
     check_out: Annotated[datetime, Query()],
     exclude_booking_id: Annotated[UUID | None, Query()] = None,
 ) -> AvailabilityCheckResponse:
+    require_property_access(db, context, property_id, "operations")
     if (
         check_in.tzinfo is None
         or check_in.utcoffset() is None

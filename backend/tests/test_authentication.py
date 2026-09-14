@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
@@ -19,6 +19,7 @@ from app.core.database import SessionLocal
 from app.core.enums import UserStatus
 from app.main import create_app
 from app.modules.identity.models import AppUser, AuthSession, UserInvitation
+from app.modules.messaging.models import Conversation
 from app.modules.identity.rate_limit import LoginRateLimiter, get_login_rate_limiter
 
 
@@ -111,6 +112,51 @@ def invite_staff(client: TestClient, email: str = "staff@example.com") -> tuple[
     invitation_url = payload["invitation_url"]
     token = parse_qs(urlparse(invitation_url).query)["token"][0]
     return payload, token
+
+
+def test_manager_can_scope_staff_properties_and_capabilities(client: TestClient) -> None:
+    register(client)
+    first = client.post("/api/v1/properties", json={"name": "Villa One", "city": "Tunis"}, headers=csrf_headers(client))
+    second = client.post("/api/v1/properties", json={"name": "Villa Two", "city": "Tunis"}, headers=csrf_headers(client))
+    assert first.status_code == second.status_code == 201
+    invitation, token = invite_staff(client, "scoped-staff@example.com")
+    staff_client = TestClient(client.app)
+    accepted = staff_client.post("/api/v1/auth/invitations/accept", json={"token": token, "password": "staff-secure-password"})
+    assert accepted.status_code == 200
+
+    update = client.put(
+        f"/api/v1/team/{invitation['member']['id']}/access",
+        json={"property_ids": [first.json()["id"]], "operations_access": True, "maintenance_access": False},
+        headers=csrf_headers(client),
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["property_ids"] == [first.json()["id"]]
+
+    visible = staff_client.get("/api/v1/properties")
+    assert visible.status_code == 200
+    assert [item["id"] for item in visible.json()["items"]] == [first.json()["id"]]
+    assert staff_client.get(f"/api/v1/properties/{second.json()['id']}").status_code == 404
+    assert staff_client.get("/api/v1/tickets").status_code == 403
+
+    client.put(
+        f"/api/v1/team/{invitation['member']['id']}/access",
+        json={"property_ids": [first.json()["id"]], "operations_access": True, "maintenance_access": True},
+        headers=csrf_headers(client),
+    )
+    for property_id in (first.json()["id"], second.json()["id"]):
+        assert client.post("/api/v1/bookings", json={"property_id": property_id, "source_type": "manual", "record_type": "reservation", "status": "confirmed", "check_in": "2026-10-01T14:00:00Z", "check_out": "2026-10-03T10:00:00Z"}, headers=csrf_headers(client)).status_code == 201
+        assert client.post("/api/v1/tickets", json={"property_id": property_id, "title": "Test ticket", "description": "Scoped access test", "priority": "medium"}, headers=csrf_headers(client)).status_code == 201
+    with SessionLocal() as db:
+        company_id = db.scalar(sa.select(AppUser.company_id).where(AppUser.id == invitation["member"]["id"]))
+        assert company_id is not None
+        db.add_all([Conversation(company_id=company_id, property_id=UUID(property_id), guest_contact_identifier=f"+216{index}") for index, property_id in enumerate((first.json()["id"], second.json()["id"]), 1)])
+        db.commit()
+    bookings = staff_client.get("/api/v1/bookings?range_start=2026-10-01T00:00:00Z&range_end=2026-10-04T00:00:00Z")
+    tickets = staff_client.get("/api/v1/tickets")
+    conversations = staff_client.get("/api/v1/conversations")
+    assert {item["property_id"] for item in bookings.json()["items"]} == {first.json()["id"]}
+    assert {item["property_id"] for item in tickets.json()["items"]} == {first.json()["id"]}
+    assert {item["property_id"] for item in conversations.json()["items"]} == {first.json()["id"]}
 
 
 def test_registration_hashes_password_and_normalizes_email(client: TestClient) -> None:

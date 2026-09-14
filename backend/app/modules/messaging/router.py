@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.core.enums import HandlingMode
 from app.integrations.whatsapp import InboundMessageEvent, get_whatsapp_adapter, simulator_adapter
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
+from app.modules.identity.authorization import assigned_property_ids, require_capability
 from app.modules.messaging import service
 from app.modules.chatbot.tasks import process_chatbot_inbound_message
 from app.modules.messaging.schemas import (
@@ -205,12 +206,14 @@ def list_conversations_endpoint(
     unread: bool | None = None,
     handling_mode: HandlingMode | None = None,
 ) -> Page[ConversationResponse]:
+    require_capability(context, "operations")
     items, total = service.list_conversations(
         db=db,
         company_id=context.company.id,
         params=page_params,
         unread=unread,
         handling_mode=handling_mode,
+        property_ids=assigned_property_ids(db, context),
     )
 
     return Page.create(
@@ -226,7 +229,8 @@ def mark_conversation_read_endpoint(
     context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> ConversationResponse:
-    conversation = service.get_conversation(db, company_id=context.company.id, conversation_id=conversation_id)
+    require_capability(context, "operations")
+    conversation = service.get_conversation(db, company_id=context.company.id, conversation_id=conversation_id, property_ids=assigned_property_ids(db, context))
     if conversation is None:
         raise ApiProblem(status=404, title="Conversation not found", detail="Conversation does not exist or does not belong to your company.", code="conversation_not_found")
     return service.mark_conversation_read(db, conversation=conversation)
@@ -241,10 +245,12 @@ def list_messages_endpoint(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> list[MessageResponse]:
+    require_capability(context, "operations")
     conversation = service.get_conversation(
         db=db,
         company_id=context.company.id,
         conversation_id=conversation_id,
+        property_ids=assigned_property_ids(db, context),
     )
 
     if conversation is None:
@@ -273,11 +279,13 @@ def create_message_endpoint(
     context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> MessageResponse:
+    require_capability(context, "operations")
 
     conversation = service.get_conversation(
         db=db,
         company_id=context.company.id,
         conversation_id=conversation_id,
+        property_ids=assigned_property_ids(db, context),
     )
 
     if conversation is None:
@@ -307,11 +315,13 @@ def update_handling_mode_endpoint(
     context: CsrfContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> ConversationResponse:
+    require_capability(context, "operations")
 
     conversation = service.get_conversation(
         db=db,
         company_id=context.company.id,
         conversation_id=conversation_id,
+        property_ids=assigned_property_ids(db, context),
     )
 
     if conversation is None:

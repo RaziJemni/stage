@@ -62,8 +62,11 @@ def list_tickets(
     priority: TicketPriority | None = None,
     status: TicketStatus | None = None,
     contractor_id: UUID | None = None,
+    property_ids: set[UUID] | None = None,
 ) -> tuple[list[Ticket], int]:
     statement = select(Ticket).where(Ticket.company_id == company_id)
+    if property_ids is not None:
+        statement = statement.where(Ticket.property_id.in_(property_ids))
     if property_id is not None:
         statement = statement.where(Ticket.property_id == property_id)
     if priority is not None:

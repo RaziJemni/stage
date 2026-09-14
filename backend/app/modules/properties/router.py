@@ -11,6 +11,7 @@ from app.modules.identity.dependencies import (
     CurrentContext,
     ManagerCsrfContext,
 )
+from app.modules.identity.authorization import assigned_property_ids, require_capability
 from app.modules.properties import service
 from app.modules.properties.schemas import (
     OwnerCreateRequest,
@@ -38,6 +39,7 @@ def list_properties_endpoint(
         UUID | None, Query(description="Filter properties by owner ID")
     ] = None,
 ) -> Page[PropertyResponse]:
+    require_capability(context, "operations")
     items, total = service.list_properties(
         db,
         company_id=context.company.id,
@@ -45,6 +47,7 @@ def list_properties_endpoint(
         city=city,
         include_archived=include_archived,
         owner_id=owner_id,
+        property_ids=assigned_property_ids(db, context),
     )
     return Page.create(items=items, params=page_params, total=total)
 
@@ -65,8 +68,9 @@ def get_property_endpoint(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> PropertyResponse:
+    require_capability(context, "operations")
     property_obj = service.get_property_response(
-        db, company_id=context.company.id, property_id=property_id
+        db, company_id=context.company.id, property_id=property_id, property_ids=assigned_property_ids(db, context)
     )
     if not property_obj:
         raise ApiProblem(
