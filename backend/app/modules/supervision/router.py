@@ -1,12 +1,20 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.modules.identity.dependencies import CurrentContext, ManagerContext
+from app.modules.supervision.payout_service import (
+    export_owner_statement_csv,
+    get_company_owner_statements,
+    get_single_owner_statement,
+)
 from app.modules.supervision.schemas import (
+    CompanyStatementsOverviewResponse,
+    OwnerMonthlyStatementResponse,
     PortfolioAnalyticsResponse,
     WhatsAppIntegrationHealthResponse,
 )
@@ -78,4 +86,83 @@ def portfolio_analytics_endpoint(
         company_id=context.company.id,
         window_days=window_days,
         property_id=property_id,
+    )
+
+
+@analytics_router.get(
+    "/owner-statements",
+    response_model=CompanyStatementsOverviewResponse,
+    summary="List monthly owner payout statements for company",
+)
+def list_owner_statements_endpoint(
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+    year: int | None = Query(None, description="Year (e.g. 2026)"),
+    month: int | None = Query(None, ge=1, le=12, description="Month (1-12)"),
+) -> CompanyStatementsOverviewResponse:
+    now = datetime.now(timezone.utc)
+    target_year = year or now.year
+    target_month = month or now.month
+    return get_company_owner_statements(
+        db,
+        company_id=context.company.id,
+        year=target_year,
+        month=target_month,
+        currency=context.company.default_currency or "TND",
+    )
+
+
+@analytics_router.get(
+    "/owner-statements/{owner_id}",
+    response_model=OwnerMonthlyStatementResponse,
+    summary="Get single owner monthly statement breakdown",
+)
+def get_owner_statement_endpoint(
+    owner_id: UUID,
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+    year: int | None = Query(None, description="Year (e.g. 2026)"),
+    month: int | None = Query(None, ge=1, le=12, description="Month (1-12)"),
+) -> OwnerMonthlyStatementResponse:
+    now = datetime.now(timezone.utc)
+    target_year = year or now.year
+    target_month = month or now.month
+    return get_single_owner_statement(
+        db,
+        company_id=context.company.id,
+        owner_id=owner_id,
+        year=target_year,
+        month=target_month,
+        currency=context.company.default_currency or "TND",
+    )
+
+
+@analytics_router.get(
+    "/owner-statements/{owner_id}/export",
+    summary="Export owner monthly payout statement as CSV",
+)
+def export_owner_statement_endpoint(
+    owner_id: UUID,
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+    year: int | None = Query(None, description="Year (e.g. 2026)"),
+    month: int | None = Query(None, ge=1, le=12, description="Month (1-12)"),
+) -> Response:
+    now = datetime.now(timezone.utc)
+    target_year = year or now.year
+    target_month = month or now.month
+    statement = get_single_owner_statement(
+        db,
+        company_id=context.company.id,
+        owner_id=owner_id,
+        year=target_year,
+        month=target_month,
+        currency=context.company.default_currency or "TND",
+    )
+    csv_content = export_owner_statement_csv(statement)
+    filename = f"statement_{statement.owner_name.replace(' ', '_')}_{target_year}_{target_month:02d}.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

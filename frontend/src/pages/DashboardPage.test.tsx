@@ -137,4 +137,16 @@ describe('DashboardPage', () => {
     expect(fetchPortfolioAnalytics).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
+
+  it('switches to owner statements tab and renders monthly statements', async () => {
+    render(page());
+    await waitFor(() => expect(screen.getByText('Broken AC')).toBeInTheDocument());
+
+    const statementsTabBtn = screen.getByRole('button', { name: /Owner Statements/i });
+    fireEvent.click(statementsTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Owner Statements & Payouts')).toBeInTheDocument();
+    });
+  });
 });

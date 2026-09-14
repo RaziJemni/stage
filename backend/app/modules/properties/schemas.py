@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import datetime, time
 from typing import Any
 from uuid import UUID
@@ -11,7 +12,41 @@ class StrictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class OwnerCreateRequest(StrictRequest):
+    name: str = Field(min_length=1, max_length=160)
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=40)
+    commission_percentage: Decimal = Field(default=Decimal("20.00"), ge=0, le=100)
+    notes: str | None = Field(default=None, max_length=5000)
+
+
+class OwnerUpdateRequest(StrictRequest):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=40)
+    commission_percentage: Decimal | None = Field(default=None, ge=0, le=100)
+    notes: str | None = Field(default=None, max_length=5000)
+    is_active: bool | None = None
+
+
+class OwnerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    company_id: UUID
+    name: str
+    email: str | None
+    phone: str | None
+    commission_percentage: Decimal
+    notes: str | None
+    is_active: bool
+    properties_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
 class PropertyCreateRequest(StrictRequest):
+    owner_id: UUID | None = None
     name: str = Field(min_length=1, max_length=160)
     address_line1: str | None = Field(default=None, max_length=200)
     address_line2: str | None = Field(default=None, max_length=200)
@@ -32,7 +67,6 @@ class PropertyCreateRequest(StrictRequest):
     external_booking_url: str | None = Field(default=None, max_length=500)
 
     @field_validator("name", mode="before")
-    @classmethod
     def validate_name(cls, value: Any) -> Any:
         if value is None:
             raise ValueError("Property name cannot be null")
@@ -45,6 +79,7 @@ class PropertyCreateRequest(StrictRequest):
 
 
 class PropertyUpdateRequest(StrictRequest):
+    owner_id: UUID | None = None
     name: str | None = Field(default=None, min_length=1, max_length=160)
     address_line1: str | None = Field(default=None, max_length=200)
     address_line2: str | None = Field(default=None, max_length=200)
@@ -82,6 +117,8 @@ class PropertyResponse(BaseModel):
 
     id: UUID
     company_id: UUID
+    owner_id: UUID | None = None
+    owner_name: str | None = None
     name: str
     address_line1: str | None
     address_line2: str | None

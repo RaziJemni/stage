@@ -24,10 +24,12 @@ import {
   AlertCircle,
   Loader2,
   Lock,
-  FileText
+  FileText,
+  UserCheck
 } from 'lucide-react';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 import { useI18n } from '../i18n/I18nContext';
+import { fetchOwners, type ApiOwner } from '../api/owners';
 
 const sourceBadgeClasses: Record<BookingSource, string> = {
   airbnb: 'bg-[#FF5A5F] text-white',
@@ -84,11 +86,13 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
 
   // Edit form state
   const [editName, setEditName] = useState(property.name);
+  const [editOwnerId, setEditOwnerId] = useState<string>(property.ownerId || '');
   const [editCity, setEditCity] = useState(property.city || '');
   const [editWifiSSID, setEditWifiSSID] = useState(property.wifiSSID || '');
   const [editWifiPass, setEditWifiPass] = useState(property.wifiPass || '');
   const [editHouseRules, setEditHouseRules] = useState(property.houseRules.join('\n'));
   const [editEmergencyContact, setEditEmergencyContact] = useState(property.emergencyContact || '');
+  const [owners, setOwners] = useState<ApiOwner[]>([]);
 
   const handleCopy = (text: string, label: string) => {
     if (!text) return;
@@ -99,12 +103,16 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
 
   const handleOpenEdit = () => {
     setEditName(property.name);
+    setEditOwnerId(property.ownerId || '');
     setEditCity(property.city || '');
     setEditWifiSSID(property.wifiSSID || '');
     setEditWifiPass(property.wifiPass || '');
     setEditHouseRules(property.houseRules.join('\n'));
     setEditEmergencyContact(property.emergencyContact || '');
     setError(null);
+    if (isManager && owners.length === 0) {
+      fetchOwners().then(setOwners).catch(() => {});
+    }
     setIsEditModalOpen(true);
   };
 
@@ -116,6 +124,7 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
       if (onUpdateProperty) {
         await onUpdateProperty(property.id, {
           name: editName.trim(),
+          owner_id: editOwnerId ? editOwnerId : null,
           city: editCity.trim() || null,
           wifi_network: editWifiSSID.trim() || null,
           wifi_password: editWifiPass.trim() || null,
@@ -332,6 +341,17 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                         <Edit3 className="w-3.5 h-3.5" /> {t('property_detail.edit_btn')}
                       </button>
                     )}
+                  </div>
+
+                  {/* Partner Owner Attribution */}
+                  <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EBE6DD] flex items-center justify-between text-xs" data-testid="property-owner-info">
+                    <div className="flex items-center gap-2.5">
+                      <UserCheck className="w-4 h-4 text-[#0F3D5E] shrink-0" />
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">{t('properties.owner_label')}</span>
+                        <span className="font-bold text-[#1C1B18]">{property.ownerName || t('properties.unassigned_owner')}</span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* House Rules & Policies */}
@@ -555,6 +575,23 @@ export const PropertyDetailPage: React.FC<PropertyDetailPageProps> = ({
                   onChange={(e) => setEditName(e.target.value)}
                   className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 focus:outline-none focus:border-[#0F3D5E]"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('properties.owner_label')}</label>
+                <select
+                  aria-label={t('properties.owner_label')}
+                  value={editOwnerId}
+                  onChange={(e) => setEditOwnerId(e.target.value)}
+                  className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 focus:outline-none focus:border-[#0F3D5E]"
+                >
+                  <option value="">{t('properties.unassigned_owner')}</option>
+                  {owners.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {owner.name} ({Number(owner.commission_percentage).toFixed(1)}%)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

@@ -261,6 +261,8 @@ def update_ticket_status(
     now = datetime.now(timezone.utc)
     previous_status = ticket.status
     ticket.status = payload.status
+    if payload.cost is not None:
+        ticket.cost = payload.cost
     if payload.status is TicketStatus.RESOLVED:
         ticket.resolved_at = now
     if payload.status in {TicketStatus.RESOLVED, TicketStatus.CANCELLED}:
@@ -322,7 +324,9 @@ def _get_ticket(
 
 def create_ticket_suggestion(db: Session, *, company_id: UUID, payload: TicketSuggestionCreateRequest) -> TicketSuggestion:
     _validate_links(db, company_id, payload)
-    suggestion = TicketSuggestion(company_id=company_id, **payload.model_dump())
+    data = payload.model_dump()
+    data.pop("cost", None)
+    suggestion = TicketSuggestion(company_id=company_id, **data)
     db.add(suggestion); db.commit(); db.refresh(suggestion)
     return suggestion
 

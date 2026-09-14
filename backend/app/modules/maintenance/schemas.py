@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import datetime
 from uuid import UUID
 
@@ -18,6 +19,7 @@ class TicketCreateRequest(StrictRequest):
     description: str = Field(min_length=1, max_length=5000)
     category: str | None = Field(default=None, max_length=80)
     priority: TicketPriority = TicketPriority.MEDIUM
+    cost: Decimal | None = Field(default=None, ge=0)
 
 
 class TicketSuggestionReviewRequest(StrictRequest):
@@ -79,6 +81,7 @@ class TicketAssignmentResponse(BaseModel):
 class TicketStatusUpdateRequest(StrictRequest):
     status: TicketStatus
     note: str | None = Field(default=None, max_length=5000)
+    cost: Decimal | None = Field(default=None, ge=0)
 
 
 class TicketStatusHistoryResponse(BaseModel):
@@ -105,6 +108,7 @@ class TicketResponse(BaseModel):
     category: str | None
     priority: TicketPriority
     status: TicketStatus
+    cost: Decimal | None = None
     created_by_user_id: UUID
     suggested_by_chatbot: bool
     created_at: datetime

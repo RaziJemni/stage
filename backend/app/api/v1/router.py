@@ -7,7 +7,7 @@ from app.modules.messaging.router import router as messaging_router
 from app.modules.messaging.router import simulator_router
 from app.modules.messaging.communication_router import communication_router
 from app.modules.maintenance.router import contractor_router, router as maintenance_router
-from app.modules.properties.router import router as properties_router
+from app.modules.properties.router import owner_router, router as properties_router
 from app.modules.supervision.router import analytics_router, router as supervision_router
 
 router = APIRouter(prefix="/api/v1")
@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/v1")
 router.include_router(identity_router)
 router.include_router(team_router)
 router.include_router(properties_router)
+router.include_router(owner_router)
 router.include_router(messaging_router)
 router.include_router(simulator_router)
 router.include_router(communication_router)

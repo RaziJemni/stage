@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import datetime
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Index,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -63,6 +65,7 @@ class Ticket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint("company_id", "id", name="uq_tickets_company_id_id"),
+        CheckConstraint("cost IS NULL OR cost >= 0", name="ck_tickets_cost_non_negative"),
     )
 
     company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
@@ -84,6 +87,7 @@ class Ticket(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default=TicketStatus.OPEN.value,
         nullable=False,
     )
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 3), nullable=True)
     created_by_user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
     suggested_by_chatbot: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
