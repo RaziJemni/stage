@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -119,6 +119,68 @@ class Booking(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     external_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     raw_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class PropertyPricingProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "property_pricing_profiles"
+    __table_args__ = (
+        ForeignKeyConstraint(["company_id", "property_id"], ["properties.company_id", "properties.id"], ondelete="CASCADE"),
+        UniqueConstraint("company_id", "property_id", name="uq_property_pricing_profile"),
+        CheckConstraint("base_nightly_rate >= 0", name="pricing_base_rate_nonnegative"),
+        CheckConstraint("weekend_adjustment_percent >= -100", name="pricing_weekend_adjustment_valid"),
+        CheckConstraint("minimum_nights >= 1", name="pricing_minimum_nights_positive"),
+    )
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    base_nightly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    weekend_adjustment_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, server_default="0", nullable=False)
+    minimum_nights: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+
+
+class SeasonalPricingRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "seasonal_pricing_rules"
+    __table_args__ = (
+        ForeignKeyConstraint(["company_id", "property_id"], ["properties.company_id", "properties.id"], ondelete="CASCADE"),
+        CheckConstraint("end_date >= start_date", name="seasonal_pricing_date_range"),
+        CheckConstraint("nightly_rate >= 0", name="seasonal_pricing_rate_nonnegative"),
+        CheckConstraint("minimum_nights IS NULL OR minimum_nights >= 1", name="seasonal_pricing_minimum_nights_positive"),
+    )
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    property_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    start_date: Mapped[date] = mapped_column(nullable=False)
+    end_date: Mapped[date] = mapped_column(nullable=False)
+    nightly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    minimum_nights: Mapped[int | None] = mapped_column(Integer)
+
+
+class BookingPricingDecision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Immutable record of a staff-approved direct-booking price."""
+
+    __tablename__ = "booking_pricing_decisions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["company_id", "booking_id"],
+            ["bookings.company_id", "bookings.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["company_id", "approved_by_user_id"],
+            ["app_users.company_id", "app_users.id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("company_id", "booking_id", name="uq_booking_pricing_decision"),
+        CheckConstraint("quoted_total >= 0", name="booking_pricing_quoted_total_nonnegative"),
+        CheckConstraint("approved_total >= 0", name="booking_pricing_approved_total_nonnegative"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    booking_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    approved_by_user_id: Mapped[UUID] = mapped_column(nullable=False)
+    quoted_total: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    approved_total: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    override_reason: Mapped[str | None] = mapped_column(Text)
+    quote_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 Index(

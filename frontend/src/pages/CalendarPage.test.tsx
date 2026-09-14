@@ -11,6 +11,7 @@ import {
   fetchBookingConflicts,
   fetchCalendarBookings,
   fetchCalendarFeeds,
+  quoteDirectBooking,
   updateManualBooking,
 } from '../api/calendar';
 
@@ -28,6 +29,7 @@ vi.mock('../api/calendar', () => ({
   fetchBookingConflicts: vi.fn(),
   fetchCalendarBookings: vi.fn(),
   fetchCalendarFeeds: vi.fn(),
+  quoteDirectBooking: vi.fn(),
   updateManualBooking: vi.fn(),
 }));
 
@@ -123,6 +125,10 @@ function configureApi() {
     is_available: true,
     conflicting_bookings: [],
   });
+  vi.mocked(quoteDirectBooking).mockResolvedValue({
+    property_id: 'property-1', nights: 2, minimum_nights: 1, meets_minimum_stay: true,
+    total_amount: 200, nightly_breakdown: [],
+  });
 }
 
 describe('CalendarPage', () => {
@@ -166,6 +172,22 @@ describe('CalendarPage', () => {
       status: 'confirmed',
       guest_name: null,
       notes: 'Maintenance window',
+    })));
+  });
+
+  it('uses a server quote and sends an explained direct-booking override', async () => {
+    render(<CalendarPage companyTimezone="Africa/Tunis" />);
+    fireEvent.click(await screen.findByRole('button', { name: /New direct booking/i }));
+    await screen.findByTestId('dates-available-badge');
+    fireEvent.change(screen.getByLabelText(/Guest name/i), { target: { value: 'Leila Guest' } });
+    fireEvent.click(screen.getByRole('button', { name: /Get suggestion/i }));
+    await waitFor(() => expect(quoteDirectBooking).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/Montant total|Total price/i), { target: { value: '180' } });
+    fireEvent.change(await screen.findByLabelText(/Override reason/i), { target: { value: 'Returning guest discount' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create entry/i }));
+    await waitFor(() => expect(createManualBooking).toHaveBeenCalledWith(expect.objectContaining({
+      total_amount: 180,
+      pricing_decision: { quoted_total: 200, approved_total: 180, override_reason: 'Returning guest discount' },
     })));
   });
 

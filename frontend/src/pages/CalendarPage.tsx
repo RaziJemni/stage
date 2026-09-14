@@ -28,6 +28,7 @@ import {
   acknowledgeBookingConflict,
   cancelManualBooking,
   checkPropertyAvailability,
+  quoteDirectBooking,
   createManualBooking,
   fetchBooking,
   fetchBookingConflict,
@@ -48,6 +49,7 @@ import {
   type ManualBookingPayload,
   type PaymentMethod,
   type PaymentStatus,
+  type PricingQuote,
 } from '../api/calendar';
 import { useI18n } from '../i18n/I18nContext';
 
@@ -303,6 +305,9 @@ function BookingEditor({
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityResult, setAvailabilityResult] = useState<AvailabilityCheckResponse | null>(null);
   const [confirmedConflictOverride, setConfirmedConflictOverride] = useState(false);
+  const [pricingQuote, setPricingQuote] = useState<PricingQuote | null>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingOverrideReason, setPricingOverrideReason] = useState('');
 
   useEffect(() => {
     setConfirmedConflictOverride(false);
@@ -357,6 +362,27 @@ function BookingEditor({
     }
   }, [propertyId, checkIn, checkOut, timezone, booking?.id]);
 
+  const requestPricingQuote = async () => {
+    if (!propertyId || !checkIn || !checkOut) return;
+    setPricingLoading(true);
+    setError(null);
+    try {
+      const quote = await quoteDirectBooking(propertyId, fromFormLocal(checkIn, timezone), fromFormLocal(checkOut, timezone));
+      setPricingQuote(quote);
+      setPricingOverrideReason('');
+      if (!quote.meets_minimum_stay) {
+        setError(`This stay requires at least ${quote.minimum_nights} nights.`);
+        return;
+      }
+      setTotalAmount(String(quote.total_amount));
+    } catch (quoteError) {
+      setPricingQuote(null);
+      setError(errorMessage(quoteError, 'Pricing is not configured for this property.'));
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -404,6 +430,17 @@ function BookingEditor({
         ? parsedTotal
         : parsedPaid;
 
+    const quotedTotal = pricingQuote ? Number(pricingQuote.total_amount) : null;
+    const priceWasOverridden = quotedTotal !== null && parsedTotal !== null && parsedTotal !== quotedTotal;
+    if (!isEditing && pricingQuote && !pricingQuote.meets_minimum_stay) {
+      setError(`This stay requires at least ${pricingQuote.minimum_nights} nights.`);
+      return;
+    }
+    if (!isEditing && priceWasOverridden && !pricingOverrideReason.trim()) {
+      setError('Explain why this pricing recommendation is being overridden.');
+      return;
+    }
+
     if (availabilityResult && !availabilityResult.is_available && !confirmedConflictOverride) {
       setError(t('calendar.conflict_warning_title'));
       return;
@@ -437,6 +474,11 @@ function BookingEditor({
           total_amount: recordType === 'reservation' ? parsedTotal : null,
           paid_amount: recordType === 'reservation' ? effectivePaid : null,
           payment_method: recordType === 'reservation' ? ((paymentMethod.trim() as PaymentMethod) || null) : null,
+          pricing_decision: pricingQuote && recordType === 'reservation' && parsedTotal !== null ? {
+            quoted_total: quotedTotal as number,
+            approved_total: parsedTotal,
+            override_reason: priceWasOverridden ? pricingOverrideReason.trim() : null,
+          } : null,
         };
         await createManualBooking(payload);
       }
@@ -602,6 +644,15 @@ function BookingEditor({
                   </select>
                 </label>
               </div>
+
+              {!isEditing && <div className="rounded-xl border border-[#B6DAEA] bg-[#F0F6FA] p-3 text-xs text-[#0F3D5E]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">Direct-booking pricing recommendation</span>
+                  <button type="button" onClick={() => void requestPricingQuote()} disabled={pricingLoading || !propertyId} className="rounded-lg border border-[#1E517B] bg-white px-2.5 py-1.5 font-bold disabled:opacity-50">{pricingLoading ? 'Calculating…' : 'Get suggestion'}</button>
+                </div>
+                {pricingQuote && <p className="mt-2">{pricingQuote.nights} nights · suggested total {Number(pricingQuote.total_amount).toFixed(3)} {currency} · minimum {pricingQuote.minimum_nights} nights</p>}
+                {pricingQuote && Number(pricingQuote.total_amount) !== Number(totalAmount) && <label className="mt-2 block text-xs font-semibold">Override reason<input value={pricingOverrideReason} onChange={(event) => setPricingOverrideReason(event.target.value)} maxLength={500} className="mt-1 w-full rounded-lg border border-[#D6D3D1] p-2 text-sm font-normal" /></label>}
+              </div>}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-xs font-semibold text-[#3B3735]">

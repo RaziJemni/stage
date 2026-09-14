@@ -2,6 +2,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal
 from ipaddress import ip_address
 from socket import getaddrinfo
 from urllib.error import HTTPError, URLError
@@ -33,19 +34,92 @@ from app.modules.calendar.models import (
     Booking,
     BookingConflict,
     BookingConflictBooking,
+    BookingPricingDecision,
     CalendarSyncRun,
+    PropertyPricingProfile,
+    SeasonalPricingRule,
 )
 from app.modules.calendar.schemas import (
     CalendarFeedRequest,
     ConflictAcknowledgeRequest,
     ManualBookingCreateRequest,
     ManualBookingUpdateRequest,
+    PricingProfileRequest,
+    PricingQuoteRequest,
 )
 from app.modules.properties.models import Channel, Property
 
 
 ACTIVE_BOOKING_STATUSES = (BookingStatus.TENTATIVE, BookingStatus.CONFIRMED)
 ACTIVE_CONFLICT_STATUSES = (ConflictStatus.OPEN, ConflictStatus.ACKNOWLEDGED)
+
+
+def get_pricing_profile(db: Session, *, company_id: UUID, property_id: UUID) -> tuple[PropertyPricingProfile, list[SeasonalPricingRule]]:
+    _get_active_property(db, company_id=company_id, property_id=property_id)
+    profile = db.scalar(select(PropertyPricingProfile).where(PropertyPricingProfile.company_id == company_id, PropertyPricingProfile.property_id == property_id))
+    if profile is None:
+        raise ApiProblem(status=404, title="Pricing profile not found", detail="No pricing profile is configured for this property.", code="pricing_profile_not_found")
+    rules = list(db.scalars(select(SeasonalPricingRule).where(SeasonalPricingRule.company_id == company_id, SeasonalPricingRule.property_id == property_id).order_by(SeasonalPricingRule.start_date, SeasonalPricingRule.id)))
+    return profile, rules
+
+
+def save_pricing_profile(db: Session, *, company_id: UUID, property_id: UUID, payload: PricingProfileRequest) -> tuple[PropertyPricingProfile, list[SeasonalPricingRule]]:
+    _get_active_property(db, company_id=company_id, property_id=property_id, for_update=True)
+    profile = db.scalar(select(PropertyPricingProfile).where(PropertyPricingProfile.company_id == company_id, PropertyPricingProfile.property_id == property_id).with_for_update())
+    if profile is None:
+        profile = PropertyPricingProfile(company_id=company_id, property_id=property_id, base_nightly_rate=payload.base_nightly_rate, weekend_adjustment_percent=payload.weekend_adjustment_percent, minimum_nights=payload.minimum_nights)
+        db.add(profile)
+    else:
+        profile.base_nightly_rate = payload.base_nightly_rate
+        profile.weekend_adjustment_percent = payload.weekend_adjustment_percent
+        profile.minimum_nights = payload.minimum_nights
+    db.flush()
+    db.query(SeasonalPricingRule).filter(SeasonalPricingRule.company_id == company_id, SeasonalPricingRule.property_id == property_id).delete(synchronize_session=False)
+    rules = [SeasonalPricingRule(company_id=company_id, property_id=property_id, **rule.model_dump()) for rule in payload.seasonal_rules]
+    db.add_all(rules)
+    db.commit()
+    db.refresh(profile)
+    return profile, rules
+
+
+def quote_pricing(db: Session, *, company_id: UUID, property_id: UUID, payload: PricingQuoteRequest) -> dict:
+    if payload.check_out <= payload.check_in:
+        raise ApiProblem(status=422, title="Invalid quote dates", detail="Check-out must be after check-in.", code="pricing_quote_date_range_invalid")
+    property_obj = _get_active_property(db, company_id=company_id, property_id=property_id)
+    profile, rules = get_pricing_profile(db, company_id=company_id, property_id=property_id)
+    property_timezone = ZoneInfo(property_obj.timezone)
+    check_in_date = payload.check_in.astimezone(property_timezone).date()
+    check_out_date = payload.check_out.astimezone(property_timezone).date()
+    nights = (check_out_date - check_in_date).days
+    if nights <= 0:
+        raise ApiProblem(status=422, title="Invalid quote dates", detail="Check-out must fall on a later property-local date.", code="pricing_quote_date_range_invalid")
+    breakdown = []
+    total = Decimal("0")
+    for offset in range(nights):
+        night = check_in_date + timedelta(days=offset)
+        rule = next((item for item in rules if item.start_date <= night <= item.end_date), None)
+        rate = rule.nightly_rate if rule else profile.base_nightly_rate
+        if night.weekday() in (4, 5):
+            rate *= Decimal("1") + profile.weekend_adjustment_percent / Decimal("100")
+        total += rate
+        breakdown.append({"date": night.isoformat(), "rate": rate.quantize(Decimal("0.001")), "seasonal_rule": rule.name if rule else None, "weekend_adjustment_applied": night.weekday() in (4, 5)})
+    minimum = max([profile.minimum_nights, *[rule.minimum_nights or 1 for rule in rules if any(rule.start_date <= (check_in_date + timedelta(days=offset)) <= rule.end_date for offset in range(nights))]])
+    return {"property_id": property_id, "nights": nights, "minimum_nights": minimum, "meets_minimum_stay": nights >= minimum, "total_amount": total.quantize(Decimal("0.001")), "nightly_breakdown": breakdown}
+
+
+def _pricing_quote_snapshot(quote: dict) -> dict:
+    """Convert a calculated quote to a JSONB-safe, immutable audit snapshot."""
+
+    return {
+        "property_id": str(quote["property_id"]),
+        "nights": quote["nights"],
+        "minimum_nights": quote["minimum_nights"],
+        "meets_minimum_stay": quote["meets_minimum_stay"],
+        "total_amount": str(quote["total_amount"]),
+        "nightly_breakdown": [
+            {**night, "rate": str(night["rate"])} for night in quote["nightly_breakdown"]
+        ],
+    }
 
 
 def reconcile_booking_conflicts(
@@ -391,7 +465,7 @@ def list_calendar_feed_health(
 
 
 def create_manual_booking(
-    db: Session, *, company_id: UUID, payload: ManualBookingCreateRequest
+    db: Session, *, company_id: UUID, user_id: UUID, payload: ManualBookingCreateRequest
 ) -> Booking:
     _get_active_property(
         db,
@@ -400,6 +474,43 @@ def create_manual_booking(
         for_update=True,
     )
     is_reservation = payload.record_type == BookingRecordType.RESERVATION
+    quote = None
+    has_pricing_profile = db.scalar(
+        select(PropertyPricingProfile.id).where(
+            PropertyPricingProfile.company_id == company_id,
+            PropertyPricingProfile.property_id == payload.property_id,
+        )
+    ) is not None
+    if is_reservation and payload.source_type is BookingSource.DIRECT and has_pricing_profile:
+        if payload.pricing_decision is None:
+            raise ApiProblem(
+                status=422,
+                title="Pricing decision required",
+                detail="Request and explicitly approve or override the current pricing recommendation before creating this direct booking.",
+                code="pricing_decision_required",
+            )
+    if payload.pricing_decision is not None:
+        quote = quote_pricing(
+            db,
+            company_id=company_id,
+            property_id=payload.property_id,
+            payload=PricingQuoteRequest(check_in=payload.check_in, check_out=payload.check_out),
+        )
+        if not quote["meets_minimum_stay"]:
+            raise ApiProblem(
+                status=422,
+                title="Minimum stay not met",
+                detail=f"This property requires at least {quote['minimum_nights']} nights for the selected stay.",
+                code="minimum_stay_not_met",
+            )
+        if quote["total_amount"] != payload.pricing_decision.quoted_total:
+            raise ApiProblem(
+                status=409,
+                title="Pricing quote changed",
+                detail="The saved pricing rules changed. Request a new quote before creating this booking.",
+                code="pricing_quote_stale",
+            )
+    approved_total = payload.pricing_decision.approved_total if payload.pricing_decision else payload.total_amount
     booking = Booking(
         company_id=company_id,
         property_id=payload.property_id,
@@ -412,11 +523,24 @@ def create_manual_booking(
         guest_contact=payload.guest_contact,
         notes=payload.notes,
         payment_status=payload.payment_status if is_reservation else None,
-        total_amount=payload.total_amount if is_reservation else None,
+        total_amount=approved_total if is_reservation else None,
         paid_amount=payload.paid_amount if is_reservation else None,
         payment_method=payload.payment_method.value if (is_reservation and payload.payment_method) else None,
     )
     db.add(booking)
+    db.flush()
+    if payload.pricing_decision is not None and quote is not None:
+        db.add(
+            BookingPricingDecision(
+                company_id=company_id,
+                booking_id=booking.id,
+                approved_by_user_id=user_id,
+                quoted_total=quote["total_amount"],
+                approved_total=payload.pricing_decision.approved_total,
+                override_reason=payload.pricing_decision.override_reason,
+                quote_snapshot=_pricing_quote_snapshot(quote),
+            )
+        )
     db.flush()
     reconcile_booking_conflicts(
         db, company_id=company_id, property_id=payload.property_id

@@ -26,6 +26,11 @@ from app.modules.calendar.schemas import (
     ConflictBookingResponse,
     ManualBookingCreateRequest,
     ManualBookingUpdateRequest,
+    PricingProfileRequest,
+    PricingProfileResponse,
+    PricingQuoteRequest,
+    PricingQuoteResponse,
+    SeasonalPricingRuleResponse,
 )
 from app.modules.calendar.tasks import sync_calendar_channel
 from app.modules.identity.dependencies import CsrfContext, CurrentContext, ManagerCsrfContext
@@ -33,6 +38,10 @@ from app.modules.identity.authorization import assigned_property_ids, require_ca
 
 
 router = APIRouter(tags=["Calendar"])
+
+
+def _pricing_profile_response(profile, rules) -> PricingProfileResponse:
+    return PricingProfileResponse(property_id=profile.property_id, base_nightly_rate=profile.base_nightly_rate, weekend_adjustment_percent=profile.weekend_adjustment_percent, minimum_nights=profile.minimum_nights, seasonal_rules=[SeasonalPricingRuleResponse.model_validate(rule) for rule in rules])
 
 
 def _validate_calendar_range(range_start: datetime, range_end: datetime) -> None:
@@ -271,6 +280,23 @@ def configure_calendar_feed_endpoint(
     )
 
 
+@router.get("/properties/{property_id}/pricing", response_model=PricingProfileResponse)
+def get_pricing_profile_endpoint(property_id: UUID, context: CurrentContext, db: Annotated[Session, Depends(get_db)]) -> PricingProfileResponse:
+    require_property_access(db, context, property_id, "operations")
+    return _pricing_profile_response(*service.get_pricing_profile(db, company_id=context.company.id, property_id=property_id))
+
+
+@router.put("/properties/{property_id}/pricing", response_model=PricingProfileResponse)
+def save_pricing_profile_endpoint(property_id: UUID, payload: PricingProfileRequest, context: ManagerCsrfContext, db: Annotated[Session, Depends(get_db)]) -> PricingProfileResponse:
+    return _pricing_profile_response(*service.save_pricing_profile(db, company_id=context.company.id, property_id=property_id, payload=payload))
+
+
+@router.post("/properties/{property_id}/pricing/quote", response_model=PricingQuoteResponse)
+def quote_pricing_endpoint(property_id: UUID, payload: PricingQuoteRequest, context: CsrfContext, db: Annotated[Session, Depends(get_db)]) -> PricingQuoteResponse:
+    require_property_access(db, context, property_id, "operations")
+    return PricingQuoteResponse(**service.quote_pricing(db, company_id=context.company.id, property_id=property_id, payload=payload))
+
+
 @router.post(
     "/calendar-feeds/{channel_id}/sync",
     response_model=CalendarSyncQueuedResponse,
@@ -304,7 +330,7 @@ def create_manual_booking_endpoint(
     payload: ManualBookingCreateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> BookingResponse:
-    return service.create_manual_booking(db, company_id=context.company.id, payload=payload)
+    return service.create_manual_booking(db, company_id=context.company.id, user_id=context.user.id, payload=payload)
 
 
 @router.patch("/bookings/{booking_id}", response_model=BookingResponse)

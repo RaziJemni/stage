@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -22,6 +22,85 @@ class StrictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SeasonalPricingRuleRequest(StrictRequest):
+    name: str = Field(min_length=1, max_length=100)
+    start_date: date
+    end_date: date
+    nightly_rate: Decimal = Field(ge=0)
+    minimum_nights: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "SeasonalPricingRuleRequest":
+        if self.end_date < self.start_date:
+            raise ValueError("Season end must not precede season start.")
+        return self
+
+
+class PricingProfileRequest(StrictRequest):
+    base_nightly_rate: Decimal = Field(ge=0)
+    weekend_adjustment_percent: Decimal = Field(default=0, ge=-100)
+    minimum_nights: int = Field(default=1, ge=1)
+    seasonal_rules: list[SeasonalPricingRuleRequest] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_non_overlapping_seasons(self) -> "PricingProfileRequest":
+        previous_end: date | None = None
+        for rule in sorted(self.seasonal_rules, key=lambda item: (item.start_date, item.end_date)):
+            if previous_end is not None and rule.start_date <= previous_end:
+                raise ValueError("Seasonal pricing rules must not overlap.")
+            previous_end = rule.end_date
+        return self
+
+
+class SeasonalPricingRuleResponse(SeasonalPricingRuleRequest):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+
+
+class PricingProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    property_id: UUID
+    base_nightly_rate: Decimal
+    weekend_adjustment_percent: Decimal
+    minimum_nights: int
+    seasonal_rules: list[SeasonalPricingRuleResponse]
+
+
+class PricingQuoteRequest(StrictRequest):
+    check_in: datetime
+    check_out: datetime
+
+    @field_validator("check_in", "check_out")
+    @classmethod
+    def timezone_required(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Use a timezone-aware timestamp.")
+        return value
+
+
+class PricingQuoteResponse(BaseModel):
+    property_id: UUID
+    nights: int
+    minimum_nights: int
+    meets_minimum_stay: bool
+    total_amount: Decimal
+    nightly_breakdown: list[dict]
+
+
+class BookingPricingDecisionRequest(StrictRequest):
+    """An explicit human decision to use or override a current quote."""
+
+    quoted_total: Decimal = Field(ge=0)
+    approved_total: Decimal = Field(ge=0)
+    override_reason: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_override_reason(self) -> "BookingPricingDecisionRequest":
+        if self.approved_total != self.quoted_total and not self.override_reason:
+            raise ValueError("An override reason is required when the approved total differs from the quote.")
+        return self
+
+
 class ManualBookingCreateRequest(StrictRequest):
     property_id: UUID
     source_type: Literal[BookingSource.DIRECT, BookingSource.MANUAL] = BookingSource.DIRECT
@@ -36,6 +115,7 @@ class ManualBookingCreateRequest(StrictRequest):
     total_amount: Decimal | None = Field(default=None, ge=0)
     paid_amount: Decimal | None = Field(default=None, ge=0)
     payment_method: PaymentMethod | None = None
+    pricing_decision: BookingPricingDecisionRequest | None = None
 
     @field_validator("check_in", "check_out")
     @classmethod
@@ -55,7 +135,14 @@ class ManualBookingCreateRequest(StrictRequest):
     @model_validator(mode="after")
     def validate_payment_amounts(self) -> "ManualBookingCreateRequest":
         if self.record_type == BookingRecordType.BLOCKED_PERIOD:
+            if self.pricing_decision is not None:
+                raise ValueError("A pricing decision is only available for direct reservations.")
             return self
+        if self.pricing_decision is not None:
+            if self.source_type != BookingSource.DIRECT:
+                raise ValueError("A pricing decision is only available for direct reservations.")
+            if self.total_amount is not None and self.total_amount != self.pricing_decision.approved_total:
+                raise ValueError("Total amount must match the approved pricing decision.")
         if self.paid_amount is not None and self.total_amount is not None:
             if self.paid_amount > self.total_amount:
                 raise ValueError("Paid amount cannot exceed total amount.")
