@@ -3,18 +3,20 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.database import get_db
 from app.core.enums import BookingSource, BookingStatus, ConflictStatus
-from app.modules.calendar import service
+from app.modules.calendar import receipt_service, service
 from app.modules.calendar.schemas import (
     AvailabilityCheckResponse,
     BookingCalendarResponse,
-    BookingResponse,
     BookingConflictResponse,
+    BookingReceiptDataResponse,
+    BookingResponse,
     CalendarFeedHealthResponse,
     CalendarFeedRequest,
     CalendarFeedResponse,
@@ -190,6 +192,31 @@ def get_booking_endpoint(
     db: Annotated[Session, Depends(get_db)],
 ) -> BookingResponse:
     return service.get_booking(db, company_id=context.company.id, booking_id=booking_id)
+
+
+@router.get("/bookings/{booking_id}/receipt/data", response_model=BookingReceiptDataResponse)
+def get_booking_receipt_data_endpoint(
+    booking_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> BookingReceiptDataResponse:
+    return receipt_service.get_booking_receipt_data(
+        db, company_id=context.company.id, booking_id=booking_id
+    )
+
+
+@router.get("/bookings/{booking_id}/receipt", response_class=HTMLResponse)
+def get_booking_receipt_html_endpoint(
+    booking_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    lang: Annotated[str, Query(description="Locale for receipt (fr or en)")] = "fr",
+) -> HTMLResponse:
+    receipt_data = receipt_service.get_booking_receipt_data(
+        db, company_id=context.company.id, booking_id=booking_id
+    )
+    html_content = receipt_service.render_booking_receipt_html(receipt_data, locale=lang)
+    return HTMLResponse(content=html_content, status_code=status.HTTP_200_OK)
 
 
 @router.get("/calendar-feeds", response_model=Page[CalendarFeedHealthResponse])

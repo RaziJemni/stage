@@ -11,6 +11,7 @@ import {
   CircleAlert,
   Clock3,
   Edit3,
+  FileText,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -21,6 +22,7 @@ import {
 import { ApiError } from '../auth/api';
 import { AuthContext } from '../auth/context';
 import { WorkstationHeader } from '../components/WorkstationHeader';
+import { BookingReceiptModal } from '../components/BookingReceiptModal';
 import { fetchProperties, type ApiProperty, type ApiPropertyPage } from '../api/properties';
 import {
   acknowledgeBookingConflict,
@@ -689,6 +691,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
   const [acknowledging, setAcknowledging] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editingBooking, setEditingBooking] = useState<CalendarBookingDetail | null>(null);
+  const [receiptBookingId, setReceiptBookingId] = useState<string | null>(null);
 
   const days = useMemo(() => Array.from({ length: VIEW_DAYS }, (_, index) => addDays(rangeStart, index)), [rangeStart]);
   const propertyById = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties]);
@@ -891,9 +894,16 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ companyTimezone, onS
         </>
       )}
 
-      {(detailLoading || selectedBooking || selectedConflict) && <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#1C1B18]/25 p-0 md:items-center md:p-6"><section role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title" className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EBE6DD] bg-white p-5 shadow-[0_8px_30px_rgba(28,27,24,0.16)] md:rounded-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-wider text-[#D96B43]">Calendar detail</p><h2 id="calendar-detail-title" className="mt-1 text-xl font-bold text-[#1C1B18]">{selectedConflict ? 'Booking conflict' : 'Booking details'}</h2></div><button type="button" aria-label="Close calendar detail" onClick={() => { setSelectedBooking(null); setSelectedConflict(null); }} className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5]"><X className="h-4 w-4" /></button></div>{detailLoading ? <div role="status" className="flex items-center gap-2 py-10 text-sm text-[#78716C]"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading details…</div> : detailError ? <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{detailError}</div> : selectedConflict ? <ConflictDetail conflict={selectedConflict} propertyById={propertyById} timezone={companyTimezone} acknowledgementNote={acknowledgementNote} setAcknowledgementNote={setAcknowledgementNote} acknowledging={acknowledging} actionError={actionError} onAcknowledge={() => void acknowledgeSelectedConflict()} /> : selectedBooking ? <BookingDetail booking={selectedBooking} propertyById={propertyById} timezone={companyTimezone} currency={currency} actionError={actionError} onEdit={() => { setEditingBooking(selectedBooking); setSelectedBooking(null); setShowEditor(true); }} onCancel={() => void cancelSelectedBooking()} /> : null}</section></div>}
+      {(detailLoading || selectedBooking || selectedConflict) && <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#1C1B18]/25 p-0 md:items-center md:p-6"><section role="dialog" aria-modal="true" aria-labelledby="calendar-detail-title" className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-[#EBE6DD] bg-white p-5 shadow-[0_8px_30px_rgba(28,27,24,0.16)] md:rounded-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-wider text-[#D96B43]">Calendar detail</p><h2 id="calendar-detail-title" className="mt-1 text-xl font-bold text-[#1C1B18]">{selectedConflict ? 'Booking conflict' : 'Booking details'}</h2></div><button type="button" aria-label="Close calendar detail" onClick={() => { setSelectedBooking(null); setSelectedConflict(null); }} className="rounded-lg p-2 text-[#78716C] hover:bg-[#FAF8F5]"><X className="h-4 w-4" /></button></div>{detailLoading ? <div role="status" className="flex items-center gap-2 py-10 text-sm text-[#78716C]"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading details…</div> : detailError ? <div role="alert" className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{detailError}</div> : selectedConflict ? <ConflictDetail conflict={selectedConflict} propertyById={propertyById} timezone={companyTimezone} acknowledgementNote={acknowledgementNote} setAcknowledgementNote={setAcknowledgementNote} acknowledging={acknowledging} actionError={actionError} onAcknowledge={() => void acknowledgeSelectedConflict()} /> : selectedBooking ? <BookingDetail booking={selectedBooking} propertyById={propertyById} timezone={companyTimezone} currency={currency} actionError={actionError} onEdit={() => { setEditingBooking(selectedBooking); setSelectedBooking(null); setShowEditor(true); }} onCancel={() => void cancelSelectedBooking()} onReceipt={() => setReceiptBookingId(selectedBooking.id)} /> : null}</section></div>}
 
       {showEditor && <BookingEditor propertyOptions={properties} timezone={companyTimezone} currency={currency} booking={editingBooking} defaultPropertyId={selectedPropertyId || properties[0]?.id || ''} onClose={() => { setShowEditor(false); setEditingBooking(null); setSelectedBooking(null); }} onSaved={refreshCalendar} />}
+
+      {receiptBookingId && (
+        <BookingReceiptModal
+          bookingId={receiptBookingId}
+          onClose={() => setReceiptBookingId(null)}
+        />
+      )}
       </div>
     </div>
   );
@@ -922,6 +932,7 @@ interface BookingDetailProps {
   actionError: string | null;
   onEdit: () => void;
   onCancel: () => void;
+  onReceipt?: () => void;
 }
 
 function BookingDetail({
@@ -932,6 +943,7 @@ function BookingDetail({
   actionError,
   onEdit,
   onCancel,
+  onReceipt,
 }: BookingDetailProps) {
   const { t } = useI18n();
   const isManual = booking.source_type === 'direct' || booking.source_type === 'manual';
@@ -1102,16 +1114,29 @@ function BookingDetail({
         </div>
       )}
 
-      {isManual && booking.status !== 'cancelled' && (
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBE6DD] pt-4">
-          <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
-            <Ban className="h-3.5 w-3.5" /> Cancel booking
+      <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBE6DD] pt-4">
+        {isReservation && onReceipt && (
+          <button
+            type="button"
+            onClick={onReceipt}
+            data-testid="booking-receipt-action-btn"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#B6DAEA] bg-[#F0F6FA] px-3 py-2 text-xs font-bold text-[#0F3D5E] hover:bg-[#E1EFF7] transition-colors cursor-pointer"
+          >
+            <FileText className="h-3.5 w-3.5 text-[#0F3D5E]" />
+            {t('calendar.receipt_btn')}
           </button>
-          <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F3D5E] px-3 py-2 text-xs font-bold text-white">
-            <Edit3 className="h-3.5 w-3.5 text-[#E8A838]" /> Edit entry
-          </button>
-        </div>
-      )}
+        )}
+        {isManual && booking.status !== 'cancelled' && (
+          <>
+            <button type="button" onClick={onCancel} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+              <Ban className="h-3.5 w-3.5" /> Cancel booking
+            </button>
+            <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F3D5E] px-3 py-2 text-xs font-bold text-white">
+              <Edit3 className="h-3.5 w-3.5 text-[#E8A838]" /> Edit entry
+            </button>
+          </>
+        )}
+      </div>
 
       {actionError && (
         <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">

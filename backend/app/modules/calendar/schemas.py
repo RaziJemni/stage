@@ -235,3 +235,31 @@ class AvailabilityCheckResponse(BaseModel):
     is_available: bool
     conflicting_bookings: list[ConflictBookingResponse]
 
+
+class BookingReceiptDataResponse(BaseModel):
+    invoice_number: str
+    issue_date: datetime
+    booking_id: UUID
+    property_id: UUID
+    company_name: str
+    property_name: str
+    property_address: str | None = None
+    property_city: str | None = None
+    guest_name: str | None = None
+    guest_contact: str | None = None
+    check_in: datetime
+    check_out: datetime
+    check_in_time: str | None = None
+    check_out_time: str | None = None
+    nights: int
+    currency: str = "TND"
+    unit_nightly_rate: Decimal | None = None
+    total_amount: Decimal | None = None
+    paid_amount: Decimal | None = None
+    outstanding_balance: Decimal | None = None
+    payment_status: PaymentStatus | None = None
+    payment_method: str | None = None
+    status: BookingStatus
+    source_type: BookingSource
+    notes: str | None = None
+
