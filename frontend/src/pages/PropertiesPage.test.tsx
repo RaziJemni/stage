@@ -130,4 +130,38 @@ describe('PropertiesPage Component', () => {
     expect(addButtons.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Aucune propriété trouvée')).toBeInTheDocument();
   });
+
+  it('renders owner attribution on property card when ownerName is present', () => {
+    const ownerProp: Property = {
+      id: 'prop-200',
+      name: 'Villa Carthage',
+      location: 'Carthage Marina',
+      city: 'Tunis',
+      bedrooms: 3,
+      bathrooms: 2,
+      maxGuests: 6,
+      nightlyRateTND: 450,
+      status: 'Available',
+      imageUrl: '',
+      rating: 4.8,
+      wifiSSID: 'Marina_WiFi',
+      wifiPass: 'pass123',
+      doorCode: '1234',
+      checkInTime: '15:00',
+      checkOutTime: '11:00',
+      trashSchedule: '',
+      houseRules: [],
+      emergencyContact: '',
+      ownerId: 'owner-1',
+      ownerName: 'Kamel Trabelsi',
+    };
+
+    renderPropertiesPage({
+      properties: [ownerProp],
+      isManager: true,
+      onSelectProperty: vi.fn(),
+    });
+
+    expect(screen.getByTestId('property-owner-prop-200')).toHaveTextContent('Kamel Trabelsi');
+  });
 });

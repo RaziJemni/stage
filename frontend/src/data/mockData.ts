@@ -18,6 +18,8 @@ export interface Property {
   trashSchedule: string;
   houseRules: string[];
   emergencyContact: string;
+  ownerId?: string | null;
+  ownerName?: string | null;
 }
 
 export interface Booking {

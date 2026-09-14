@@ -14,6 +14,7 @@ import {
   XCircle,
   Languages,
   Check,
+  UserCheck,
 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { ApiError } from '../auth/api';
@@ -33,6 +34,7 @@ import {
   type WhatsappIntegrationHealth,
 } from '../api/integrations';
 import { TeamManagementPanel } from '../components/TeamManagementPanel';
+import { OwnersManagementPanel } from '../components/OwnersManagementPanel';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 
 const feedProviders: Array<{ value: CalendarFeedChannelType; label: string }> = [
@@ -44,7 +46,7 @@ const feedProviders: Array<{ value: CalendarFeedChannelType; label: string }> = 
 export function SettingsPage() {
   const { identity } = useAuth();
   const { locale, setLocale, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<'team' | 'company' | 'channels' | 'preferences'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'company' | 'owners' | 'channels' | 'preferences'>('team');
 
   if (!identity || identity.user.role !== 'manager') return null;
 
@@ -67,6 +69,9 @@ export function SettingsPage() {
           </Tab>
           <Tab active={activeTab === 'company'} onClick={() => setActiveTab('company')}>
             <Building className="h-4 w-4" /> {t('settings.tab_company')}
+          </Tab>
+          <Tab active={activeTab === 'owners'} onClick={() => setActiveTab('owners')}>
+            <UserCheck className="h-4 w-4" /> {t('settings.tab_owners')}
           </Tab>
           <Tab active={activeTab === 'preferences'} onClick={() => setActiveTab('preferences')}>
             <Languages className="h-4 w-4" /> {t('settings.tab_preferences')}
@@ -100,6 +105,7 @@ export function SettingsPage() {
             <LanguagePreferencesCard locale={locale} setLocale={setLocale} t={t} />
           </div>
         )}
+        {activeTab === 'owners' && <OwnersManagementPanel />}
         {activeTab === 'preferences' && (
           <LanguagePreferencesCard locale={locale} setLocale={setLocale} t={t} />
         )}

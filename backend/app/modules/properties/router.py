@@ -13,12 +13,16 @@ from app.modules.identity.dependencies import (
 )
 from app.modules.properties import service
 from app.modules.properties.schemas import (
+    OwnerCreateRequest,
+    OwnerResponse,
+    OwnerUpdateRequest,
     PropertyCreateRequest,
     PropertyResponse,
     PropertyUpdateRequest,
 )
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
+owner_router = APIRouter(prefix="/owners", tags=["Owners"])
 
 
 @router.get("", response_model=Page[PropertyResponse])
@@ -30,6 +34,9 @@ def list_properties_endpoint(
     include_archived: Annotated[
         bool, Query(description="Whether to include archived properties")
     ] = False,
+    owner_id: Annotated[
+        UUID | None, Query(description="Filter properties by owner ID")
+    ] = None,
 ) -> Page[PropertyResponse]:
     items, total = service.list_properties(
         db,
@@ -37,6 +44,7 @@ def list_properties_endpoint(
         params=page_params,
         city=city,
         include_archived=include_archived,
+        owner_id=owner_id,
     )
     return Page.create(items=items, params=page_params, total=total)
 
@@ -47,7 +55,8 @@ def create_property_endpoint(
     payload: PropertyCreateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> PropertyResponse:
-    return service.create_property(db, company_id=context.company.id, payload=payload)
+    prop = service.create_property(db, company_id=context.company.id, payload=payload)
+    return service.get_property_response(db, company_id=context.company.id, property_id=prop.id) or PropertyResponse.model_validate(prop)
 
 
 @router.get("/{property_id}", response_model=PropertyResponse)
@@ -56,7 +65,7 @@ def get_property_endpoint(
     context: CurrentContext,
     db: Annotated[Session, Depends(get_db)],
 ) -> PropertyResponse:
-    property_obj = service.get_property(
+    property_obj = service.get_property_response(
         db, company_id=context.company.id, property_id=property_id
     )
     if not property_obj:
@@ -76,9 +85,10 @@ def update_property_endpoint(
     payload: PropertyUpdateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> PropertyResponse:
-    return service.update_property(
+    prop = service.update_property(
         db, company_id=context.company.id, property_id=property_id, payload=payload
     )
+    return service.get_property_response(db, company_id=context.company.id, property_id=prop.id) or PropertyResponse.model_validate(prop)
 
 
 @router.post("/{property_id}/archive", response_model=PropertyResponse)
@@ -101,3 +111,61 @@ def unarchive_property_endpoint(
     return service.unarchive_property(
         db, company_id=context.company.id, property_id=property_id
     )
+
+
+# --- Owner Endpoints ---
+
+
+@owner_router.get("", response_model=list[OwnerResponse])
+def list_owners_endpoint(
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+    include_inactive: Annotated[bool, Query(description="Include inactive owners")] = False,
+) -> list[OwnerResponse]:
+    return service.list_owners(db, company_id=context.company.id, include_inactive=include_inactive)
+
+
+@owner_router.post("", response_model=OwnerResponse, status_code=status.HTTP_201_CREATED)
+def create_owner_endpoint(
+    context: ManagerCsrfContext,
+    payload: OwnerCreateRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> OwnerResponse:
+    return service.create_owner(db, company_id=context.company.id, payload=payload)
+
+
+@owner_router.get("/{owner_id}", response_model=OwnerResponse)
+def get_owner_endpoint(
+    owner_id: UUID,
+    context: CurrentContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> OwnerResponse:
+    owner = service.get_owner_response(db, company_id=context.company.id, owner_id=owner_id)
+    if not owner:
+        raise ApiProblem(
+            status=404,
+            title="Owner not found",
+            detail="Owner does not exist or does not belong to your company.",
+            code="owner_not_found",
+        )
+    return owner
+
+
+@owner_router.patch("/{owner_id}", response_model=OwnerResponse)
+def update_owner_endpoint(
+    owner_id: UUID,
+    context: ManagerCsrfContext,
+    payload: OwnerUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> OwnerResponse:
+    return service.update_owner(db, company_id=context.company.id, owner_id=owner_id, payload=payload)
+
+
+@owner_router.delete("/{owner_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_owner_endpoint(
+    owner_id: UUID,
+    context: ManagerCsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    service.delete_owner(db, company_id=context.company.id, owner_id=owner_id)
+

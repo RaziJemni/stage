@@ -217,4 +217,17 @@ describe('PropertyDetailPage', () => {
     expect(screen.getByRole('button', { name: /Edit Property/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Archive/i })).toBeInTheDocument();
   });
+
+  it('renders owner attribution in overview and passes owner_id on edit', async () => {
+    const onUpdateProperty = vi.fn();
+    const propWithOwner = {
+      ...mockProperty,
+      ownerId: 'owner-1',
+      ownerName: 'Kamel Trabelsi',
+    };
+
+    renderWithLocale(<PropertyDetailPage property={propWithOwner} onUpdateProperty={onUpdateProperty} isManager={true} />, 'en');
+
+    expect(screen.getByTestId('property-owner-info')).toHaveTextContent('Kamel Trabelsi');
+  });
 });

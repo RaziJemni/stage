@@ -11,7 +11,8 @@ import {
   Users, 
   ArrowUpRight,
   ShieldAlert,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 import type { ActivePage } from '../components/Sidebar';
 import { fetchBookingConflicts, fetchCalendarBookings, type BookingConflict, type CalendarBooking } from '../api/calendar';
@@ -22,6 +23,7 @@ import type { Property } from '../data/mockData';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 import { useI18n } from '../i18n/I18nContext';
 import { useVisiblePolling } from '../hooks/useVisiblePolling';
+import { OwnerStatementsView } from '../components/OwnerStatementsView';
 
 interface DashboardPageProps {
   properties: Property[];
@@ -55,7 +57,7 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
   const [bookings, setBookings] = useState<CalendarBooking[]>([]);
   const [analytics, setAnalytics] = useState<PortfolioAnalytics | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'operations' | 'analytics'>('operations');
+  const [activeTab, setActiveTab] = useState<'operations' | 'analytics' | 'statements'>('operations');
   const [analyticsWindow, setAnalyticsWindow] = useState<number>(30);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -273,6 +275,18 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
         >
           <BarChart3 className="h-3.5 w-3.5" />
           <span>{t('dashboard.tab_analytics')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('statements')}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+            activeTab === 'statements'
+              ? 'bg-[#0F3D5E] text-white shadow-xs'
+              : 'bg-[#FAF8F5] text-[#3B3735] border border-[#EBE6DD] hover:bg-[#F0F6FA]'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span>{t('dashboard.tab_statements')}</span>
         </button>
       </div>
 
@@ -544,6 +558,8 @@ export function DashboardPage({ properties, companyTimezone, onNavigate, onConfl
             </div>
           </>
         )}
+
+        {activeTab === 'statements' && <OwnerStatementsView />}
       </div>
     </div>
   );

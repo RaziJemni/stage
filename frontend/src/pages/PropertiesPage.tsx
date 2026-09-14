@@ -11,10 +11,12 @@ import {
   Loader2,
   Users,
   Archive,
-  ArrowRight
+  ArrowRight,
+  UserCheck
 } from 'lucide-react';
 import { WorkstationHeader } from '../components/WorkstationHeader';
 import { useI18n } from '../i18n/I18nContext';
+import { fetchOwners, type ApiOwner } from '../api/owners';
 
 interface PropertiesPageProps {
   properties: Property[];
@@ -46,11 +48,19 @@ export const PropertiesPage: React.FC<PropertiesPageProps> = ({
 
   // Form State for Add Property
   const [formName, setFormName] = useState('');
+  const [formOwnerId, setFormOwnerId] = useState<string>('');
   const [formCity, setFormCity] = useState<string>('Hammamet');
   const [formLocation, setFormLocation] = useState('');
   const [formMaxGuests, setFormMaxGuests] = useState(6);
   const [formWifiSSID, setFormWifiSSID] = useState('');
   const [formWifiPass, setFormWifiPass] = useState('');
+  const [owners, setOwners] = useState<ApiOwner[]>([]);
+
+  React.useEffect(() => {
+    if (isManager) {
+      fetchOwners().then(setOwners).catch(() => {});
+    }
+  }, [isManager]);
 
   // Dynamically compute region/city filter buttons from loaded property data
   const uniqueCities = Array.from(new Set(properties.map((p) => p.city).filter(Boolean)));
@@ -83,6 +93,7 @@ export const PropertiesPage: React.FC<PropertiesPageProps> = ({
       setSubmitting(true);
       const payload: PropertyCreatePayload = {
         name: formName.trim(),
+        owner_id: formOwnerId ? formOwnerId : null,
         address_line1: formLocation.trim() || undefined,
         city: formCity.trim() || undefined,
         max_guests: formMaxGuests > 0 ? formMaxGuests : undefined,
@@ -95,6 +106,7 @@ export const PropertiesPage: React.FC<PropertiesPageProps> = ({
       }
       setIsModalOpen(false);
       setFormName('');
+      setFormOwnerId('');
       setFormLocation('');
       setFormWifiSSID('');
       setFormWifiPass('');
@@ -310,6 +322,12 @@ export const PropertiesPage: React.FC<PropertiesPageProps> = ({
                       <p className="text-xs text-[#78716C] flex items-center gap-1 mt-1 truncate">
                         <MapPin className="w-3.5 h-3.5 text-[#D96B43] shrink-0" /> {prop.location}
                       </p>
+                      {prop.ownerName && (
+                        <p className="text-[11px] font-semibold text-[#0F3D5E] flex items-center gap-1 mt-1 truncate" data-testid={`property-owner-${prop.id}`}>
+                          <UserCheck className="w-3.5 h-3.5 text-[#0F3D5E] shrink-0" />
+                          <span className="truncate">{prop.ownerName}</span>
+                        </p>
+                      )}
                     </div>
 
                     {/* Truthful Specs & WiFi Status */}
@@ -387,6 +405,23 @@ export const PropertiesPage: React.FC<PropertiesPageProps> = ({
                   onChange={(e) => setFormName(e.target.value)}
                   className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 focus:outline-none focus:border-[#0F3D5E]"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#3B3735] mb-1">{t('properties.owner_label')}</label>
+                <select
+                  aria-label={t('properties.owner_label')}
+                  value={formOwnerId}
+                  onChange={(e) => setFormOwnerId(e.target.value)}
+                  className="w-full bg-[#FAF8F5] border border-[#EBE6DD] rounded-xl py-2 px-3 focus:outline-none focus:border-[#0F3D5E]"
+                >
+                  <option value="">{t('properties.unassigned_owner')}</option>
+                  {owners.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {owner.name} ({Number(owner.commission_percentage).toFixed(1)}%)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

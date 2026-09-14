@@ -22,6 +22,8 @@ export interface ApiProperty {
   emergency_contact?: string | null;
   directions?: string | null;
   external_booking_url?: string | null;
+  owner_id?: string | null;
+  owner_name?: string | null;
   status: 'active' | 'archived';
   archived_at?: string | null;
   created_at: string;
@@ -38,6 +40,7 @@ export interface ApiPropertyPage {
 
 export interface PropertyCreatePayload {
   name: string;
+  owner_id?: string | null;
   address_line1?: string;
   address_line2?: string;
   city?: string;
@@ -58,6 +61,7 @@ export interface PropertyCreatePayload {
 
 export interface PropertyUpdatePayload {
   name?: string;
+  owner_id?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;
@@ -101,6 +105,8 @@ export function mapApiPropertyToProperty(apiProp: ApiProperty): Property & { _ap
     trashSchedule: apiProp.parking_info || '',
     houseRules: rulesArray,
     emergencyContact: apiProp.emergency_contact || '',
+    ownerId: apiProp.owner_id || null,
+    ownerName: apiProp.owner_name || null,
     _apiRaw: apiProp,
   };
 }

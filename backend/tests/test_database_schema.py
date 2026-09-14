@@ -22,6 +22,7 @@ EXPECTED_TABLES = {
     "contractors",
     "conversations",
     "messages",
+    "owners",
     "properties",
     "ticket_assignments",
     "ticket_status_history",

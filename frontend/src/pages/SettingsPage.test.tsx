@@ -21,6 +21,7 @@ vi.mock('../api/calendar', () => ({
 vi.mock('../api/properties', () => ({ fetchAllActiveProperties: vi.fn() }));
 vi.mock('../api/integrations', () => ({ fetchWhatsappIntegrationHealth: vi.fn() }));
 vi.mock('../components/TeamManagementPanel', () => ({ TeamManagementPanel: () => <div>Team panel</div> }));
+vi.mock('../components/OwnersManagementPanel', () => ({ OwnersManagementPanel: () => <div>Owners panel</div> }));
 
 const property = {
   id: 'property-1',
@@ -251,5 +252,11 @@ describe('SettingsPage integrations', () => {
     expect(retryBtn).toBeInTheDocument();
     fireEvent.click(retryBtn);
     expect(clearErrorMock).toHaveBeenCalled();
+  });
+
+  it('switches to owners tab and renders owners panel', () => {
+    renderWithLocale(<SettingsPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Propriétaires|Owners/i }));
+    expect(screen.getByText('Owners panel')).toBeInTheDocument();
   });
 });
