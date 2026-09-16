@@ -1,5 +1,5 @@
 import csv
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import io
 from uuid import UUID
@@ -8,10 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import ApiProblem
+from app.core.config import settings
 from app.core.enums import BookingRecordType, BookingStatus, TicketStatus
+from app.integrations.email import EmailPayload, get_email_adapter, render_owner_statement_email
 from app.modules.calendar.models import Booking
+from app.modules.identity.models import Company
+from app.modules.identity.security import generate_secret, hash_secret
 from app.modules.maintenance.models import Ticket
-from app.modules.properties.models import Owner, Property
+from app.modules.properties.models import Owner, OwnerStatementAccessToken, Property
 from app.modules.supervision.schemas import (
     CompanyStatementsOverviewResponse,
     OwnerMonthlyStatementResponse,
@@ -19,6 +23,7 @@ from app.modules.supervision.schemas import (
     StatementBookingItem,
     StatementTicketItem,
 )
+from app.modules.supervision.statement_html import render_owner_statement_html
 
 
 def _month_bounds(year: int, month: int) -> tuple[datetime, datetime]:
@@ -337,3 +342,150 @@ def export_owner_statement_csv(statement: OwnerMonthlyStatementResponse) -> str:
         ])
 
     return output.getvalue()
+
+
+def create_or_get_statement_token(
+    db: Session,
+    *,
+    company_id: UUID,
+    owner_id: UUID,
+    year: int,
+    month: int,
+    valid_days: int = 90,
+) -> tuple[str, OwnerStatementAccessToken]:
+    """Generates a secure, time-limited token for an owner statement."""
+    owner = db.get(Owner, owner_id)
+    if not owner or owner.company_id != company_id:
+        raise ApiProblem(
+            status=404,
+            title="Owner not found",
+            detail="The requested owner was not found in this company.",
+            code="owner_not_found",
+        )
+
+    now = datetime.now(timezone.utc)
+    raw_token = generate_secret()
+    token_hash = hash_secret(raw_token)
+
+    token_obj = OwnerStatementAccessToken(
+        company_id=company_id,
+        owner_id=owner_id,
+        year=year,
+        month=month,
+        token_hash=token_hash,
+        expires_at=now + timedelta(days=valid_days),
+    )
+    db.add(token_obj)
+    db.commit()
+    db.refresh(token_obj)
+    return raw_token, token_obj
+
+
+def verify_statement_token(db: Session, token: str) -> OwnerStatementAccessToken:
+    """Verifies a raw token, returning the valid access token record."""
+    if not token or len(token) < 16:
+        raise ApiProblem(
+            status=401,
+            title="Invalid token",
+            detail="The statement access token is invalid or missing.",
+            code="invalid_token",
+        )
+
+    token_hash = hash_secret(token)
+    stmt = select(OwnerStatementAccessToken).where(
+        OwnerStatementAccessToken.token_hash == token_hash
+    )
+    token_obj = db.scalars(stmt).first()
+
+    now = datetime.now(timezone.utc)
+    if not token_obj or token_obj.revoked_at is not None or token_obj.expires_at <= now:
+        raise ApiProblem(
+            status=401,
+            title="Token expired or revoked",
+            detail="The statement access token is invalid, expired, or has been revoked.",
+            code="token_expired_or_revoked",
+        )
+
+    token_obj.last_accessed_at = now
+    db.commit()
+    return token_obj
+
+
+def dispatch_statement_email(
+    db: Session,
+    *,
+    company_id: UUID,
+    owner_id: UUID,
+    year: int,
+    month: int,
+    base_url: str | None = None,
+    language: str = "fr",
+) -> dict:
+    """Generates and sends a monthly statement notification email to the property owner."""
+    owner = db.get(Owner, owner_id)
+    if not owner or owner.company_id != company_id:
+        raise ApiProblem(
+            status=404,
+            title="Owner not found",
+            detail="The requested owner was not found in this company.",
+            code="owner_not_found",
+        )
+    if not owner.email or not owner.email.strip():
+        raise ApiProblem(
+            status=422,
+            title="Missing owner email",
+            detail="This owner does not have an email address configured.",
+            code="missing_owner_email",
+        )
+
+    company = db.get(Company, company_id)
+    company_name = company.name if company else "Vayca Operations"
+    currency = company.default_currency if company else "TND"
+
+    statement = calculate_owner_statement(
+        db, company_id=company_id, owner=owner, year=year, month=month, currency=currency
+    )
+
+    raw_token, token_obj = create_or_get_statement_token(
+        db, company_id=company_id, owner_id=owner_id, year=year, month=month
+    )
+
+    effective_base = (base_url or settings.frontend_base_url or "http://localhost:5173").rstrip("/")
+    portal_url = f"{effective_base}/owner/statements?token={raw_token}"
+
+    subject, html_body, text_body = render_owner_statement_email(
+        recipient_name=owner.name,
+        company_name=company_name,
+        year=year,
+        month=month,
+        currency=currency,
+        gross_revenue=f"{statement.gross_revenue:.3f}",
+        commission_amount=f"{statement.commission_amount:.3f}",
+        maintenance_expenses=f"{statement.maintenance_expenses:.3f}",
+        net_payout=f"{statement.net_payout:.3f}",
+        portal_url=portal_url,
+        language=language,
+    )
+
+    payload = EmailPayload(
+        to_email=owner.email,
+        to_name=owner.name,
+        subject=subject,
+        html_body=html_body,
+        text_body=text_body,
+    )
+
+    adapter = get_email_adapter()
+    adapter.send(payload)
+
+    return {
+        "success": True,
+        "sent_to_email": owner.email,
+        "owner_name": owner.name,
+        "year": year,
+        "month": month,
+        "token_id": token_obj.id,
+        "portal_url": portal_url,
+        "token": raw_token,
+    }
+

@@ -129,3 +129,23 @@ Index(
     unique=True,
     postgresql_where=Channel.external_listing_id.is_not(None),
 )
+
+
+class OwnerStatementAccessToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "owner_statement_access_tokens"
+    __table_args__ = (
+        ForeignKeyConstraint(["company_id"], ["companies.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["company_id", "owner_id"], ["owners.company_id", "owners.id"], ondelete="CASCADE"),
+        UniqueConstraint("token_hash", name="uq_owner_statement_tokens_hash"),
+        CheckConstraint("month >= 1 AND month <= 12", name="owner_statement_tokens_month_range"),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    owner_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_accessed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+

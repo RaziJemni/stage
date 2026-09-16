@@ -130,3 +130,46 @@ class CompanyStatementsOverviewResponse(BaseModel):
     total_maintenance_expenses: Decimal
     total_net_payout: Decimal
     statements: list[OwnerMonthlyStatementResponse]
+
+
+class SendOwnerStatementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_id: UUID
+    year: int = Field(ge=2020, le=2100)
+    month: int = Field(ge=1, le=12)
+    language: str = Field(default="fr")
+
+
+class SendOwnerStatementResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    sent_to_email: str
+    owner_name: str
+    year: int
+    month: int
+    token_id: UUID
+    portal_url: str
+    token: str | None = None
+
+
+
+class GetOwnerStatementShareLinkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_id: UUID
+    year: int = Field(ge=2020, le=2100)
+    month: int = Field(ge=1, le=12)
+
+
+class OwnerStatementShareLinkResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_id: UUID
+    year: int
+    month: int
+    portal_url: str
+    token: str
+    expires_at: str
+

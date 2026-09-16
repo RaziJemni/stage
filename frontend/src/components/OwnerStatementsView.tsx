@@ -12,15 +12,23 @@ import {
   Wrench,
   TrendingUp,
   CreditCard,
-  RefreshCw
+  RefreshCw,
+  Printer,
+  Mail,
+  Share2,
+  Check
 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { 
   fetchCompanyStatements, 
   getExportStatementUrl, 
+  getPrintStatementUrl,
+  sendOwnerStatementEmail,
+  getOwnerStatementShareLink,
   type CompanyStatementsOverview, 
   type OwnerMonthlyStatement 
 } from '../api/owners';
+
 
 interface OwnerStatementsViewProps {
   defaultCurrency?: string;
@@ -40,6 +48,10 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeStatement, setActiveStatement] = useState<OwnerMonthlyStatement | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSuccessMsg, setEmailSuccessMsg] = useState<string | null>(null);
+  const [emailErrorMsg, setEmailErrorMsg] = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
   const loadStatements = useCallback(async (year: number, month: number) => {
     try {
@@ -82,6 +94,47 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
     const url = getExportStatementUrl(ownerId, selectedYear, selectedMonth);
     window.open(url, '_blank');
   };
+
+  const handlePrint = (ownerId: string) => {
+    const url = getPrintStatementUrl(ownerId, selectedYear, selectedMonth);
+    window.open(url, '_blank');
+  };
+
+  const handleSendEmail = async (stmt: OwnerMonthlyStatement) => {
+    try {
+      setSendingEmail(true);
+      setEmailSuccessMsg(null);
+      setEmailErrorMsg(null);
+      const res = await sendOwnerStatementEmail({
+        owner_id: stmt.owner_id,
+        year: stmt.year,
+        month: stmt.month,
+      });
+      setEmailSuccessMsg(t('statements.email_sent_success', { email: res.sent_to_email }));
+      setTimeout(() => setEmailSuccessMsg(null), 5000);
+    } catch (err: any) {
+      setEmailErrorMsg(err.message || t('statements.email_sent_error'));
+      setTimeout(() => setEmailErrorMsg(null), 5000);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleCopyShareLink = async (stmt: OwnerMonthlyStatement) => {
+    try {
+      const res = await getOwnerStatementShareLink({
+        owner_id: stmt.owner_id,
+        year: stmt.year,
+        month: stmt.month,
+      });
+      await navigator.clipboard.writeText(res.portal_url);
+      setCopiedLinkId(stmt.owner_id);
+      setTimeout(() => setCopiedLinkId(null), 3000);
+    } catch (err) {
+      console.error('Failed to copy share link:', err);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -135,7 +188,32 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
         </div>
       </div>
 
+      {emailSuccessMsg && (
+        <div role="status" className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{emailSuccessMsg}</span>
+          </div>
+          <button type="button" onClick={() => setEmailSuccessMsg(null)} className="p-1 text-emerald-700 hover:text-emerald-900 cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {emailErrorMsg && (
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{emailErrorMsg}</span>
+          </div>
+          <button type="button" onClick={() => setEmailErrorMsg(null)} className="p-1 text-rose-700 hover:text-rose-900 cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {error && (
+
         <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -260,6 +338,31 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
                             </button>
                             <button
                               type="button"
+                              onClick={() => handlePrint(stmt.owner_id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#EBE6DD] bg-white text-xs font-semibold text-[#78716C] hover:text-[#0F3D5E] hover:bg-[#F0F6FA] transition-colors cursor-pointer"
+                              title={t('statements.print_html')}
+                            >
+                              <Printer className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={sendingEmail || !stmt.email}
+                              onClick={() => void handleSendEmail(stmt)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#EBE6DD] bg-white text-xs font-semibold text-[#78716C] hover:text-[#0F3D5E] hover:bg-[#F0F6FA] disabled:opacity-40 transition-colors cursor-pointer"
+                              title={!stmt.email ? t('statements.no_email_tooltip') : t('statements.send_email')}
+                            >
+                              <Mail className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyShareLink(stmt)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#EBE6DD] bg-white text-xs font-semibold text-[#78716C] hover:text-[#0F3D5E] hover:bg-[#F0F6FA] transition-colors cursor-pointer"
+                              title={copiedLinkId === stmt.owner_id ? t('statements.link_copied') : t('statements.share_link')}
+                            >
+                              {copiedLinkId === stmt.owner_id ? <Check className="h-3 w-3 text-emerald-600" /> : <Share2 className="h-3 w-3" />}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleExportCsv(stmt.owner_id)}
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[#EBE6DD] bg-white text-xs font-semibold text-[#78716C] hover:text-[#0F3D5E] hover:bg-[#F0F6FA] transition-colors cursor-pointer"
                               title={t('statements.export_csv')}
@@ -296,6 +399,32 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => handlePrint(activeStatement.owner_id)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#EBE6DD] bg-white text-[#3B3735] text-xs font-bold hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  <Printer className="h-3.5 w-3.5 text-[#0F3D5E]" />
+                  <span>{t('statements.print_html')}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={sendingEmail || !activeStatement.email}
+                  onClick={() => void handleSendEmail(activeStatement)}
+                  title={!activeStatement.email ? t('statements.no_email_tooltip') : undefined}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#EBE6DD] bg-white text-[#3B3735] text-xs font-bold hover:bg-[#FAF8F5] disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  {sendingEmail ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5 text-[#0F3D5E]" />}
+                  <span>{sendingEmail ? t('statements.sending_email') : t('statements.send_email')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyShareLink(activeStatement)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#EBE6DD] bg-white text-[#3B3735] text-xs font-bold hover:bg-[#FAF8F5] transition-colors cursor-pointer"
+                >
+                  {copiedLinkId === activeStatement.owner_id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Share2 className="h-3.5 w-3.5 text-[#0F3D5E]" />}
+                  <span>{copiedLinkId === activeStatement.owner_id ? t('statements.link_copied') : t('statements.share_link')}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleExportCsv(activeStatement.owner_id)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#0F3D5E] text-white text-xs font-bold shadow-sm hover:bg-[#0C324E] transition-colors cursor-pointer"
                 >
@@ -311,6 +440,7 @@ export function OwnerStatementsView({ defaultCurrency = 'TND' }: OwnerStatements
                 </button>
               </div>
             </div>
+
 
             {/* Modal Body (Scrollable) */}
             <div className="p-6 overflow-y-auto space-y-6 text-xs flex-1">

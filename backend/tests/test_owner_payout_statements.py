@@ -190,7 +190,12 @@ def test_property_owner_attribution_and_tenant_isolation(client: TestClient) -> 
     assert cross_link.json()["code"] == "owner_not_found"
 
 
-def test_monthly_owner_payout_statement_calculation_and_csv_export(client: TestClient) -> None:
+def test_monthly_owner_payout_statement_calculation_and_csv_export(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "email_provider", "memory")
+
     auth_data = register_manager(client, suffix="statement")
     company_id = auth_data["company"]["id"]
     user_id = auth_data["user"]["id"]
@@ -345,3 +350,94 @@ def test_monthly_owner_payout_statement_calculation_and_csv_export(client: TestC
     assert "1420.000" in csv_body
     assert "Dar Sidi Bou Said" in csv_body
     assert "Pool pump repair" in csv_body
+
+    # 8. Manager HTML printable statement
+    html_resp = client.get(f"/api/v1/supervision/owner-statements/{owner_id}/html?year=2026&month=8")
+    assert html_resp.status_code == 200
+    assert "text/html" in html_resp.headers["content-type"]
+    html_body = html_resp.text
+    assert "Relevé Propriétaire" in html_body
+    assert "Si Moncef" in html_body
+    assert "2000.000 TND" in html_body
+    assert "1420.000 TND" in html_body
+    assert "Dar Sidi Bou Said" in html_body
+
+    # 9. Manager Share Link generation
+    from app.integrations.email import InMemoryEmailAdapter
+    InMemoryEmailAdapter.clear()
+
+    share_resp = client.post(
+        "/api/v1/supervision/owner-statements/share-link",
+        json={"owner_id": owner_id, "year": 2026, "month": 8},
+        headers=csrf_headers(client),
+    )
+    assert share_resp.status_code == 200
+    share_data = share_resp.json()
+    assert "token" in share_data
+    token = share_data["token"]
+    assert f"/owner/statements?token={token}" in share_data["portal_url"]
+
+    # 10. Manager Send Statement Email
+    send_resp = client.post(
+        "/api/v1/supervision/owner-statements/send",
+        json={"owner_id": owner_id, "year": 2026, "month": 8, "language": "fr"},
+        headers=csrf_headers(client),
+    )
+    assert send_resp.status_code == 200
+    send_data = send_resp.json()
+    assert send_data["success"] is True
+    assert send_data["sent_to_email"] == "moncef@owner.tn"
+    assert len(InMemoryEmailAdapter.sent_emails) == 1
+    sent_email = InMemoryEmailAdapter.sent_emails[0]
+    assert sent_email.to_email == "moncef@owner.tn"
+    assert "Relevé de gestion" in sent_email.subject
+    assert "1420.000 TND" in sent_email.text_body
+    assert "Consulter mon Relevé Détaillé" in sent_email.html_body
+
+    # 11. Public Owner Portal - Token Verification
+    pub_data_resp = client.get(f"/api/v1/public/owner-statements/data?token={token}")
+    assert pub_data_resp.status_code == 200
+    pub_data = pub_data_resp.json()
+    assert pub_data["owner_name"] == "Si Moncef"
+    assert float(pub_data["net_payout"]) == 1420.0
+    assert len(pub_data["bookings"]) == 2
+
+    pub_html_resp = client.get(f"/api/v1/public/owner-statements/html?token={token}")
+    assert pub_html_resp.status_code == 200
+    assert "text/html" in pub_html_resp.headers["content-type"]
+    assert "Si Moncef" in pub_html_resp.text
+
+    pub_csv_resp = client.get(f"/api/v1/public/owner-statements/export?token={token}")
+    assert pub_csv_resp.status_code == 200
+    assert "text/csv" in pub_csv_resp.headers["content-type"]
+    assert "1420.000" in pub_csv_resp.text
+
+    # 12. Public Owner Portal - Invalid and Expired Token Handling
+    invalid_resp = client.get("/api/v1/public/owner-statements/data?token=invalid_token_123456789")
+    assert invalid_resp.status_code == 401
+    assert invalid_resp.json()["code"] == "token_expired_or_revoked"
+
+    from app.modules.identity.security import hash_secret
+    from app.modules.properties.models import OwnerStatementAccessToken
+    with SessionLocal() as db:
+        token_record = db.scalars(
+            sa.select(OwnerStatementAccessToken).where(
+                OwnerStatementAccessToken.token_hash == hash_secret(token)
+            )
+        ).first()
+        assert token_record is not None
+        token_record.revoked_at = datetime.now(timezone.utc)
+        db.commit()
+
+    revoked_resp = client.get(f"/api/v1/public/owner-statements/data?token={token}")
+    assert revoked_resp.status_code == 401
+    assert revoked_resp.json()["code"] == "token_expired_or_revoked"
+
+
+    # 13. Celery Scheduled Task Execution
+    from app.modules.supervision.tasks import dispatch_monthly_owner_statements
+    task_res = dispatch_monthly_owner_statements(target_year=2026, target_month=8)
+    assert task_res["year"] == 2026
+    assert task_res["month"] == 8
+    assert task_res["sent"] >= 1
+
