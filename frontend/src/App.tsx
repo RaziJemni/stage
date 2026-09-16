@@ -45,6 +45,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { OwnerPortalPage } from './pages/OwnerPortalPage';
+import { GuestWhatsAppSimulatorPage } from './pages/GuestWhatsAppSimulatorPage';
 import { I18nProvider } from './i18n/I18nContext';
 
 function WorkspaceApp() {
@@ -460,6 +461,8 @@ export function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
         <Route path="/owner/statements" element={<OwnerPortalPage />} />
+        <Route path="/simulator/whatsapp" element={<GuestWhatsAppSimulatorPage />} />
+        <Route path="/simulator" element={<Navigate to="/simulator/whatsapp" replace />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/*" element={<WorkspaceApp />} />
         </Route>
