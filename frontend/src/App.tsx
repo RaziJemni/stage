@@ -43,6 +43,7 @@ import { TicketsPage } from './pages/TicketsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
+import { OwnerPortalPage } from './pages/OwnerPortalPage';
 import { I18nProvider } from './i18n/I18nContext';
 
 function WorkspaceApp() {
@@ -456,6 +457,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
+        <Route path="/owner/statements" element={<OwnerPortalPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/*" element={<WorkspaceApp />} />
         </Route>

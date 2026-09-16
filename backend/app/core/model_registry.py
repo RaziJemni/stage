@@ -4,7 +4,7 @@ from app.modules.calendar.models import Booking, BookingConflict, BookingConflic
 from app.modules.identity.models import AppUser, AuthSession, Company, UserInvitation
 from app.modules.maintenance.models import Contractor, Ticket, TicketAssignment, TicketStatusHistory, TicketSuggestion
 from app.modules.messaging.models import Conversation, Message
-from app.modules.properties.models import Channel, Property
+from app.modules.properties.models import Channel, Owner, OwnerStatementAccessToken, Property
 
 __all__ = [
     "AppUser",
@@ -18,6 +18,8 @@ __all__ = [
     "Contractor",
     "Conversation",
     "Message",
+    "Owner",
+    "OwnerStatementAccessToken",
     "Property",
     "Ticket",
     "TicketAssignment",

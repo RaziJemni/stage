@@ -23,6 +23,7 @@ EXPECTED_TABLES = {
     "contractors",
     "conversations",
     "messages",
+    "owner_statement_access_tokens",
     "owners",
     "properties",
     "property_pricing_profiles",
