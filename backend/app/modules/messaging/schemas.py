@@ -69,3 +69,38 @@ class SimulatorInboundEventResponse(BaseModel):
     message_id: UUID
     conversation_id: UUID
     created: bool
+
+
+class SimulatorPropertySummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    city: str | None = None
+    address: str | None = None
+    headline: str | None = None
+
+
+class SimulatorChatMessage(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    conversation_id: UUID
+    direction: MessageDirection
+    sender_type: SenderType
+    content: str
+    delivery_status: DeliveryStatus
+    created_at: datetime
+
+
+class SimulatorChatSendRequest(StrictRequest):
+    property_id: UUID
+    guest_phone: str = Field(min_length=3, max_length=64)
+    content: str = Field(min_length=1, max_length=5000)
+
+
+class SimulatorChatSendResponse(BaseModel):
+    message_id: UUID
+    conversation_id: UUID
+    created: bool
+    created_at: datetime
