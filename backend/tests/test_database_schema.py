@@ -13,6 +13,7 @@ EXPECTED_TABLES = {
     "alembic_version",
     "app_users",
     "auth_sessions",
+    "booking_pricing_decisions",
     "booking_conflict_bookings",
     "booking_conflicts",
     "bookings",
@@ -22,9 +23,14 @@ EXPECTED_TABLES = {
     "contractors",
     "conversations",
     "messages",
+    "owners",
     "properties",
+    "property_pricing_profiles",
+    "seasonal_pricing_rules",
+    "staff_property_assignments",
     "ticket_assignments",
     "ticket_status_history",
+    "ticket_suggestions",
     "tickets",
     "user_invitations",
 }
@@ -83,6 +89,36 @@ def test_migration_creates_expected_tables_and_indexes(migrated_engine: Engine) 
             ).scalars()
         )
     assert index_names == EXPECTED_PARTIAL_INDEXES
+
+
+def test_booking_conflict_acknowledgement_is_tenant_scoped(
+    migrated_engine: Engine,
+) -> None:
+    inspector = sa.inspect(migrated_engine)
+    columns = {column["name"] for column in inspector.get_columns("booking_conflicts")}
+    assert {"acknowledged_at", "acknowledged_by_user_id"}.issubset(columns)
+
+    foreign_keys = inspector.get_foreign_keys("booking_conflicts")
+    assert any(
+        foreign_key["name"] == "fk_booking_conflicts_company_acknowledged_by_user"
+        and foreign_key["constrained_columns"]
+        == ["company_id", "acknowledged_by_user_id"]
+        and foreign_key["referred_table"] == "app_users"
+        and foreign_key["referred_columns"] == ["company_id", "id"]
+        for foreign_key in foreign_keys
+    )
+
+
+def test_staff_property_assignments_are_company_scoped(migrated_engine: Engine) -> None:
+    inspector = sa.inspect(migrated_engine)
+    columns = {column["name"] for column in inspector.get_columns("app_users")}
+    assert {"operations_access", "maintenance_access"}.issubset(columns)
+    foreign_keys = inspector.get_foreign_keys("staff_property_assignments")
+    assert any(
+        foreign_key["constrained_columns"] == ["company_id", "property_id"]
+        and foreign_key["referred_table"] == "properties"
+        for foreign_key in foreign_keys
+    )
 
 
 def test_downgrade_removes_application_tables() -> None:

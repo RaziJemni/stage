@@ -45,6 +45,7 @@ Each requirement has a stable identifier. Priority uses the MoSCoW convention:
 | FR-CAL-07 | The calendar shall distinguish booking source and status using text plus visual cues. | Must | Meaning is understandable without color alone |
 | FR-CAL-08 | Managers and staff shall view conflict details and acknowledgement state. | Must | Conflict source, dates, and related bookings are visible |
 | FR-CAL-09 | The system shall record calendar refresh status and failures. | Must | Users can distinguish current, delayed, and failed feeds |
+| FR-CAL-10 | A manager shall configure direct-booking base, weekend, and seasonal pricing rules, and authorized operators shall receive a server-calculated recommendation. | Should | Rules persist per company property; a direct booking records an explicit approved price or explained override. |
 
 ## Guest Conversations and Chatbot
 

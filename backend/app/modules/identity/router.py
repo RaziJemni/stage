@@ -4,7 +4,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Request, Response, status
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,8 @@ from app.modules.identity.dependencies import (
     ManagerContext,
     ManagerCsrfContext,
 )
-from app.modules.identity.models import AppUser, AuthSession, Company, UserInvitation
+from app.modules.identity.models import AppUser, AuthSession, Company, StaffPropertyAssignment, UserInvitation
+from app.modules.properties.models import Property
 from app.modules.identity.rate_limit import LoginRateLimiter, get_login_rate_limiter
 from app.modules.identity.schemas import (
     AuthResponse,
@@ -31,7 +32,9 @@ from app.modules.identity.schemas import (
     RegistrationRequest,
     TeamListResponse,
     TeamMemberResponse,
+    TeamMemberAccessRequest,
     TeamMemberStatusRequest,
+    UserPreferencesRequest,
     UserSummary,
 )
 from app.modules.identity.security import (
@@ -205,6 +208,17 @@ def me(context: CurrentContext) -> AuthResponse:
     return _auth_response(context.user, context.company)
 
 
+@router.patch("/auth/preferences", response_model=AuthResponse)
+def update_preferences(
+    payload: UserPreferencesRequest,
+    context: CsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> AuthResponse:
+    context.user.preferred_language = payload.preferred_language
+    db.commit()
+    return _auth_response(context.user, context.company)
+
+
 @router.post("/auth/invitations/accept", response_model=AuthResponse)
 def accept_invitation(
     payload: InvitationAcceptRequest,
@@ -292,6 +306,10 @@ def list_team(context: ManagerContext, db: Annotated[Session, Depends(get_db)]) 
                 **UserSummary.model_validate(user).model_dump(),
                 last_login_at=user.last_login_at,
                 invitation_expires_at=invitation_expires_at,
+                property_ids=list(db.scalars(select(StaffPropertyAssignment.property_id).where(
+                    StaffPropertyAssignment.company_id == context.company.id,
+                    StaffPropertyAssignment.user_id == user.id,
+                ))),
             )
         )
     return TeamListResponse(items=items)
@@ -349,7 +367,14 @@ def invite_staff(
         expires_at=expires_at(settings.invitation_hours),
     )
     db.add(invitation)
-    invitation_url = invitation_delivery.delivery_url(token)
+    invitation_url = invitation_delivery.deliver_invitation(
+        recipient_email=email,
+        recipient_name=payload.name,
+        company_name=context.company.name,
+        inviter_name=context.user.name,
+        token=token,
+        language=context.user.preferred_language or "fr",
+    )
     db.commit()
     member = TeamMemberResponse(
         **UserSummary.model_validate(user).model_dump(),
@@ -357,6 +382,32 @@ def invite_staff(
         invitation_expires_at=invitation.expires_at,
     )
     return InvitationResponse(member=member, invitation_url=invitation_url)
+
+
+@team_router.put("/{user_id}/access", response_model=TeamMemberResponse)
+def update_team_member_access(
+    user_id: UUID,
+    payload: TeamMemberAccessRequest,
+    context: ManagerCsrfContext,
+    db: Annotated[Session, Depends(get_db)],
+) -> TeamMemberResponse:
+    target = db.scalar(select(AppUser).where(AppUser.id == user_id, AppUser.company_id == context.company.id))
+    if target is None or target.role is not UserRole.STAFF:
+        raise ApiProblem(status=404, title="Team member not found", detail="The requested staff member does not exist.", code="team_member_not_found")
+    requested_ids = set(payload.property_ids)
+    if requested_ids:
+        found_ids = set(db.scalars(select(Property.id).where(Property.company_id == context.company.id, Property.id.in_(requested_ids))))
+        if found_ids != requested_ids:
+            raise ApiProblem(status=404, title="Property not found", detail="One or more properties do not belong to your company.", code="property_not_found")
+    db.execute(delete(StaffPropertyAssignment).where(
+        StaffPropertyAssignment.company_id == context.company.id,
+        StaffPropertyAssignment.user_id == target.id,
+    ))
+    db.add_all([StaffPropertyAssignment(company_id=context.company.id, user_id=target.id, property_id=property_id) for property_id in requested_ids])
+    target.operations_access = payload.operations_access
+    target.maintenance_access = payload.maintenance_access
+    db.commit()
+    return TeamMemberResponse(**UserSummary.model_validate(target).model_dump(), last_login_at=target.last_login_at, property_ids=sorted(requested_ids, key=str))
 
 
 @team_router.patch("/{user_id}/status", response_model=TeamMemberResponse)

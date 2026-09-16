@@ -28,6 +28,8 @@ class PropertyStatus(str, Enum):
 class ChannelType(str, Enum):
     AIRBNB = "airbnb"
     BOOKING_COM = "booking_com"
+    VRBO = "vrbo"
+    EXPEDIA = "expedia"
     DIRECT = "direct"
     OTHER = "other"
 
@@ -39,9 +41,21 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
 
 
+class CalendarFeedHealthStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    HEALTHY = "healthy"
+    STALE = "stale"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    INACTIVE = "inactive"
+
+
 class BookingSource(str, Enum):
     AIRBNB = "airbnb"
     BOOKING_COM = "booking_com"
+    VRBO = "vrbo"
+    EXPEDIA = "expedia"
     DIRECT = "direct"
     MANUAL = "manual"
     OTHER = "other"
@@ -56,6 +70,20 @@ class BookingStatus(str, Enum):
 class BookingRecordType(str, Enum):
     RESERVATION = "reservation"
     BLOCKED_PERIOD = "blocked_period"
+
+
+class PaymentStatus(str, Enum):
+    UNPAID = "unpaid"
+    DEPOSIT_RECEIVED = "deposit_received"
+    PAID_IN_FULL = "paid_in_full"
+
+
+class PaymentMethod(str, Enum):
+    CASH = "cash"
+    BANK_TRANSFER = "bank_transfer"
+    CARD = "card"
+    CHECK = "check"
+    OTHER = "other"
 
 
 class ConflictStatus(str, Enum):

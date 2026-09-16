@@ -62,7 +62,7 @@ The MVP is considered complete when the selected workflows operate end to end us
 - Online payment processing
 - Public search and checkout
 - Native mobile applications
-- Dynamic pricing
+- Autonomous demand, competitor, occupancy, or last-minute dynamic pricing, and OTA price publishing
 - Owner portal
 - Advanced revenue analytics
 - Automated owner PDF reports

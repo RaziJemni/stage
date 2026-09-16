@@ -1,0 +1,642 @@
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
+
+import pytest
+import sqlalchemy as sa
+from alembic import command
+from alembic.config import Config
+from fastapi.testclient import TestClient
+from sqlalchemy.engine import make_url
+
+from app.api.errors import ApiProblem
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.main import create_app
+from app.modules.calendar import service
+from app.modules.calendar.models import BookingPricingDecision
+
+
+def alembic_config() -> Config:
+    database_url = os.environ["DATABASE_URL"]
+    assert (make_url(database_url).database or "").endswith("_test")
+    backend_root = Path(__file__).resolve().parents[1]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    return config
+
+
+@pytest.fixture(scope="module", autouse=True)
+def migrated_database() -> None:
+    config = alembic_config()
+    command.downgrade(config, "base")
+    command.upgrade(config, "head")
+    yield
+    command.downgrade(config, "base")
+    command.upgrade(config, "head")
+
+
+@pytest.fixture(autouse=True)
+def clean_data() -> None:
+    with SessionLocal() as db:
+        db.execute(sa.text("TRUNCATE TABLE companies CASCADE"))
+        db.commit()
+
+
+@pytest.fixture
+def client() -> TestClient:
+    with TestClient(create_app()) as test_client:
+        yield test_client
+
+
+def csrf_headers(client: TestClient) -> dict[str, str]:
+    token = client.cookies.get(settings.csrf_cookie_name)
+    assert token
+    return {"X-CSRF-Token": token}
+
+
+def register_manager(client: TestClient) -> dict:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "company_name": "Hammamet Operations",
+            "name": "Manager User",
+            "email": f"manager-{uuid4()}@example.com",
+            "password": "secure-manager-password-123",
+            "timezone": "Africa/Tunis",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def activate_staff(manager_client: TestClient) -> TestClient:
+    invitation = manager_client.post(
+        "/api/v1/team/invitations",
+        json={"name": "Staff User", "email": f"staff-{uuid4()}@example.com"},
+        headers=csrf_headers(manager_client),
+    )
+    assert invitation.status_code == 201, invitation.text
+    token = parse_qs(urlparse(invitation.json()["invitation_url"]).query)["token"][0]
+    staff_client = TestClient(manager_client.app)
+    accepted = staff_client.post(
+        "/api/v1/auth/invitations/accept",
+        json={"token": token, "password": "secure-staff-password-123"},
+    )
+    assert accepted.status_code == 200, accepted.text
+    return staff_client
+
+
+def create_property(client: TestClient, name: str = "Villa Yasmine") -> dict:
+    response = client.post(
+        "/api/v1/properties",
+        json={"name": name, "city": "Hammamet"},
+        headers=csrf_headers(client),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def booking_payload(property_id: str, **overrides: str) -> dict:
+    payload = {
+        "property_id": property_id,
+        "source_type": "direct",
+        "record_type": "reservation",
+        "status": "confirmed",
+        "check_in": "2026-08-10T14:00:00Z",
+        "check_out": "2026-08-12T10:00:00Z",
+        "guest_name": "Sami Guest",
+        "guest_contact": "+21620000000",
+        "notes": "Direct WhatsApp reservation",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def create_booking(client: TestClient, property_id: str, **overrides: str) -> dict:
+    response = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_id, **overrides),
+        headers=csrf_headers(client),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_manager_and_staff_create_update_and_cancel_direct_bookings(
+    client: TestClient,
+) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    staff_client = activate_staff(client)
+
+    created = staff_client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"]),
+        headers=csrf_headers(staff_client),
+    )
+    assert created.status_code == 201, created.text
+    booking = created.json()
+    assert booking["source_type"] == "direct"
+    assert booking["record_type"] == "reservation"
+    assert booking["status"] == "confirmed"
+
+    updated = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={
+            "check_in": "2026-08-11T14:00:00Z",
+            "check_out": "2026-08-13T10:00:00Z",
+            "status": "tentative",
+            "notes": "Guest is confirming transport.",
+        },
+        headers=csrf_headers(client),
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["status"] == "tentative"
+    assert updated.json()["check_out"] == "2026-08-13T10:00:00Z"
+
+    cancelled = staff_client.post(
+        f"/api/v1/bookings/{booking['id']}/cancel",
+        headers=csrf_headers(staff_client),
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["status"] == "cancelled"
+
+    edit_cancelled = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={"notes": "Should fail"},
+        headers=csrf_headers(client),
+    )
+    assert edit_cancelled.status_code == 409
+    assert edit_cancelled.json()["code"] == "booking_cancelled"
+
+
+def test_manager_configures_pricing_and_staff_gets_a_direct_quote(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    saved = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 20, "minimum_nights": 2, "seasonal_rules": [{"name": "Summer", "start_date": "2026-08-01", "end_date": "2026-08-31", "nightly_rate": 150, "minimum_nights": 3}]},
+        headers=csrf_headers(client),
+    )
+    assert saved.status_code == 200, saved.text
+    staff_client = activate_staff(client)
+    quote = staff_client.post(
+        f"/api/v1/properties/{property_data['id']}/pricing/quote",
+        json={"check_in": "2026-08-14T14:00:00Z", "check_out": "2026-08-17T10:00:00Z"},
+        headers=csrf_headers(staff_client),
+    )
+    assert quote.status_code == 200, quote.text
+    assert quote.json()["total_amount"] == "510.000"
+    assert quote.json()["minimum_nights"] == 3
+    assert quote.json()["meets_minimum_stay"] is True
+
+    overlapping = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": [{"name": "Early August", "start_date": "2026-08-01", "end_date": "2026-08-15", "nightly_rate": 100}, {"name": "Late August", "start_date": "2026-08-15", "end_date": "2026-08-31", "nightly_rate": 100}]},
+        headers=csrf_headers(client),
+    )
+    assert overlapping.status_code == 422
+
+
+def test_direct_booking_requires_current_price_decision_and_audits_override(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    configured = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 2, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert configured.status_code == 200, configured.text
+
+    without_decision = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=200),
+        headers=csrf_headers(client),
+    )
+    assert without_decision.status_code == 422
+    assert without_decision.json()["code"] == "pricing_decision_required"
+
+    missing_reason = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=180, pricing_decision={"quoted_total": 200, "approved_total": 180}),
+        headers=csrf_headers(client),
+    )
+    assert missing_reason.status_code == 422
+
+    created = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=180, pricing_decision={"quoted_total": 200, "approved_total": 180, "override_reason": "Returning guest discount"}),
+        headers=csrf_headers(client),
+    )
+    assert created.status_code == 201, created.text
+    with SessionLocal() as db:
+        decision = db.scalar(sa.select(BookingPricingDecision).where(BookingPricingDecision.booking_id == created.json()["id"]))
+        assert decision is not None
+        assert decision.quoted_total == 200
+        assert decision.approved_total == 180
+        assert decision.override_reason == "Returning guest discount"
+        assert decision.quote_snapshot["total_amount"] == "200.000"
+
+
+def test_pricing_quote_rejects_cross_company_property_and_stale_quote(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    configured = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 100, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert configured.status_code == 200, configured.text
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+    forbidden = other_client.post(
+        f"/api/v1/properties/{property_data['id']}/pricing/quote",
+        json={"check_in": "2026-08-10T14:00:00Z", "check_out": "2026-08-12T10:00:00Z"},
+        headers=csrf_headers(other_client),
+    )
+    assert forbidden.status_code == 404
+    assert forbidden.json()["code"] == "property_not_found"
+
+    changed = client.put(
+        f"/api/v1/properties/{property_data['id']}/pricing",
+        json={"base_nightly_rate": 125, "weekend_adjustment_percent": 0, "minimum_nights": 1, "seasonal_rules": []},
+        headers=csrf_headers(client),
+    )
+    assert changed.status_code == 200
+    stale = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], total_amount=200, pricing_decision={"quoted_total": 200, "approved_total": 200}),
+        headers=csrf_headers(client),
+    )
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "pricing_quote_stale"
+
+
+def test_booking_dates_and_authentication_are_validated(client: TestClient) -> None:
+    unauthenticated = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(str(uuid4())),
+    )
+    assert unauthenticated.status_code == 401
+
+    register_manager(client)
+    property_data = create_property(client)
+
+    missing_csrf = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"]),
+    )
+    assert missing_csrf.status_code == 403
+    assert missing_csrf.json()["code"] == "csrf_invalid"
+
+    invalid_range = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_data["id"],
+            check_in="2026-08-12T10:00:00Z",
+            check_out="2026-08-12T10:00:00Z",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert invalid_range.status_code == 422
+    assert invalid_range.json()["code"] == "request_validation_failed"
+
+    naive_timestamp = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"], check_in="2026-08-10T14:00:00"),
+        headers=csrf_headers(client),
+    )
+    assert naive_timestamp.status_code == 422
+
+
+def test_cross_company_property_and_booking_access_is_rejected(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    created = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"]),
+        headers=csrf_headers(client),
+    )
+    assert created.status_code == 201
+
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+
+    create_other = other_client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"]),
+        headers=csrf_headers(other_client),
+    )
+    assert create_other.status_code == 404
+    assert create_other.json()["code"] == "property_not_found"
+
+    cancel_other = other_client.post(
+        f"/api/v1/bookings/{created.json()['id']}/cancel",
+        headers=csrf_headers(other_client),
+    )
+    assert cancel_other.status_code == 404
+    assert cancel_other.json()["code"] == "booking_not_found"
+
+
+def test_availability_uses_active_bookings_and_excludes_cancelled_records(
+    client: TestClient,
+) -> None:
+    manager = register_manager(client)
+    property_data = create_property(client)
+    company_id = manager["company"]["id"]
+
+    confirmed = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_data["id"]),
+        headers=csrf_headers(client),
+    )
+    assert confirmed.status_code == 201
+
+    blocked_period = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_data["id"],
+            source_type="manual",
+            record_type="blocked_period",
+            check_in="2026-08-20T00:00:00Z",
+            check_out="2026-08-22T00:00:00Z",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert blocked_period.status_code == 201
+
+    with SessionLocal() as db:
+        assert not service.is_available(
+            db,
+            company_id=company_id,
+            property_id=property_data["id"],
+            check_in=datetime(2026, 8, 11, 0, tzinfo=timezone.utc),
+            check_out=datetime(2026, 8, 13, 0, tzinfo=timezone.utc),
+        )
+        assert service.is_available(
+            db,
+            company_id=company_id,
+            property_id=property_data["id"],
+            check_in=datetime(2026, 8, 12, 10, tzinfo=timezone.utc),
+            check_out=datetime(2026, 8, 13, 10, tzinfo=timezone.utc),
+        )
+        assert not service.is_available(
+            db,
+            company_id=company_id,
+            property_id=property_data["id"],
+            check_in=datetime(2026, 8, 21, 0, tzinfo=timezone.utc),
+            check_out=datetime(2026, 8, 21, 12, tzinfo=timezone.utc),
+        )
+
+    cancelled = client.post(
+        f"/api/v1/bookings/{confirmed.json()['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 200
+
+    with SessionLocal() as db:
+        assert service.is_available(
+            db,
+            company_id=company_id,
+            property_id=property_data["id"],
+            check_in=datetime(2026, 8, 11, 0, tzinfo=timezone.utc),
+            check_out=datetime(2026, 8, 12, 0, tzinfo=timezone.utc),
+        )
+        with pytest.raises(ApiProblem) as invalid_range:
+            service.is_available(
+                db,
+                company_id=company_id,
+                property_id=property_data["id"],
+                check_in=datetime(2026, 8, 15, 0, tzinfo=timezone.utc),
+                check_out=datetime(2026, 8, 15, 0, tzinfo=timezone.utc),
+            )
+        assert invalid_range.value.code == "availability_date_range_invalid"
+
+
+def test_conflicts_are_pairwise_idempotent_acknowledge_and_auto_resolve(
+    client: TestClient,
+) -> None:
+    manager = register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+
+    first = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-10T14:00:00Z",
+        check_out="2026-08-12T10:00:00Z",
+        guest_name="First guest",
+    )
+    second = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-11T14:00:00Z",
+        check_out="2026-08-13T10:00:00Z",
+        guest_name="Second guest",
+    )
+    third = create_booking(
+        client,
+        property_id,
+        check_in="2026-08-11T16:00:00Z",
+        check_out="2026-08-14T10:00:00Z",
+        guest_name="Third guest",
+    )
+
+    conflicts = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert conflicts.status_code == 200, conflicts.text
+    assert conflicts.json()["total"] == 3
+    assert all(len(item["bookings"]) == 2 for item in conflicts.json()["items"])
+
+    first_pair = next(
+        item
+        for item in conflicts.json()["items"]
+        if {booking["id"] for booking in item["bookings"]}
+        == {first["id"], second["id"]}
+    )
+    acknowledged = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={"resolution_note": "Confirmed with the channel manager."},
+        headers=csrf_headers(client),
+    )
+    assert acknowledged.status_code == 200, acknowledged.text
+    assert acknowledged.json()["status"] == "acknowledged"
+    assert acknowledged.json()["acknowledged_by_user_id"] == manager["user"]["id"]
+    assert acknowledged.json()["resolution_note"] == "Confirmed with the channel manager."
+
+    repeated_acknowledgement = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={},
+        headers=csrf_headers(client),
+    )
+    assert repeated_acknowledgement.status_code == 409
+    assert repeated_acknowledgement.json()["code"] == "conflict_already_acknowledged"
+
+    # A normal booking update re-runs reconciliation but does not duplicate pairs.
+    updated = client.patch(
+        f"/api/v1/bookings/{third['id']}",
+        json={"notes": "Still overlapping."},
+        headers=csrf_headers(client),
+    )
+    assert updated.status_code == 200, updated.text
+    repeated = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert repeated.json()["total"] == 3
+
+    cancelled = client.post(
+        f"/api/v1/bookings/{second['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 200, cancelled.text
+
+    unresolved = client.get("/api/v1/booking-conflicts?page_size=100")
+    assert unresolved.status_code == 200
+    assert unresolved.json()["total"] == 1
+    resolved = client.get(
+        "/api/v1/booking-conflicts?status=resolved&page_size=100"
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["total"] == 2
+    resolved_pair = client.get(f"/api/v1/booking-conflicts/{first_pair['id']}")
+    assert resolved_pair.status_code == 200
+    assert resolved_pair.json()["status"] == "resolved"
+    assert resolved_pair.json()["resolution_note"] == "Confirmed with the channel manager."
+
+    cannot_acknowledge_resolved = client.post(
+        f"/api/v1/booking-conflicts/{first_pair['id']}/acknowledge",
+        json={},
+        headers=csrf_headers(client),
+    )
+    assert cannot_acknowledge_resolved.status_code == 409
+    assert cannot_acknowledge_resolved.json()["code"] == "conflict_resolved"
+
+
+def test_conflicts_ignore_adjacent_and_cancelled_bookings_and_enforce_tenant_scope(
+    client: TestClient,
+) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+    first = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-01T14:00:00Z",
+        check_out="2026-09-03T10:00:00Z",
+    )
+    adjacent = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-03T10:00:00Z",
+        check_out="2026-09-05T10:00:00Z",
+    )
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 0
+
+    overlapping = create_booking(
+        client,
+        property_id,
+        check_in="2026-09-02T10:00:00Z",
+        check_out="2026-09-04T10:00:00Z",
+    )
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 2
+
+    cancelled = client.post(
+        f"/api/v1/bookings/{overlapping['id']}/cancel",
+        headers=csrf_headers(client),
+    )
+    assert cancelled.status_code == 200
+    assert client.get("/api/v1/booking-conflicts").json()["total"] == 0
+
+    other_client = TestClient(client.app)
+    register_manager(other_client)
+    hidden = other_client.get("/api/v1/booking-conflicts")
+    assert hidden.status_code == 200
+    assert hidden.json()["total"] == 0
+    inaccessible = other_client.get(
+        f"/api/v1/booking-conflicts/{uuid4()}"
+    )
+    assert inaccessible.status_code == 404
+
+    # Keep variables explicit so this test documents the adjacent/cancelled pair inputs.
+    assert adjacent["id"] != first["id"]
+
+
+def test_direct_booking_payment_tracking_lifecycle_and_validation(client: TestClient) -> None:
+    register_manager(client)
+    property_data = create_property(client)
+    property_id = property_data["id"]
+
+    # 1. Create a direct booking with deposit_received
+    created = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_id,
+            payment_status="deposit_received",
+            total_amount="1200.000",
+            paid_amount="400.000",
+            payment_method="bank_transfer",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert created.status_code == 201, created.text
+    booking = created.json()
+    assert booking["payment_status"] == "deposit_received"
+    assert float(booking["total_amount"]) == 1200.0
+    assert float(booking["paid_amount"]) == 400.0
+    assert booking["payment_method"] == "bank_transfer"
+
+    # 2. Get booking detail verifies fields are persisted
+    fetched = client.get(f"/api/v1/bookings/{booking['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["payment_status"] == "deposit_received"
+    assert float(fetched.json()["total_amount"]) == 1200.0
+    assert float(fetched.json()["paid_amount"]) == 400.0
+    assert fetched.json()["payment_method"] == "bank_transfer"
+
+    # 3. Update payment status to paid_in_full
+    updated = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={
+            "payment_status": "paid_in_full",
+            "paid_amount": "1200.000",
+            "payment_method": "cash",
+        },
+        headers=csrf_headers(client),
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["payment_status"] == "paid_in_full"
+    assert float(updated.json()["paid_amount"]) == 1200.0
+    assert updated.json()["payment_method"] == "cash"
+
+    # 4. Reject invalid payment amounts: paid > total
+    excess_paid = client.patch(
+        f"/api/v1/bookings/{booking['id']}",
+        json={"paid_amount": "1500.000"},
+        headers=csrf_headers(client),
+    )
+    assert excess_paid.status_code == 422
+
+    # 5. Reject negative amount on creation
+    negative_total = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(property_id, total_amount="-50.000"),
+        headers=csrf_headers(client),
+    )
+    assert negative_total.status_code == 422
+
+    # 6. Blocked period clears payment tracking fields
+    blocked = client.post(
+        "/api/v1/bookings",
+        json=booking_payload(
+            property_id,
+            record_type="blocked_period",
+            payment_status="paid_in_full",
+            total_amount="500.000",
+        ),
+        headers=csrf_headers(client),
+    )
+    assert blocked.status_code == 201
+    assert blocked.json()["payment_status"] is None
+    assert blocked.json()["total_amount"] is None
+

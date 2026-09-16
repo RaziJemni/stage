@@ -1,6 +1,9 @@
 import os
+from datetime import timedelta
 
 from celery import Celery
+
+import app.core.model_registry  # noqa: F401
 
 
 celery = Celery(
@@ -15,7 +18,21 @@ celery.conf.update(
     accept_content=["json"],
     timezone=os.getenv("APP_TIMEZONE", "Africa/Tunis"),
     enable_utc=True,
+    beat_schedule={
+        "refresh-calendar-feeds": {
+            "task": "vayca.calendar.refresh_due_channels",
+            "schedule": timedelta(
+                seconds=int(os.getenv("CALENDAR_SYNC_INTERVAL_SECONDS", "900"))
+            ),
+        },
+        "send-post-stay-review-requests": {
+            "task": "vayca.communication.send_due_review_requests",
+            "schedule": timedelta(minutes=30),
+        },
+    },
 )
+
+celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot", "app.modules.messaging"])
 
 
 @celery.task(name="vayca.healthcheck")

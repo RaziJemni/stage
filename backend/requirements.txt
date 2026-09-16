@@ -9,3 +9,5 @@ python-dotenv==1.0.1
 pydantic-settings==2.5.2
 pwdlib[argon2]==0.3.0
 email-validator==2.3.0
+icalendar==7.2.2
+openai==1.101.0

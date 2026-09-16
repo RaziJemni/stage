@@ -22,7 +22,7 @@ Probability and impact are rated Low, Medium, or High. Priority is derived quali
 | R-10 | Prototype UI is mistaken for completed functionality | Medium | Medium | Truthful statuses, connected-data criteria, definition of done | Entire team |
 | R-11 | Docker setup differs between teammates | Medium | Medium | Clean-clone startup test and pinned dependencies | Platform lead |
 | R-12 | Sensitive guest/property information leaks through logs or prompts | Medium | High | Data minimization, sanitized logs, authorization, retention policy | Platform and AI leads |
-| R-13 | Lack of customer validation weakens academic/business claims | High | Medium | Structured interviews and pilot evidence | Documentation coordinator |
+| R-13 | Lack of customer validation weakens academic/business claims | High | Medium | Standardized interview protocol prepared (Chapter 3 / Issue #34); execute field interviews and pilot sessions | Documentation coordinator |
 | R-14 | Documentation and implementation drift | High | Medium | Requirement IDs, traceability, documentation in same PR | Entire team |
 | R-15 | Dependency or provider cost becomes excessive | Medium | Medium | Usage limits, model evaluation, configurable provider/model | Team lead |
 | R-16 | Demo depends on unstable external services | Medium | High | Deterministic fixtures and simulation mode | Entire team |

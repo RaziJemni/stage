@@ -1,14 +1,17 @@
+from decimal import Decimal
 from datetime import datetime, time
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     Time,
@@ -21,13 +24,47 @@ from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.enums import ChannelType, PropertyStatus, enum_type
 
 
-class Property(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "properties"
-    __table_args__ = (UniqueConstraint("company_id", "id", name="uq_properties_company_id_id"),)
+class Owner(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "owners"
+    __table_args__ = (
+        UniqueConstraint("company_id", "id", name="uq_owners_company_id_id"),
+        CheckConstraint(
+            "commission_percentage >= 0 AND commission_percentage <= 100",
+            name="ck_owners_commission_range",
+        ),
+    )
 
     company_id: Mapped[UUID] = mapped_column(
         ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    commission_percentage: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), default=Decimal("20.00"), server_default="20.00", nullable=False
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
+
+
+class Property(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "properties"
+    __table_args__ = (
+        UniqueConstraint("company_id", "id", name="uq_properties_company_id_id"),
+        ForeignKeyConstraint(
+            ["company_id", "owner_id"],
+            ["owners.company_id", "owners.id"],
+            name="fk_properties_company_owner",
+            ondelete="SET NULL",
+        ),
+    )
+
+    company_id: Mapped[UUID] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    owner_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     address_line1: Mapped[str | None] = mapped_column(String(200))
     address_line2: Mapped[str | None] = mapped_column(String(200))

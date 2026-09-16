@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
@@ -19,6 +19,7 @@ from app.core.database import SessionLocal
 from app.core.enums import UserStatus
 from app.main import create_app
 from app.modules.identity.models import AppUser, AuthSession, UserInvitation
+from app.modules.messaging.models import Conversation
 from app.modules.identity.rate_limit import LoginRateLimiter, get_login_rate_limiter
 
 
@@ -111,6 +112,51 @@ def invite_staff(client: TestClient, email: str = "staff@example.com") -> tuple[
     invitation_url = payload["invitation_url"]
     token = parse_qs(urlparse(invitation_url).query)["token"][0]
     return payload, token
+
+
+def test_manager_can_scope_staff_properties_and_capabilities(client: TestClient) -> None:
+    register(client)
+    first = client.post("/api/v1/properties", json={"name": "Villa One", "city": "Tunis"}, headers=csrf_headers(client))
+    second = client.post("/api/v1/properties", json={"name": "Villa Two", "city": "Tunis"}, headers=csrf_headers(client))
+    assert first.status_code == second.status_code == 201
+    invitation, token = invite_staff(client, "scoped-staff@example.com")
+    staff_client = TestClient(client.app)
+    accepted = staff_client.post("/api/v1/auth/invitations/accept", json={"token": token, "password": "staff-secure-password"})
+    assert accepted.status_code == 200
+
+    update = client.put(
+        f"/api/v1/team/{invitation['member']['id']}/access",
+        json={"property_ids": [first.json()["id"]], "operations_access": True, "maintenance_access": False},
+        headers=csrf_headers(client),
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["property_ids"] == [first.json()["id"]]
+
+    visible = staff_client.get("/api/v1/properties")
+    assert visible.status_code == 200
+    assert [item["id"] for item in visible.json()["items"]] == [first.json()["id"]]
+    assert staff_client.get(f"/api/v1/properties/{second.json()['id']}").status_code == 404
+    assert staff_client.get("/api/v1/tickets").status_code == 403
+
+    client.put(
+        f"/api/v1/team/{invitation['member']['id']}/access",
+        json={"property_ids": [first.json()["id"]], "operations_access": True, "maintenance_access": True},
+        headers=csrf_headers(client),
+    )
+    for property_id in (first.json()["id"], second.json()["id"]):
+        assert client.post("/api/v1/bookings", json={"property_id": property_id, "source_type": "manual", "record_type": "reservation", "status": "confirmed", "check_in": "2026-10-01T14:00:00Z", "check_out": "2026-10-03T10:00:00Z"}, headers=csrf_headers(client)).status_code == 201
+        assert client.post("/api/v1/tickets", json={"property_id": property_id, "title": "Test ticket", "description": "Scoped access test", "priority": "medium"}, headers=csrf_headers(client)).status_code == 201
+    with SessionLocal() as db:
+        company_id = db.scalar(sa.select(AppUser.company_id).where(AppUser.id == invitation["member"]["id"]))
+        assert company_id is not None
+        db.add_all([Conversation(company_id=company_id, property_id=UUID(property_id), guest_contact_identifier=f"+216{index}") for index, property_id in enumerate((first.json()["id"], second.json()["id"]), 1)])
+        db.commit()
+    bookings = staff_client.get("/api/v1/bookings?range_start=2026-10-01T00:00:00Z&range_end=2026-10-04T00:00:00Z")
+    tickets = staff_client.get("/api/v1/tickets")
+    conversations = staff_client.get("/api/v1/conversations")
+    assert {item["property_id"] for item in bookings.json()["items"]} == {first.json()["id"]}
+    assert {item["property_id"] for item in tickets.json()["items"]} == {first.json()["id"]}
+    assert {item["property_id"] for item in conversations.json()["items"]} == {first.json()["id"]}
 
 
 def test_registration_hashes_password_and_normalizes_email(client: TestClient) -> None:
@@ -299,3 +345,110 @@ def test_redis_login_limiter_enforces_configured_window() -> None:
         assert 0 < ttl <= settings.login_rate_limit_window_seconds
     finally:
         redis_client.delete(key)
+
+
+def test_user_preferred_language_persistence_and_update(client: TestClient) -> None:
+    reg_data = register(client, email="lang_user@example.com")
+    assert reg_data["user"]["preferred_language"] == "fr"
+
+    me_response = client.get("/api/v1/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["user"]["preferred_language"] == "fr"
+
+    update_response = client.patch(
+        "/api/v1/auth/preferences",
+        json={"preferred_language": "en"},
+        headers=csrf_headers(client),
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["user"]["preferred_language"] == "en"
+
+    me_after = client.get("/api/v1/auth/me")
+    assert me_after.status_code == 200
+    assert me_after.json()["user"]["preferred_language"] == "en"
+
+    invalid_patch = client.patch(
+        "/api/v1/auth/preferences",
+        json={"preferred_language": "de"},
+        headers=csrf_headers(client),
+    )
+    assert invalid_patch.status_code == 422
+
+
+def test_team_invitation_failure_rolls_back_user_and_invitation(client: TestClient) -> None:
+    from unittest.mock import patch
+    register(client)
+    target_email = "willfail@example.com"
+
+    with patch.object(settings, "email_provider", "smtp"):
+        with patch(
+            "app.integrations.email.adapters.SmtpEmailAdapter.send",
+            side_effect=ApiProblem(
+                status=502,
+                title="Email delivery failed",
+                detail="SMTP server unreachable",
+                code="email_delivery_failed",
+            ),
+        ):
+            response = client.post(
+                "/api/v1/team/invitations",
+                json={"name": "Failed Staff", "email": target_email},
+                headers=csrf_headers(client),
+            )
+            assert response.status_code == 502
+            assert response.json()["code"] == "email_delivery_failed"
+
+    # Verify no orphaned AppUser or UserInvitation records exist
+    with SessionLocal() as db:
+        user = db.query(AppUser).filter(AppUser.email == target_email).first()
+        assert user is None
+
+
+def test_team_invitation_production_smtp_dispatches_email(client: TestClient) -> None:
+    from unittest.mock import MagicMock, patch
+    register(client)
+    target_email = "prodstaff@example.com"
+
+    mock_send = MagicMock(return_value=True)
+    with patch.object(settings, "environment", "production"):
+        with patch.object(settings, "email_provider", "smtp"):
+            with patch("app.integrations.email.adapters.SmtpEmailAdapter.send", mock_send):
+                response = client.post(
+                    "/api/v1/team/invitations",
+                    json={"name": "Prod Staff", "email": target_email},
+                    headers=csrf_headers(client),
+                )
+                assert response.status_code == 201
+                data = response.json()
+                # In production, invitation_url must be None to prevent token exposure
+                assert data["invitation_url"] is None
+                assert data["member"]["email"] == target_email
+                assert data["member"]["status"] == "invited"
+
+    # Verify mock_send was called with an EmailPayload containing the invitation link
+    assert mock_send.call_count == 1
+    sent_payload = mock_send.call_args[0][0]
+    assert sent_payload.to_email == target_email
+    assert sent_payload.to_name == "Prod Staff"
+    assert "/accept-invite?token=" in sent_payload.html_body
+    assert "/accept-invite?token=" in sent_payload.text_body
+
+
+def test_team_invitation_production_unconfigured_raises_503(client: TestClient) -> None:
+    from unittest.mock import patch
+    register(client)
+    target_email = "unconfigured@example.com"
+
+    with patch.object(settings, "environment", "production"):
+        with patch.object(settings, "email_provider", "console"):
+            response = client.post(
+                "/api/v1/team/invitations",
+                json={"name": "Unconfigured Staff", "email": target_email},
+                headers=csrf_headers(client),
+            )
+            assert response.status_code == 503
+            assert response.json()["code"] == "invitation_delivery_unavailable"
+
+    with SessionLocal() as db:
+        user = db.query(AppUser).filter(AppUser.email == target_email).first()
+        assert user is None

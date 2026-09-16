@@ -79,6 +79,21 @@ services:
       - ./backend:/app
     command: celery -A app.worker:celery worker --loglevel=info
 
+  beat:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: celery -A app.worker:celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+
   frontend:
     build:
       context: ./frontend
@@ -124,6 +139,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_test:5432/${POSTGRES_DB}_test
       PYTHONPATH: /app
       REDIS_URL: redis://redis_test:6379/0
+      CELERY_BROKER_URL: redis://redis_test:6379/0
+      CELERY_RESULT_BACKEND: redis://redis_test:6379/1
     depends_on:
       db_test:
         condition: service_healthy

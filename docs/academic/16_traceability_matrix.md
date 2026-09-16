@@ -1,10 +1,10 @@
 # Requirements Traceability Matrix
 
-**Status:** Initial baseline; GitHub issue numbers must be updated during backlog reconciliation
+**Status:** Active baseline (MVP implementation verified; field interviews pending execution)
 
 ## Purpose
 
-Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. GitHub issue references below reflect the current backlog where a suitable issue exists. Issues should be split or rewritten when they combine materially different requirements.
+Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. All MVP functional issues are implemented and covered by automated test suites. Issue #34 establishes the reviewed customer discovery protocol in Chapter 3, pending field execution.
 
 ## Functional Traceability
 
@@ -15,6 +15,7 @@ Traceability connects stakeholder needs to requirements, modules, implementation
 | Manage property information | FR-PROP-01..05 | Properties/Calendar | #7 | CRUD and tenant-isolation tests |
 | Connect calendar source | FR-CAL-01..03, FR-CAL-09 | Properties/Calendar | #3, #4 | Feed fixture and idempotency tests |
 | Record direct reservations and calculate availability | FR-CAL-04, FR-MSG-07 | Properties/Calendar | #31 | Manual-booking and availability tests |
+| Configure and approve direct-booking prices | FR-CAL-10, NFR-REL-04..05 | Properties/Calendar | #21 | Pricing-profile, quote, override-audit, and tenant-isolation tests |
 | Detect booking conflicts | FR-CAL-05, FR-CAL-08 | Properties/Calendar | #5 | Date-overlap matrix |
 | View portfolio calendar | FR-CAL-06..07 | Properties/Calendar | #6 | Connected UI and mobile test |
 | Receive guest messages | FR-MSG-01..04 | Communication | #8, #11, #12 | Webhook, deduplication, and UI tests |
@@ -27,8 +28,8 @@ Traceability connects stakeholder needs to requirements, modules, implementation
 | Update guest about issue | FR-TKT-08 | Maintenance/Communication | #16 | Approved-message test |
 | Review daily operations | FR-DASH-01..04 | Supervision | #17 | Derived-data and navigation tests |
 | Manage settings and integration health | FR-SET-01..04 | Foundation/Supervision | #18, #32 | Role and truthful-status tests |
-| Validate the integrated MVP | Cross-cutting NFRs | Cross-cutting | #33 | Staging end-to-end evidence |
-| Replace market assumptions with field evidence | Project-study validation | Documentation | #34 | Reviewed interviews and study update |
+| Validate the integrated MVP | Cross-cutting NFRs | Cross-cutting | #33 | Staging end-to-end evidence (`test_mvp_validation.py`) |
+| Replace market assumptions with field evidence | Project-study validation | Documentation | #34 | Reviewed interview guide & protocol (Chapter 3); field interviews pending |
 
 ## Non-Functional Traceability
 

@@ -2,7 +2,7 @@ export interface Property {
   id: string;
   name: string;
   location: string;
-  city: 'Hammamet' | 'Sidi Bou Said' | 'Tunis' | 'Djerba' | 'Sousse';
+  city: string;
   bedrooms: number;
   bathrooms: number;
   maxGuests: number;
@@ -18,6 +18,8 @@ export interface Property {
   trashSchedule: string;
   houseRules: string[];
   emergencyContact: string;
+  ownerId?: string | null;
+  ownerName?: string | null;
 }
 
 export interface Booking {

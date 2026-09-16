@@ -3,15 +3,18 @@ from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKeyConstraint,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    select,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
 from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.enums import (
@@ -27,6 +30,7 @@ from app.core.enums import (
 class Conversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "conversations"
     __table_args__ = (
+        CheckConstraint("unread_message_count >= 0", name="conversation_unread_message_count_nonnegative"),
         ForeignKeyConstraint(
             ["company_id", "property_id"],
             ["properties.company_id", "properties.id"],
@@ -67,6 +71,7 @@ class Conversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     assigned_staff_user_id: Mapped[UUID | None] = mapped_column(index=True)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     escalation_reason: Mapped[str | None] = mapped_column(Text)
+    unread_message_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
 
 
 class Message(UUIDPrimaryKeyMixin, Base):
@@ -121,6 +126,18 @@ Index(
     Conversation.guest_contact_identifier,
     unique=True,
     postgresql_where=Conversation.status == ConversationStatus.OPEN.value,
+)
+
+Conversation.last_message_sender_type = column_property(
+    select(Message.sender_type)
+    .where(
+        Message.company_id == Conversation.company_id,
+        Message.conversation_id == Conversation.id,
+    )
+    .order_by(Message.created_at.desc())
+    .limit(1)
+    .correlate_except(Message)
+    .scalar_subquery()
 )
 Index(
     "uq_messages_external_id",
