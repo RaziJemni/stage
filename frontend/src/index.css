@@ -36,7 +36,27 @@
     font-family: var(--font-sans);
     background-color: #FAF8F5;
     color: #1C1B18;
+    -webkit-tap-highlight-color: transparent;
   }
+
+  /* Optimize touch responsiveness and eliminate tap delay on mobile devices */
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+
+/* Safe area inset utility classes for mobile notches and home indicators */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Custom scrollbars for clean multi-property calendar & chat threads */
