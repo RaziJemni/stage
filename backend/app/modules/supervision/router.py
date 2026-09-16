@@ -2,27 +2,41 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from app.api.errors import ApiProblem
 from app.core.config import settings
 from app.core.database import get_db
 from app.modules.identity.dependencies import CurrentContext, ManagerContext
+from app.modules.identity.models import Company
+from app.modules.properties.models import Owner
 from app.modules.supervision.payout_service import (
+    calculate_owner_statement,
+    create_or_get_statement_token,
+    dispatch_statement_email,
     export_owner_statement_csv,
     get_company_owner_statements,
     get_single_owner_statement,
+    verify_statement_token,
 )
 from app.modules.supervision.schemas import (
     CompanyStatementsOverviewResponse,
+    GetOwnerStatementShareLinkRequest,
     OwnerMonthlyStatementResponse,
+    OwnerStatementShareLinkResponse,
     PortfolioAnalyticsResponse,
+    SendOwnerStatementRequest,
+    SendOwnerStatementResponse,
     WhatsAppIntegrationHealthResponse,
 )
 from app.modules.supervision.service import get_portfolio_analytics
+from app.modules.supervision.statement_html import render_owner_statement_html
 
 
 router = APIRouter(prefix="/integrations", tags=["Supervision"])
 analytics_router = APIRouter(prefix="/supervision", tags=["Supervision"])
+public_owner_router = APIRouter(prefix="/public/owner-statements", tags=["Public Owner Portal"])
 
 
 def _whatsapp_health() -> WhatsAppIntegrationHealthResponse:
@@ -166,3 +180,175 @@ def export_owner_statement_endpoint(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@analytics_router.get(
+    "/owner-statements/{owner_id}/html",
+    response_class=HTMLResponse,
+    summary="Get branded printable HTML owner monthly statement",
+)
+def get_owner_statement_html_endpoint(
+    owner_id: UUID,
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+    year: int | None = Query(None, description="Year (e.g. 2026)"),
+    month: int | None = Query(None, ge=1, le=12, description="Month (1-12)"),
+) -> HTMLResponse:
+    now = datetime.now(timezone.utc)
+    target_year = year or now.year
+    target_month = month or now.month
+    statement = get_single_owner_statement(
+        db,
+        company_id=context.company.id,
+        owner_id=owner_id,
+        year=target_year,
+        month=target_month,
+        currency=context.company.default_currency or "TND",
+    )
+    rendered_html = render_owner_statement_html(statement, company_name=context.company.name)
+    return HTMLResponse(content=rendered_html)
+
+
+@analytics_router.post(
+    "/owner-statements/send",
+    response_model=SendOwnerStatementResponse,
+    summary="Email monthly statement directly to the owner",
+)
+def send_owner_statement_email_endpoint(
+    payload: SendOwnerStatementRequest,
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+) -> SendOwnerStatementResponse:
+    result = dispatch_statement_email(
+        db,
+        company_id=context.company.id,
+        owner_id=payload.owner_id,
+        year=payload.year,
+        month=payload.month,
+        language=payload.language,
+    )
+    return SendOwnerStatementResponse(**result)
+
+
+@analytics_router.post(
+    "/owner-statements/share-link",
+    response_model=OwnerStatementShareLinkResponse,
+    summary="Generate a secure shareable link for an owner statement",
+)
+def get_owner_statement_share_link_endpoint(
+    payload: GetOwnerStatementShareLinkRequest,
+    context: CurrentContext,
+    db: Session = Depends(get_db),
+) -> OwnerStatementShareLinkResponse:
+    raw_token, token_obj = create_or_get_statement_token(
+        db,
+        company_id=context.company.id,
+        owner_id=payload.owner_id,
+        year=payload.year,
+        month=payload.month,
+    )
+    base_url = settings.frontend_base_url.rstrip("/")
+    portal_url = f"{base_url}/owner/statements?token={raw_token}"
+    return OwnerStatementShareLinkResponse(
+        owner_id=payload.owner_id,
+        year=payload.year,
+        month=payload.month,
+        portal_url=portal_url,
+        token=raw_token,
+        expires_at=token_obj.expires_at.isoformat(),
+    )
+
+
+# -------------------------------------------------------------------------
+# Public Owner Portal Endpoints (Token-Secured)
+# -------------------------------------------------------------------------
+
+
+@public_owner_router.get(
+    "/data",
+    response_model=OwnerMonthlyStatementResponse,
+    summary="Fetch owner statement data via secure access token",
+)
+def get_public_owner_statement_data(
+    token: str = Query(..., min_length=16, description="Cryptographic access token"),
+    db: Session = Depends(get_db),
+) -> OwnerMonthlyStatementResponse:
+    token_record = verify_statement_token(db, token)
+    owner = db.get(Owner, token_record.owner_id)
+    if not owner or owner.company_id != token_record.company_id:
+        raise ApiProblem(
+            status=404,
+            title="Owner not found",
+            detail="The owner associated with this token could not be found.",
+            code="owner_not_found",
+        )
+    company = db.get(Company, token_record.company_id)
+    currency = company.default_currency if company else "TND"
+    return calculate_owner_statement(
+        db,
+        company_id=token_record.company_id,
+        owner=owner,
+        year=token_record.year,
+        month=token_record.month,
+        currency=currency,
+    )
+
+
+@public_owner_router.get(
+    "/html",
+    response_class=HTMLResponse,
+    summary="Fetch branded printable HTML statement via secure access token",
+)
+def get_public_owner_statement_html(
+    token: str = Query(..., min_length=16, description="Cryptographic access token"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    token_record = verify_statement_token(db, token)
+    owner = db.get(Owner, token_record.owner_id)
+    if not owner or owner.company_id != token_record.company_id:
+        raise ApiProblem(status=404, title="Owner not found", detail="Owner not found.", code="owner_not_found")
+    company = db.get(Company, token_record.company_id)
+    company_name = company.name if company else "Vayca Operations"
+    currency = company.default_currency if company else "TND"
+    statement = calculate_owner_statement(
+        db,
+        company_id=token_record.company_id,
+        owner=owner,
+        year=token_record.year,
+        month=token_record.month,
+        currency=currency,
+    )
+    rendered_html = render_owner_statement_html(statement, company_name=company_name)
+    return HTMLResponse(content=rendered_html)
+
+
+@public_owner_router.get(
+    "/export",
+    summary="Export owner statement as CSV via secure access token",
+)
+def export_public_owner_statement_csv(
+    token: str = Query(..., min_length=16, description="Cryptographic access token"),
+    db: Session = Depends(get_db),
+) -> Response:
+    token_record = verify_statement_token(db, token)
+    owner = db.get(Owner, token_record.owner_id)
+    if not owner or owner.company_id != token_record.company_id:
+        raise ApiProblem(status=404, title="Owner not found", detail="Owner not found.", code="owner_not_found")
+    company = db.get(Company, token_record.company_id)
+    currency = company.default_currency if company else "TND"
+    statement = calculate_owner_statement(
+        db,
+        company_id=token_record.company_id,
+        owner=owner,
+        year=token_record.year,
+        month=token_record.month,
+        currency=currency,
+    )
+    csv_content = export_owner_statement_csv(statement)
+    filename = f"statement_{statement.owner_name.replace(' ', '_')}_{token_record.year}_{token_record.month:02d}.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+

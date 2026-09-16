@@ -146,3 +146,75 @@ export function getExportStatementUrl(ownerId: string, year?: number, month?: nu
   const qs = params.toString() ? `?${params.toString()}` : '';
   return `/api/v1/supervision/owner-statements/${ownerId}/export${qs}`;
 }
+
+export function getPrintStatementUrl(ownerId: string, year?: number, month?: number): string {
+  const params = new URLSearchParams();
+  if (year) params.set('year', String(year));
+  if (month) params.set('month', String(month));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return `/api/v1/supervision/owner-statements/${ownerId}/html${qs}`;
+}
+
+export interface SendOwnerStatementPayload {
+  owner_id: string;
+  year: number;
+  month: number;
+  language?: string;
+}
+
+export interface SendOwnerStatementResult {
+  success: boolean;
+  sent_to_email: string;
+  owner_name: string;
+  year: number;
+  month: number;
+  token_id: string;
+  portal_url: string;
+  token?: string;
+}
+
+export async function sendOwnerStatementEmail(payload: SendOwnerStatementPayload): Promise<SendOwnerStatementResult> {
+  return apiRequest<SendOwnerStatementResult>('/api/v1/supervision/owner-statements/send', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface OwnerStatementShareLinkResult {
+  owner_id: string;
+  year: number;
+  month: number;
+  portal_url: string;
+  token: string;
+  expires_at: string;
+}
+
+export async function getOwnerStatementShareLink(payload: { owner_id: string; year: number; month: number }): Promise<OwnerStatementShareLinkResult> {
+  return apiRequest<OwnerStatementShareLinkResult>('/api/v1/supervision/owner-statements/share-link', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchPublicOwnerStatement(token: string): Promise<OwnerMonthlyStatement> {
+  const params = new URLSearchParams({ token });
+  const res = await fetch(`/api/v1/public/owner-statements/data?${params.toString()}`, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || 'Failed to fetch owner statement');
+  }
+  return res.json();
+}
+
+export function getPublicPrintStatementUrl(token: string): string {
+  return `/api/v1/public/owner-statements/html?token=${encodeURIComponent(token)}`;
+}
+
+export function getPublicExportStatementUrl(token: string): string {
+  return `/api/v1/public/owner-statements/export?token=${encodeURIComponent(token)}`;
+}
+

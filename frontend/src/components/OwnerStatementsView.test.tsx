@@ -9,6 +9,14 @@ vi.mock('../api/owners', () => ({
   getExportStatementUrl: vi.fn().mockImplementation((ownerId, year, month) => 
     `/api/v1/supervision/owner-statements/${ownerId}/export?year=${year}&month=${month}`
   ),
+  getPrintStatementUrl: vi.fn().mockImplementation((ownerId, year, month) => 
+    `/api/v1/supervision/owner-statements/${ownerId}/html?year=${year}&month=${month}`
+  ),
+  sendOwnerStatementEmail: vi.fn().mockResolvedValue({ success: true, sent_to_email: 'kamel@example.com' }),
+  getOwnerStatementShareLink: vi.fn().mockResolvedValue({
+    portal_url: 'http://localhost:5173/owner/statements?token=test-token-xyz',
+    expires_at: '2026-10-16T20:00:00Z',
+  }),
 }));
 
 const mockOverview: ownersApi.CompanyStatementsOverview = {
@@ -159,6 +167,59 @@ describe('OwnerStatementsView Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Kamel Trabelsi')).toBeInTheDocument();
+    });
+  });
+
+  it('triggers email dispatch when email action button is clicked', async () => {
+    vi.mocked(ownersApi.fetchCompanyStatements).mockResolvedValue(mockOverview);
+
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText('Kamel Trabelsi')).toBeInTheDocument();
+    });
+
+    const sendButtons = screen.getAllByTitle('Email statement');
+    expect(sendButtons.length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(sendButtons[0]);
+
+    await waitFor(() => {
+      expect(ownersApi.sendOwnerStatementEmail).toHaveBeenCalledWith({
+        owner_id: 'owner-1',
+        year: 2026,
+        month: 9,
+      });
+      expect(screen.getByText(/kamel@example.com/i)).toBeInTheDocument();
+    });
+  });
+
+  it('generates and copies share link to clipboard', async () => {
+    vi.mocked(ownersApi.fetchCompanyStatements).mockResolvedValue(mockOverview);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    renderView();
+
+    await waitFor(() => {
+      expect(screen.getByText('Kamel Trabelsi')).toBeInTheDocument();
+    });
+
+    const shareButtons = screen.getAllByTitle('Share link');
+    expect(shareButtons.length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(shareButtons[0]);
+
+    await waitFor(() => {
+      expect(ownersApi.getOwnerStatementShareLink).toHaveBeenCalledWith({
+        owner_id: 'owner-1',
+        year: 2026,
+        month: 9,
+      });
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:5173/owner/statements?token=test-token-xyz');
     });
   });
 });

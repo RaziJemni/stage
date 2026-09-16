@@ -29,10 +29,14 @@ celery.conf.update(
             "task": "vayca.communication.send_due_review_requests",
             "schedule": timedelta(minutes=30),
         },
+        "dispatch-monthly-owner-statements": {
+            "task": "vayca.supervision.dispatch_monthly_owner_statements",
+            "schedule": timedelta(days=1),
+        },
     },
 )
 
-celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot", "app.modules.messaging"])
+celery.autodiscover_tasks(["app.modules.calendar", "app.modules.chatbot", "app.modules.messaging", "app.modules.supervision"])
 
 
 @celery.task(name="vayca.healthcheck")
