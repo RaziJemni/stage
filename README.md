@@ -31,6 +31,8 @@ Transactional email delivery is modularized behind a pluggable email adapter arc
 
 Outbound guest messaging and webhook ingestion are powered by a multi-provider WhatsApp adapter supporting local simulation, Meta WhatsApp Business Cloud API, and Twilio WhatsApp Messaging. Inbound webhooks resolve property context through active guest stays or configured fallbacks, while staff and grounded chatbot replies transmit outbound messages to guest WhatsApp numbers, transitioning delivery states to `SENT` or `FAILED` and tracking provider delivery callbacks (`delivered`, `read`, `failed`) idempotently.
 
+Mobile operations and native application requirements were evaluated in [ADR 0014](docs/decisions/0014-native-mobile-evaluation.md), establishing that building a separate dual-client codebase (Flutter/React Native) is unjustified for Vayca's target agency workflows. The platform provides standalone Progressive Web App (PWA) capabilities, including a W3C Web App Manifest (`manifest.webmanifest`), home-screen installability, mobile safe-area inset ergonomics (`env(safe-area-inset-bottom)`, `viewport-fit=cover`), touch delay elimination (`touch-action: manipulation`), and responsive installation prompts (`MobilePwaPrompt`) for Android and iOS Safari.
+
 
 
 ## Install the Required Software

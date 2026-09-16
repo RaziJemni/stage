@@ -25,6 +25,7 @@ import {
 } from './api/messaging';
 import { Sidebar } from './components/Sidebar';
 import type { ActivePage } from './components/Sidebar';
+import { MobilePwaPrompt } from './components/MobilePwaPrompt';
 import { useAuth } from './auth/useAuth';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { fetchBookingConflicts } from './api/calendar';
@@ -344,7 +345,8 @@ function WorkspaceApp() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-[#FAF8F5] pb-20 md:pb-0">
+      <main className="flex-1 overflow-y-auto bg-[#FAF8F5] pb-[max(5rem,calc(4.5rem+env(safe-area-inset-bottom)))] md:pb-0">
+        <MobilePwaPrompt />
         {activePage === 'dashboard' && (
           <DashboardPage
             properties={properties}

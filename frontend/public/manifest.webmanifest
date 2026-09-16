@@ -1,0 +1,25 @@
+{
+  "name": "Vayca Operations",
+  "short_name": "Vayca",
+  "description": "B2B Property Operations Platform for Tunisian Agencies and Owners",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FAF8F5",
+  "theme_color": "#0F3D5E",
+  "icons": [
+    {
+      "src": "/vayca-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/vayca-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

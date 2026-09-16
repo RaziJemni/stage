@@ -417,4 +417,12 @@ export const fr: Record<string, string> = {
   'owners.active': 'Actif',
   'owners.inactive': 'Inactif',
   'owners.no_owners': 'Aucun propriétaire configuré pour le moment.',
+
+  // Mobile / PWA
+  'pwa.prompt_title': 'Installer Vayca sur votre appareil',
+  'pwa.prompt_subtitle': 'Accédez rapidement aux opérations depuis votre écran d\'accueil.',
+  'pwa.install_button': 'Installer l\'application',
+  'pwa.ios_instructions': 'Pour installer : appuyez sur Partager puis "Sur l\'écran d\'accueil".',
+  'pwa.dismiss': 'Plus tard',
+  'pwa.installed': 'Application installée',
 };
