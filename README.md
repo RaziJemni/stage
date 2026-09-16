@@ -35,32 +35,6 @@ Mobile operations and native application requirements were evaluated in [ADR 001
 
 
 
-## Latest Merged Milestone
-
-The latest feature merged into `testing` is secure manager and staff authentication. It establishes the access boundary required before operational modules can expose company data.
-
-Implemented and verified capabilities:
-
-- company registration with the first active manager;
-- manager and staff email/password login using Argon2id password hashing;
-- revocable, opaque server-backed sessions in `HttpOnly`, `SameSite=Lax` cookies;
-- CSRF protection for authenticated state-changing requests;
-- role-aware navigation, protected frontend routes, logout, staff invitations, and manager-controlled account status;
-- tenant isolation from trusted server-side company context, plus Redis-backed failed-login limiting;
-- a responsive mobile Profile sheet for identity, Settings access for managers, and logout.
-
-The initial PostgreSQL schema, Alembic migrations, shared API/error conventions, Docker environment, and automated backend/frontend tests are also merged. Property management is currently **in progress** and is not included in this milestone.
-
-## Merged Feature Credits
-
-Credits below reflect the GitHub author of each merged pull request. AI-assisted work is reviewed and owned by the listed contributor.
-
-| Merged capability | Contributor | Evidence |
-|---|---|---|
-| Initial PostgreSQL schema, pgAdmin development setup, and database foundation | Mohamed Saadallah ([@Avenger1705](https://github.com/Avenger1705)) | [PR #39](https://github.com/RaziJemni/stage/pull/39) |
-| Shared API conventions and isolated database migration coverage | Razi Jemni ([@RaziJemni](https://github.com/RaziJemni)) | [PR #41](https://github.com/RaziJemni/stage/pull/41) |
-| Manager/staff authentication, sessions, invitations, role controls, and responsive profile/logout access | Razi Jemni ([@RaziJemni](https://github.com/RaziJemni)) | [PR #43](https://github.com/RaziJemni/stage/pull/43) |
-
 ## Install the Required Software
 
 Only Git and Docker Desktop are required to run the complete project. An editor is optional.
