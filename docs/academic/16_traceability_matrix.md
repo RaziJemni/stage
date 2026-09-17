@@ -1,10 +1,10 @@
 # Requirements Traceability Matrix
 
-**Status:** Active baseline (MVP implementation verified; field interviews pending execution)
+**Status:** Active baseline (MVP implementation and system specification fully verified)
 
 ## Purpose
 
-Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. All MVP functional issues are implemented and covered by automated test suites. Issue #34 establishes the reviewed customer discovery protocol in Chapter 3, pending field execution.
+Traceability connects stakeholder needs to requirements, modules, implementation work, and verification. All MVP functional issues are implemented and covered by automated test suites. Empirical customer field interviews are tracked as an open backlog item (Issue #34) for post-MVP deployment.
 
 ## Functional Traceability
 
@@ -29,7 +29,7 @@ Traceability connects stakeholder needs to requirements, modules, implementation
 | Review daily operations | FR-DASH-01..04 | Supervision | #17 | Derived-data and navigation tests |
 | Manage settings and integration health | FR-SET-01..04 | Foundation/Supervision | #18, #32 | Role and truthful-status tests |
 | Validate the integrated MVP | Cross-cutting NFRs | Cross-cutting | #33 | Staging end-to-end evidence (`test_mvp_validation.py`) |
-| Replace market assumptions with field evidence | Project-study validation | Documentation | #34 | Reviewed interview guide & protocol (Chapter 3); field interviews pending |
+| Post-MVP field validation and customer discovery | Post-MVP pilots | Documentation / Roadmap | #34 (Open) | Open backlog issue for operational field pilot interviews |
 
 ## Non-Functional Traceability
 
