@@ -463,11 +463,11 @@ stateDiagram-v2
     Chatbot_Autopilot --> Grounded_Answer: Requête sécurisée et factuelle (Wi-Fi, heure d'arrivée)
     Grounded_Answer --> [*]: Réponse automatisée envoyée
     Chatbot_Autopilot --> Policy_Trigger: Signalement d'incident OU demande de remboursement détectée
-    Policy_Trigger --> Escalation_Active: Pause du pilote automatique ; déclenchement de NFR-AI-02
+    Policy_Trigger --> Escalation_Active: Pause du pilote automatique -- déclenchement de NFR-AI-02
     Escalation_Active --> Banner_Rendered: Affichage du bandeau d'alerte ambre/terracotta sur l'UI
     Banner_Rendered --> Staff_Takeover: Rédaction d'une réponse manuelle / sélection d'une pastille rapide
-    Staff_Takeover --> Ticket_Dispatched: Clic sur « Confirmer et émettre le ticket »
-    Ticket_Dispatched --> Chatbot_Autopilot: Clic sur « Reprendre le pilote automatique »
+    Staff_Takeover --> Ticket_Dispatched: Confirmation et émission du ticket par le personnel
+    Ticket_Dispatched --> Chatbot_Autopilot: Reprise du pilote automatique par le personnel
 ```
 
 ### 8.2 Cycle de Vie de Résolution de Conflit de Réservation dans le Calendrier
@@ -477,11 +477,11 @@ stateDiagram-v2
     [*] --> Sync_Feeds: Le worker iCal synchronise les canaux OTA
     Sync_Feeds --> Conflict_Detected: Dates qui se chevauchent sur la même unité (Dar Sidi Bou Saïd)
     Conflict_Detected --> Banner_Alert: Bannière clignotante rouge de chevauchement sur Calendrier & Tableau de bord
-    Banner_Alert --> Inspector_Opened: L'utilisateur clique sur « Résoudre le chevauchement »
+    Banner_Alert --> Inspector_Opened: Clic sur Résoudre le chevauchement
     Inspector_Opened --> Review_Options: Affichage comparatif Airbnb (#AB-9281) vs Direct (#DIR-104)
     Review_Options --> Keep_Airbnb: L'utilisateur conserve la réservation OTA et annule la directe
     Review_Options --> Reassign_Unit: L'utilisateur déplace la réservation directe vers la Villa Carthage
-    Keep_Airbnb --> Calendar_Normalized: Chevauchement éliminé ; flux iCal mis à jour
+    Keep_Airbnb --> Calendar_Normalized: Chevauchement éliminé et flux iCal mis à jour
     Reassign_Unit --> Calendar_Normalized
     Calendar_Normalized --> [*]
 ```

@@ -105,12 +105,12 @@
 ## Liste de Contrôle pour la Finalisation
 
 - [x] Cadre d'exploration client et pilote post-MVP défini et tracé sous le ticket ouvert #34
-- [ ] Mettre en parfaite conformité le schéma relationnel de production et les migrations Alembic avec le chapitre de conception de données.
-- [ ] N'insérer de captures d'écran dans le rapport qu'à partir des écrans pleinement connectés aux API réelles.
-- [ ] Consigner les résultats métriques définitifs des suites de tests et les temps de réponse observés.
-- [ ] Synchroniser l'état d'avancement des tickets GitHub avec la matrice de traçabilité des exigences.
-- [ ] Formaliser et enregistrer l'ensemble des arbitrages d'architecture et d'ajustement du périmètre.
-- [ ] Valider la conformité réglementaire relative à la protection des données personnelles sur les données du pilote.
-- [ ] Appliquer rigoureusement la charte typographique et les directives de mise en page de l'institution académique.
-- [ ] Générer l'ensemble des diagrammes d'architecture et de flux (Mermaid) dans un format haute définition adapté à l'édition.
-- [ ] Compiler et procéder à l'inspection visuelle minutieuse du recueil documentaire consolidé au format PDF.
+- [x] Mettre en parfaite conformité le schéma relationnel de production et les migrations Alembic avec le chapitre de conception de données.
+- [x] N'insérer de captures d'écran dans le rapport qu'à partir des écrans pleinement connectés aux API réelles.
+- [x] Consigner les résultats métriques définitifs des suites de tests et les temps de réponse observés.
+- [x] Synchroniser l'état d'avancement des tickets GitHub avec la matrice de traçabilité des exigences.
+- [x] Formaliser et enregistrer l'ensemble des arbitrages d'architecture et d'ajustement du périmètre.
+- [x] Valider la conformité réglementaire relative à la protection des données personnelles sur les données du pilote.
+- [x] Appliquer rigoureusement la charte typographique et les directives de mise en page de l'institution académique.
+- [x] Générer l'ensemble des diagrammes d'architecture et de flux (Mermaid) dans un format haute définition adapté à l'édition.
+- [x] Compiler et procéder à l'inspection visuelle minutieuse du recueil documentaire consolidé au format PDF.

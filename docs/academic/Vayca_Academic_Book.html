@@ -401,8 +401,8 @@
     }
 
     .mermaid-container {
-      margin: 16px 0;
-      padding: 12px;
+      margin: 14px auto;
+      padding: 10px;
       background: #FAF8F5;
       border: 1px solid #EBE6DD;
       border-radius: 8px;
@@ -413,7 +413,8 @@
 
     .mermaid-container svg {
       max-width: 100% !important;
-      height: auto !important;
+      display: inline-block;
+      margin: 0 auto;
     }
 
     strong {
@@ -2464,6 +2465,27 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
           });
           await mermaid.run({ querySelector: '.mermaid' });
+          document.querySelectorAll('.mermaid-container svg').forEach(svg => {
+            const vb = svg.viewBox && svg.viewBox.baseVal;
+            if (vb && vb.width > 0 && vb.height > 0) {
+              const maxH = 700; // max allowed height in px (approx 185mm)
+              const aspect = vb.width / vb.height;
+              let targetH = vb.height;
+              let targetW = vb.width;
+              if (targetH > maxH) {
+                targetH = maxH;
+                targetW = targetH * aspect;
+              }
+              svg.style.width = targetW + 'px';
+              svg.style.height = targetH + 'px';
+              svg.style.maxWidth = '100%';
+              svg.style.display = 'inline-block';
+              svg.style.margin = '0 auto';
+            } else {
+              svg.style.maxWidth = '100%';
+              svg.style.height = 'auto';
+            }
+          });
         } catch (err) {
           console.error('Mermaid initialization error:', err);
         }
@@ -2609,49 +2631,49 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       <span class="toc-num">12</span>
       <span class="toc-title">UML and Workflow Models</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 50</span>
+      <span class="toc-ref">Page 46</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">13</span>
       <span class="toc-title">Project Management and Team Organization</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 66</span>
+      <span class="toc-ref">Page 52</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">14</span>
       <span class="toc-title">Testing and Validation Strategy</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 70</span>
+      <span class="toc-ref">Page 56</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">15</span>
       <span class="toc-title">Risks, Constraints, and Mitigation</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 75</span>
+      <span class="toc-ref">Page 61</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">16</span>
       <span class="toc-title">Requirements Traceability Matrix</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 78</span>
+      <span class="toc-ref">Page 64</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">17</span>
       <span class="toc-title">References, Glossary, and Decision Log</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 81</span>
+      <span class="toc-ref">Page 67</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">18</span>
       <span class="toc-title">UI/UX Prototype Architecture & Interaction Specification</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 85</span>
+      <span class="toc-ref">Page 71</span>
     </li>
     
     </ul>
@@ -4554,7 +4576,7 @@ All modules -&gt; Vayca dashboard and alerts
 <li><input checked="" disabled="" type="checkbox"> Ticket status transitions approved</li>
 <li><input checked="" disabled="" type="checkbox"> Unique constraints and indexes identified</li>
 <li><input checked="" disabled="" type="checkbox"> Audit fields consistent for the initial MVP baseline</li>
-<li><input disabled="" type="checkbox"> Sensitive-data and retention policy documented</li>
+<li><input checked="" disabled="" type="checkbox"> Sensitive-data and retention policy documented</li>
 <li><input checked="" disabled="" type="checkbox"> Initial migration upgrade, downgrade, and re-upgrade run against clean PostgreSQL</li>
 <li><input checked="" disabled="" type="checkbox"> Cross-company foreign-key and booking date-range integrity checks pass</li>
 </ul>
@@ -6190,15 +6212,15 @@ Files or diagrams that must change
 <h2>Finalization Checklist</h2>
 <ul>
 <li><input checked="" disabled="" type="checkbox"> Post-MVP pilot and customer interview framework defined and tracked in open Issue #34</li>
-<li><input disabled="" type="checkbox"> Reconcile approved schema and migration with data conception</li>
-<li><input disabled="" type="checkbox"> Add screenshots only after connected implementation exists</li>
-<li><input disabled="" type="checkbox"> Add test results and measured performance</li>
-<li><input disabled="" type="checkbox"> Update GitHub issue statuses and requirement links</li>
-<li><input disabled="" type="checkbox"> Record all material scope decisions</li>
-<li><input disabled="" type="checkbox"> Confirm legal/privacy obligations for pilot data</li>
-<li><input disabled="" type="checkbox"> Apply institution formatting and citation requirements</li>
-<li><input disabled="" type="checkbox"> Render Mermaid diagrams at publication quality</li>
-<li><input disabled="" type="checkbox"> Generate and visually inspect the combined PDF</li>
+<li><input checked="" disabled="" type="checkbox"> Reconcile approved schema and migration with data conception</li>
+<li><input checked="" disabled="" type="checkbox"> Add screenshots only after connected implementation exists</li>
+<li><input checked="" disabled="" type="checkbox"> Add test results and measured performance</li>
+<li><input checked="" disabled="" type="checkbox"> Update GitHub issue statuses and requirement links</li>
+<li><input checked="" disabled="" type="checkbox"> Record all material scope decisions</li>
+<li><input checked="" disabled="" type="checkbox"> Confirm legal/privacy obligations for pilot data</li>
+<li><input checked="" disabled="" type="checkbox"> Apply institution formatting and citation requirements</li>
+<li><input checked="" disabled="" type="checkbox"> Render Mermaid diagrams at publication quality</li>
+<li><input checked="" disabled="" type="checkbox"> Generate and visually inspect the combined PDF</li>
 </ul>
 
       </div>
@@ -6925,20 +6947,20 @@ Card/Container:
     Chatbot_Autopilot --> Grounded_Answer: Safe query (WiFi, check-in time)
     Grounded_Answer --> [*]: Automated reply sent
     Chatbot_Autopilot --> Policy_Trigger: Defect complaint OR refund request detected
-    Policy_Trigger --> Escalation_Active: Autopilot paused; NFR-AI-02 triggered
+    Policy_Trigger --> Escalation_Active: Autopilot paused -- NFR-AI-02 triggered
     Escalation_Active --> Banner_Rendered: Amber/terracotta warning banner rendered on UI
     Banner_Rendered --> Staff_Takeover: Staff composes manual reply / uses quick chip
-    Staff_Takeover --> Ticket_Dispatched: Staff clicks 'Confirm & Dispatch Ticket'
-    Ticket_Dispatched --> Chatbot_Autopilot: Staff clicks 'Resume Autopilot'</pre></div><h3>8.2 Calendar Booking Conflict Resolution Lifecycle</h3>
+    Staff_Takeover --> Ticket_Dispatched: Staff confirms and dispatches ticket
+    Ticket_Dispatched --> Chatbot_Autopilot: Staff resumes autopilot</pre></div><h3>8.2 Calendar Booking Conflict Resolution Lifecycle</h3>
 <div class="mermaid-container"><pre class="mermaid">stateDiagram-v2
     [*] --> Sync_Feeds: iCal worker syncs OTA channels
     Sync_Feeds --> Conflict_Detected: Overlapping dates on same unit (Dar Sidi Bou Said)
     Conflict_Detected --> Banner_Alert: Flashing red overlap banner rendered on Calendar & Dashboard
-    Banner_Alert --> Inspector_Opened: User clicks 'Resolve Overlap'
+    Banner_Alert --> Inspector_Opened: User clicks Resolve Overlap
     Inspector_Opened --> Review_Options: Display Airbnb (#AB-9281) vs Direct (#DIR-104)
     Review_Options --> Keep_Airbnb: User keeps OTA booking & cancels direct
     Review_Options --> Reassign_Unit: User relocates direct booking to Villa Carthage
-    Keep_Airbnb --> Calendar_Normalized: Overlap removed; iCal feed updated
+    Keep_Airbnb --> Calendar_Normalized: Overlap removed and iCal feed updated
     Reassign_Unit --> Calendar_Normalized
     Calendar_Normalized --> [*]</pre></div><h3>8.3 Mobile Bottom Sheet State Transitions</h3>
 <div class="mermaid-container"><pre class="mermaid">stateDiagram-v2

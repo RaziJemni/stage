@@ -269,6 +269,6 @@ The first migration should create only approved entities and constraints. Every 
 - [x] Ticket status transitions approved
 - [x] Unique constraints and indexes identified
 - [x] Audit fields consistent for the initial MVP baseline
-- [ ] Sensitive-data and retention policy documented
+- [x] Sensitive-data and retention policy documented
 - [x] Initial migration upgrade, downgrade, and re-upgrade run against clean PostgreSQL
 - [x] Cross-company foreign-key and booking date-range integrity checks pass

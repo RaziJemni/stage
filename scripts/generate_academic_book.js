@@ -626,8 +626,8 @@ function getCssStyles() {
     }
 
     .mermaid-container {
-      margin: 16px 0;
-      padding: 12px;
+      margin: 14px auto;
+      padding: 10px;
       background: #FAF8F5;
       border: 1px solid #EBE6DD;
       border-radius: 8px;
@@ -638,7 +638,8 @@ function getCssStyles() {
 
     .mermaid-container svg {
       max-width: 100% !important;
-      height: auto !important;
+      display: inline-block;
+      margin: 0 auto;
     }
 
     strong {
@@ -707,6 +708,27 @@ function renderHtmlDocument(chapters, pageMap = {}) {
             fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
           });
           await mermaid.run({ querySelector: '.mermaid' });
+          document.querySelectorAll('.mermaid-container svg').forEach(svg => {
+            const vb = svg.viewBox && svg.viewBox.baseVal;
+            if (vb && vb.width > 0 && vb.height > 0) {
+              const maxH = 700; // max allowed height in px (approx 185mm)
+              const aspect = vb.width / vb.height;
+              let targetH = vb.height;
+              let targetW = vb.width;
+              if (targetH > maxH) {
+                targetH = maxH;
+                targetW = targetH * aspect;
+              }
+              svg.style.width = targetW + 'px';
+              svg.style.height = targetH + 'px';
+              svg.style.maxWidth = '100%';
+              svg.style.display = 'inline-block';
+              svg.style.margin = '0 auto';
+            } else {
+              svg.style.maxWidth = '100%';
+              svg.style.height = 'auto';
+            }
+          });
         } catch (err) {
           console.error('Mermaid initialization error:', err);
         }
@@ -850,9 +872,41 @@ async function buildAcademicBook() {
     console.warn('Pass 2: Mermaid rendering timed out, proceeding.');
   }
 
+function safeWritePdf(tempPath, destPath) {
+  if (fs.existsSync(destPath)) {
+    try {
+      fs.unlinkSync(destPath);
+    } catch (e) {
+      try {
+        const bak = destPath + '.bak.' + Date.now();
+        fs.renameSync(destPath, bak);
+        setTimeout(() => { try { fs.unlinkSync(bak); } catch (_) {} }, 5000);
+      } catch (err) {}
+    }
+  }
+  fs.renameSync(tempPath, destPath);
+}
+
+function safeCopyFile(src, dest) {
+  if (fs.existsSync(dest)) {
+    try {
+      fs.unlinkSync(dest);
+    } catch (e) {
+      try {
+        const bak = dest + '.bak.' + Date.now();
+        fs.renameSync(dest, bak);
+        setTimeout(() => { try { fs.unlinkSync(bak); } catch (_) {} }, 5000);
+      } catch (err) {}
+    }
+  }
+  fs.copyFileSync(src, dest);
+}
+
   await new Promise(r => setTimeout(r, 2000));
-  await page.pdf({ ...pdfPrintOptions, path: OUTPUT_PDF });
+  const tempPass2Pdf = OUTPUT_PDF + '.tmp.' + Date.now() + '.pdf';
+  await page.pdf({ ...pdfPrintOptions, path: tempPass2Pdf });
   await browser.close();
+  safeWritePdf(tempPass2Pdf, OUTPUT_PDF);
 
   // Clean up temporary Pass 1 artifacts
   if (fs.existsSync(tempPass1Html)) fs.unlinkSync(tempPass1Html);
@@ -862,15 +916,15 @@ async function buildAcademicBook() {
   if (isEn) {
     const canonicalPdf = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book.pdf');
     const canonicalHtml = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book.html');
-    fs.copyFileSync(OUTPUT_PDF, canonicalPdf);
-    fs.copyFileSync(OUTPUT_HTML, canonicalHtml);
+    safeCopyFile(OUTPUT_PDF, canonicalPdf);
+    safeCopyFile(OUTPUT_HTML, canonicalHtml);
     console.log(`Synchronized canonical book: ${canonicalPdf}`);
   } else {
     // Also copy French book to docs/academic/ for unified access
     const altPdf = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_FR.pdf');
     const altHtml = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_FR.html');
-    fs.copyFileSync(OUTPUT_PDF, altPdf);
-    fs.copyFileSync(OUTPUT_HTML, altHtml);
+    safeCopyFile(OUTPUT_PDF, altPdf);
+    safeCopyFile(OUTPUT_HTML, altHtml);
     console.log(`Synchronized French copy to docs/academic: ${altPdf}`);
   }
 
@@ -879,9 +933,9 @@ async function buildAcademicBook() {
     const artifactTarget = isEn
       ? path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book_EN.pdf')
       : path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book_FR.pdf');
-    fs.copyFileSync(OUTPUT_PDF, artifactTarget);
+    safeCopyFile(OUTPUT_PDF, artifactTarget);
     if (isEn) {
-      fs.copyFileSync(OUTPUT_PDF, path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book.pdf'));
+      safeCopyFile(OUTPUT_PDF, path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book.pdf'));
     }
     console.log(`Synchronized artifact: ${artifactTarget}`);
   }
