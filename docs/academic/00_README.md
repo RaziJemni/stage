@@ -61,6 +61,11 @@ The intended PDF assembly order is:
 | Deferred | Intentionally moved outside the MVP |
 | Rejected | Considered and excluded |
 
-## PDF Generation Readiness
+## PDF Generation and Official Export
 
-The numbered filenames define chapter order. Mermaid diagrams are used because they remain editable and can be rendered into SVG or PNG during PDF production. Citations use named references collected in the final chapter. A future build script may concatenate the chapters and render them with Pandoc or another document tool after the institution's formatting requirements are known.
+The 18 chapters are compiled into a unified, publication-ready academic book / internship report:
+
+- **Full PDF Book:** [`Vayca_Academic_Book.pdf`](Vayca_Academic_Book.pdf) — Complete 101-page monograph featuring an executive cover page, table of contents, A4 paged typography, vector SVG Mermaid diagrams, zebra-striped requirement tables, and dynamic header/footer page numbering.
+- **Standalone Offline HTML Book:** [`Vayca_Academic_Book.html`](Vayca_Academic_Book.html) — Self-contained HTML edition viewable in any browser without an active web server.
+- **Build Script:** [`scripts/generate_academic_book.js`](../../scripts/generate_academic_book.js) — Node.js compilation pipeline converting Markdown chapters into semantic HTML and printing to PDF via headless Chromium/Puppeteer.
+
