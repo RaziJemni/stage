@@ -10,18 +10,24 @@
 - Validate usability with target users, not only developers.
 - Distinguish prototype completeness from functional correctness.
 
-## Verified Test Suite Summary (MVP Baseline)
+## Verified Test Suite Summary (Production Baseline v1.1.0)
 
 | Suite | Scope / Tool | Test count | Result |
 |---|---|---|---|
-| Backend Domain & Auth | Pytest + SQLAlchemy (`test_api_conventions.py`, `test_authentication.py`, `test_database_schema.py`) | 20 passed | Verified in Docker |
-| Properties & Calendar | Pytest + Celery (`test_properties.py`, `test_calendar.py`, `test_manual_bookings.py`) | 23 passed | Verified in Docker |
-| Messaging & Chatbot | Pytest (`test_messaging.py`, `test_chatbot_policy.py`, `test_chatbot_grounding.py`) | 16 passed | Verified in Docker |
-| Maintenance & Supervision | Pytest (`test_maintenance.py`, `test_supervision.py`) | 10 passed | Verified in Docker |
-| Cross-Module MVP Validation | Pytest (`test_mvp_validation.py`) | 1 passed | Verified in Docker |
-| **Total Backend** | **Pytest / Docker Compose `backend_test` profile** | **70 passed** | **Green** |
-| Frontend Components & Pages | Vitest + Testing Library (14 test suites) | 54 passed | Verified locally & CI |
-| Frontend Static Checks | Oxlint linter & TypeScript build (`tsc -b && vite build`) | 0 errors | Verified |
+| Backend Domain & Auth | Pytest (`test_api_conventions.py`, `test_authentication.py`, `test_database_schema.py`) | 26 passed | Verified in Docker |
+| Properties & Calendar | Pytest (`test_properties.py`, `test_calendar.py`, `test_manual_bookings.py`) | 30 passed | Verified in Docker |
+| Receipts & Billing | Pytest (`test_booking_receipts.py`) | 6 passed | Verified in Docker |
+| Messaging & Chatbot | Pytest (`test_messaging.py`, `test_chatbot_policy.py`, `test_chatbot_grounding.py`) | 20 passed | Verified in Docker |
+| Communication Adapters | Pytest (`test_email_adapter.py`, `test_whatsapp_adapter.py`, `test_whatsapp_simulator_chat.py`) | 26 passed | Verified in Docker |
+| Maintenance & Tickets | Pytest (`test_maintenance.py`) | 6 passed | Verified in Docker |
+| Supervision & Statements | Pytest (`test_supervision.py`, `test_owner_payout_statements.py`) | 14 passed | Verified in Docker |
+| Post-Stay Reviews | Pytest (`test_review_sequences.py`) | 7 passed | Verified in Docker |
+| Cross-Module MVP Scenario | Pytest (`test_mvp_validation.py`) | 1 passed | Verified in Docker |
+| **Total Backend** | **Pytest / Docker Compose `backend_test` profile** | **136 passed (18 modules)** | **100% Green** |
+| Frontend Suites | Vitest + Testing Library (26 test suites including PWA, Owner Portal, Simulator) | 132 passed | 100% Green |
+| Frontend Static Checks | Oxlint linter & TypeScript build (`tsc -b && vite build`) | 0 errors | Clean build |
+| CI / CD Workflows | GitHub Actions (`backend-tests`, `frontend-tests`, `stack-smoke`) | 3 jobs | Passing |
+
 
 ## Test Levels
 

@@ -146,6 +146,14 @@ is a development/CI transport only and must not be described as an approved
 WhatsApp connection. Provider test and production modes remain separate future
 adapters.
 
+### Interactive WhatsApp Web guest simulator & presentation QR code
+
+To enable realistic live demonstrations during academic defenses and jury evaluations without requiring external third-party provider accounts (Twilio / Meta WhatsApp Business), the platform provides an unauthenticated mobile guest simulator (`/simulator/whatsapp`) and workstation QR presentation modal:
+
+1. **Presentation QR Modal (`SimulatorQrModal`):** Accessible via "Démo WhatsApp" in the sticky workstation header, displaying a dynamic vector QR code generated via a zero-dependency ISO/IEC 18004 pure TypeScript engine (`qrCode.ts`). Evaluators scan the code with their smartphone camera to open the simulator directly.
+2. **Guest Mobile Interface (`GuestWhatsAppSimulatorPage`):** Replicates WhatsApp Web with green branding (`#075E54`), dynamic villa selection, configurable guest telephone number (persisted in `localStorage`), message bubbles with origin badges (`🤖 IA Vayca` vs `👤 Équipe Vayca`), typing animation, and 1-tap quick prompts (*WiFi*, *Piscine*, *Check-out*, *Panne Clim*).
+3. **Guarded API Endpoints:** Dedicated endpoints (`/api/v1/integrations/whatsapp/simulator/chat/*`) allow fetching active properties, querying chat message history, and dispatching inbound messages into Celery's `process_chatbot_inbound_message` pipeline. All endpoints are guarded by `check_simulator_mode()`, disabling them automatically when production adapters are configured.
+
 ## Ticket Suggestion Example
 
 Guest message:

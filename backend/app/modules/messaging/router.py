@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 import json
 from typing import Annotated
 import urllib.parse
@@ -11,19 +12,24 @@ from app.api.errors import ApiProblem
 from app.api.pagination import Page, PageParams, get_page_params
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.enums import HandlingMode
+from app.core.enums import HandlingMode, PropertyStatus
 from app.integrations.whatsapp import InboundMessageEvent, get_whatsapp_adapter, simulator_adapter
 from app.modules.identity.dependencies import CsrfContext, CurrentContext
 from app.modules.identity.authorization import assigned_property_ids, require_capability
 from app.modules.messaging import service
 from app.modules.chatbot.tasks import process_chatbot_inbound_message
+from app.modules.messaging.models import Conversation, Message
 from app.modules.messaging.schemas import (
     ConversationResponse,
     HandlingModeRequest,
     MessageCreateRequest,
     MessageResponse,
+    SimulatorChatMessage,
+    SimulatorChatSendRequest,
+    SimulatorChatSendResponse,
     SimulatorInboundEventRequest,
     SimulatorInboundEventResponse,
+    SimulatorPropertySummary,
 )
 from app.modules.properties.models import Property
 
@@ -195,6 +201,147 @@ def receive_simulator_inbound_event(
         message_id=result.message.id,
         conversation_id=result.message.conversation_id,
         created=result.created,
+    )
+
+
+def check_simulator_mode() -> None:
+    if settings.whatsapp_mode != simulator_adapter.mode and settings.environment != "test":
+        raise ApiProblem(
+            status=503,
+            title="Simulator unavailable",
+            detail="The WhatsApp simulator is not enabled in the current integration mode.",
+            code="integration_mode_unavailable",
+        )
+
+
+@simulator_router.get(
+    "/simulator/chat/properties",
+    response_model=list[SimulatorPropertySummary],
+    tags=["Messages"],
+    summary="List active properties available for interactive guest chat simulation",
+)
+def list_simulator_chat_properties(
+    db: Annotated[Session, Depends(get_db)],
+) -> list[SimulatorPropertySummary]:
+    check_simulator_mode()
+    properties = db.scalars(
+        select(Property)
+        .where(Property.status == PropertyStatus.ACTIVE)
+        .order_by(Property.name.asc())
+        .limit(50)
+    ).all()
+    return [
+        SimulatorPropertySummary(
+            id=prop.id,
+            name=prop.name,
+            city=prop.city,
+            address=prop.address_line1,
+            headline=None,
+        )
+        for prop in properties
+    ]
+
+
+@simulator_router.get(
+    "/simulator/chat/messages",
+    response_model=list[SimulatorChatMessage],
+    tags=["Messages"],
+    summary="Get conversation history between a simulated guest and property",
+)
+def get_simulator_chat_messages(
+    property_id: UUID,
+    guest_phone: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> list[SimulatorChatMessage]:
+    check_simulator_mode()
+    prop = db.scalar(select(Property).where(Property.id == property_id))
+    if prop is None:
+        raise ApiProblem(
+            status=404,
+            title="Property not found",
+            detail="Property does not exist.",
+            code="property_not_found",
+        )
+
+    conversation = db.scalar(
+        select(Conversation).where(
+            Conversation.company_id == prop.company_id,
+            Conversation.property_id == prop.id,
+            Conversation.guest_contact_identifier == guest_phone.strip(),
+        )
+    )
+    if conversation is None:
+        return []
+
+    messages = db.scalars(
+        select(Message)
+        .where(
+            Message.company_id == prop.company_id,
+            Message.conversation_id == conversation.id,
+        )
+        .order_by(Message.created_at.asc())
+    ).all()
+
+    return [
+        SimulatorChatMessage(
+            id=msg.id,
+            conversation_id=msg.conversation_id,
+            direction=msg.direction,
+            sender_type=msg.sender_type,
+            content=msg.content,
+            delivery_status=msg.delivery_status,
+            created_at=msg.created_at,
+        )
+        for msg in messages
+    ]
+
+
+@simulator_router.post(
+    "/simulator/chat/send",
+    response_model=SimulatorChatSendResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["Messages"],
+    summary="Send a message from a simulated guest to a property via web chat",
+)
+def send_simulator_chat_message(
+    payload: SimulatorChatSendRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> SimulatorChatSendResponse:
+    check_simulator_mode()
+    property_obj = db.scalar(select(Property).where(Property.id == payload.property_id))
+    if property_obj is None:
+        raise ApiProblem(
+            status=404,
+            title="Property not found",
+            detail="Property does not exist.",
+            code="property_not_found",
+        )
+
+    clean_phone = payload.guest_phone.strip()
+    result = service.record_inbound_message(
+        db,
+        company_id=property_obj.company_id,
+        property_id=property_obj.id,
+        guest_contact_identifier=clean_phone,
+        content=payload.content.strip(),
+        external_message_id=None,
+        provider_timestamp=datetime.now(UTC),
+    )
+
+    if result.created:
+        try:
+            process_chatbot_inbound_message.apply_async(
+                args=(str(property_obj.company_id), str(result.message.id)),
+                retry=False,
+            )
+        except Exception:
+            pass
+
+    return SimulatorChatSendResponse(
+        message_id=result.message.id,
+        conversation_id=result.message.conversation_id,
+        created=result.created,
+        created_at=result.message.created_at,
     )
 
 
