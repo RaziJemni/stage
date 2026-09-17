@@ -1,7 +1,9 @@
 /**
  * Vayca Academic Book Compiler
  * Assembles docs/academic/ chapters (01 to 18) into a unified academic monograph PDF.
- * Usage: node scripts/generate_academic_book.js
+ * Usage:
+ *   node scripts/generate_academic_book.js           (Generates English edition by default)
+ *   node scripts/generate_academic_book.js --lang=fr (Generates French edition)
  */
 
 import fs from 'fs';
@@ -12,10 +14,20 @@ import puppeteer from 'puppeteer-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = fs.existsSync('d:\\stage') ? 'd:\\stage' : path.resolve(__dirname, '..');
 const ACADEMIC_DIR = path.join(REPO_ROOT, 'docs', 'academic');
-const OUTPUT_HTML = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.html');
-const OUTPUT_PDF = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.pdf');
+
+const langArg = process.argv.find(a => a.startsWith('--lang='));
+const selectedLang = langArg ? langArg.split('=')[1].toLowerCase() : 'en';
+const isEn = selectedLang === 'en';
+
+const OUTPUT_HTML = isEn 
+  ? path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_EN.html')
+  : path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_FR.html');
+
+const OUTPUT_PDF = isEn
+  ? path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_EN.pdf')
+  : path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_FR.pdf');
 
 // Default paths for Chrome / Chromium on Windows / Linux / macOS
 function getChromeExecutable() {
@@ -73,6 +85,55 @@ const renderer = {
 marked.use({ renderer });
 
 function generateCoverHtml() {
+  if (isEn) {
+    return `
+    <div class="cover-page">
+      <div class="cover-accent-bar"></div>
+      <div class="cover-header">
+        <div class="cover-badge">OFFICIAL ACADEMIC REFERENCE SPECIFICATION</div>
+        <div class="cover-date">September 2026 · Version 1.1.0 (Production Baseline)</div>
+      </div>
+
+      <div class="cover-main">
+        <div class="cover-logo-row">
+          <div class="cover-logo-icon">V</div>
+          <span class="cover-logo-text">VAYCA</span>
+        </div>
+        <h1 class="cover-title">B2B Operations Platform & Workstation</h1>
+        <h2 class="cover-subtitle">Intelligent Vacation Rental Operations, Multi-Channel Synchronization & Grounded Guest Assistance</h2>
+        <div class="cover-divider"></div>
+        <p class="cover-description">
+          Academic monograph, formal system conception, and software engineering specification for vacation-property operations in Tunisia (Sidi Bou Said, La Marsa, Gammarth).
+        </p>
+      </div>
+
+      <div class="cover-metadata-grid">
+        <div class="meta-card">
+          <span class="meta-label">PROJECT CONTEXT</span>
+          <span class="meta-value">Graduation Thesis / Software Engineering Internship</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">TECHNICAL STACK</span>
+          <span class="meta-value">FastAPI · PostgreSQL · React · Celery · Redis · Docker</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">ENGINEERING TEAM</span>
+          <span class="meta-value">Razi Jemni & Platform Core Stream</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">VERIFICATION & QUALITY</span>
+          <span class="meta-value">136 Backend Tests · 132 Frontend Tests (100% Pass)</span>
+        </div>
+      </div>
+
+      <div class="cover-footer">
+        <span>Vayca Inc. · All Rights Reserved</span>
+        <span>Official GitHub Repository: github.com/RaziJemni/stage</span>
+      </div>
+    </div>
+    `;
+  }
+
   return `
   <div class="cover-page">
     <div class="cover-accent-bar"></div>
@@ -122,21 +183,28 @@ function generateCoverHtml() {
 }
 
 function generateTocHtml(chapters) {
+  const chapterLabel = isEn ? 'Chapter' : 'Chapitre';
+  const sectionBadge = isEn ? 'DOCUMENT STRUCTURE' : 'ORGANISATION DE L\'OUVRAGE';
+  const tocHeading = isEn ? 'Table of Contents' : 'Table des Matières';
+  const tocSubheading = isEn 
+    ? 'Modular structure and sequential assembly order of the technical specification (18 chapters).'
+    : 'Structure modulaire et logique d\'assemblage du rapport académique (18 chapitres).';
+
   const items = chapters.map((c, i) => `
     <li class="toc-item">
       <span class="toc-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="toc-title">${c.title}</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Chapitre ${i + 1}</span>
+      <span class="toc-ref">${chapterLabel} ${i + 1}</span>
     </li>
   `).join('');
 
   return `
   <div class="toc-page page-break">
     <div class="section-header">
-      <div class="section-badge">ORGANISATION DE L'OUVRAGE</div>
-      <h2 class="toc-heading">Table des Matières</h2>
-      <p class="toc-subheading">Structure modulaire et logique d'assemblage du rapport académique (18 chapitres).</p>
+      <div class="section-badge">${sectionBadge}</div>
+      <h2 class="toc-heading">${tocHeading}</h2>
+      <p class="toc-subheading">${tocSubheading}</p>
     </div>
     <ul class="toc-list">
       ${items}
@@ -568,7 +636,7 @@ function getCssStyles() {
 }
 
 async function buildAcademicBook() {
-  console.log('--- Assembling Vayca Academic Book ---');
+  console.log(`--- Assembling Vayca Academic Book [Language: ${selectedLang.toUpperCase()}] ---`);
 
   const chapters = [];
 
@@ -593,10 +661,13 @@ async function buildAcademicBook() {
   const coverHtml = generateCoverHtml();
   const tocHtml = generateTocHtml(chapters);
 
+  const chapterBadgePrefix = isEn ? 'CHAPTER' : 'CHAPITRE';
+  const specSuffix = isEn ? 'TECHNICAL SPECIFICATION' : 'SPÉCIFICATION TECHNIQUE';
+
   const chaptersHtml = chapters.map((c, index) => `
     <article class="chapter-wrapper page-break" id="chap-${index + 1}">
       <header class="chapter-header">
-        <div class="chapter-num-badge">CHAPITRE ${String(index + 1).padStart(2, '0')} · SPÉCIFICATION TECHNIQUE</div>
+        <div class="chapter-num-badge">${chapterBadgePrefix} ${String(index + 1).padStart(2, '0')} · ${specSuffix}</div>
         <h1>${c.title}</h1>
       </header>
       <div class="chapter-body">
@@ -616,11 +687,15 @@ async function buildAcademicBook() {
     ? `<script>${mermaidJsContent}</script>`
     : `<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>`;
 
+  const htmlDocTitle = isEn
+    ? 'Vayca — Academic Monograph & Technical Specification'
+    : 'Vayca — Rapport de Conception Académique & Spécifications Techniques';
+
   const fullHtml = `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${isEn ? 'en' : 'fr'}">
 <head>
   <meta charset="UTF-8">
-  <title>Vayca — Rapport de Conception Académique & Spécifications Techniques</title>
+  <title>${htmlDocTitle}</title>
   <style>
     ${getCssStyles()}
   </style>
@@ -678,6 +753,19 @@ async function buildAcademicBook() {
   await new Promise(r => setTimeout(r, 2000));
 
   console.log('Generating A4 PDF book...');
+
+  const headerTitle = isEn
+    ? 'VAYCA · Academic Monograph & Technical Specification'
+    : 'VAYCA · Monographie Académique & Spécification Technique';
+
+  const footerText = isEn
+    ? 'Confidential · B2B Operations Workstation'
+    : 'Confidentiel · B2B Operations Workstation';
+
+  const pageOfPages = isEn
+    ? 'Page <span class="pageNumber"></span> of <span class="totalPages"></span>'
+    : 'Page <span class="pageNumber"></span> sur <span class="totalPages"></span>';
+
   await page.pdf({
     path: OUTPUT_PDF,
     format: 'A4',
@@ -685,14 +773,14 @@ async function buildAcademicBook() {
     displayHeaderFooter: true,
     headerTemplate: `
       <div style="font-size: 7.5pt; font-family: -apple-system, sans-serif; color: #78716C; width: 100%; display: flex; justify-content: space-between; padding: 0 15mm; border-bottom: 1px solid #EBE6DD; padding-bottom: 4px;">
-        <span style="font-weight: 600; color: #0F3D5E;">VAYCA · Monographie Académique & Spécification Technique</span>
+        <span style="font-weight: 600; color: #0F3D5E;">${headerTitle}</span>
         <span>Version 1.1.0</span>
       </div>
     `,
     footerTemplate: `
       <div style="font-size: 7.5pt; font-family: -apple-system, sans-serif; color: #78716C; width: 100%; display: flex; justify-content: space-between; padding: 0 15mm; border-top: 1px solid #EBE6DD; padding-top: 4px;">
-        <span>Confidentiel · B2B Operations Workstation</span>
-        <span>Page <span class="pageNumber"></span> sur <span class="totalPages"></span></span>
+        <span>${footerText}</span>
+        <span>${pageOfPages}</span>
       </div>
     `,
     margin: {
@@ -704,6 +792,15 @@ async function buildAcademicBook() {
   });
 
   await browser.close();
+
+  // Also copy to canonical Vayca_Academic_Book.pdf if building English
+  if (isEn) {
+    const canonicalPdf = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.pdf');
+    const canonicalHtml = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.html');
+    fs.copyFileSync(OUTPUT_PDF, canonicalPdf);
+    fs.copyFileSync(OUTPUT_HTML, canonicalHtml);
+    console.log(`Synchronized canonical book: ${canonicalPdf}`);
+  }
 
   const pdfStats = fs.statSync(OUTPUT_PDF);
   console.log(`Academic Book PDF successfully generated!`);

@@ -65,7 +65,7 @@ The intended PDF assembly order is:
 
 The 18 chapters are compiled into a unified, publication-ready academic book / internship report:
 
-- **Full PDF Book:** [`Vayca_Academic_Book.pdf`](Vayca_Academic_Book.pdf) — Complete 101-page monograph featuring an executive cover page, table of contents, A4 paged typography, vector SVG Mermaid diagrams, zebra-striped requirement tables, and dynamic header/footer page numbering.
-- **Standalone Offline HTML Book:** [`Vayca_Academic_Book.html`](Vayca_Academic_Book.html) — Self-contained HTML edition viewable in any browser without an active web server.
-- **Build Script:** [`scripts/generate_academic_book.js`](../../scripts/generate_academic_book.js) — Node.js compilation pipeline converting Markdown chapters into semantic HTML and printing to PDF via headless Chromium/Puppeteer.
+- **English PDF Book:** [`Vayca_Academic_Book_EN.pdf`](Vayca_Academic_Book_EN.pdf) (canonical: [`Vayca_Academic_Book.pdf`](Vayca_Academic_Book.pdf)) — Complete 101-page monograph in English featuring an executive cover page, table of contents, A4 paged typography, vector SVG Mermaid diagrams, zebra-striped requirement tables, and dynamic running headers/footers with page numbering.
+- **Standalone Offline HTML Edition:** [`Vayca_Academic_Book_EN.html`](Vayca_Academic_Book_EN.html) (canonical: [`Vayca_Academic_Book.html`](Vayca_Academic_Book.html)) — Self-contained HTML edition viewable in any browser offline without a web server.
+- **Build Pipeline Script:** [`scripts/generate_academic_book.js`](../../scripts/generate_academic_book.js) — Node.js compilation pipeline converting Markdown chapters into semantic HTML and printing to PDF via headless Chromium/Puppeteer (`node scripts/generate_academic_book.js` for English, `--lang=fr` for French).
 
