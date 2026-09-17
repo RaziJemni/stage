@@ -85,6 +85,7 @@
 | DEC-015 | 2026-07-28 | Accepted | These documents are a living baseline, not immutable final decisions. | Implementation and validation may reveal necessary changes |
 | DEC-016 | 2026-08-22 | Accepted | Grounded chatbot provider and deferred reply processing. | Policy and backend facts run before the configured provider; simulator remains deterministic and outbound delivery remains unconfigured. |
 | DEC-017 | 2026-08-28 | Accepted | Property detail fetches live calendar bookings. | Eliminates mock data dependencies on authenticated property screens and ensures truthful loading, empty, and retryable states. |
+| DEC-018 | 2026-09-17 | Accepted | Defer empirical field client interviews to post-MVP roadmap (tracked in open Issue #34). | Keeps MVP focused on verified software implementation and automated testing while tracking future field pilot interviews in the repository backlog. |
 
 ## Open Decisions
 
@@ -103,7 +104,7 @@
 
 ## Finalization Checklist
 
-- [ ] Replace assumptions with interview/pilot evidence where available
+- [x] Post-MVP pilot and customer interview framework defined and tracked in open Issue #34
 - [ ] Reconcile approved schema and migration with data conception
 - [ ] Add screenshots only after connected implementation exists
 - [ ] Add test results and measured performance

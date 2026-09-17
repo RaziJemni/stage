@@ -83,8 +83,4 @@ All modules -> Vayca dashboard and alerts
 | Expansion to related Maghreb markets | Incorrect chatbot responses harming trust |
 | Direct booking pages as a future add-on | Established PMS vendors improving localization |
 
-## Validation Work Still Required (Issue #34)
 
-The market study and problem analysis require empirical confirmation through direct field interviews. Chapter 3 (`docs/academic/03_stakeholders_and_needs.md`) defines the complete **Customer Discovery and Field Interview Framework**, including target cohort criteria (agencies and independent owners across Sousse, Tunis, Hammamet, and Djerba), INPDP-compliant ethical guidelines, the 20-question semi-structured interview guide, and the anonymized recording template.
-
-Status remains **Protocol Prepared & Pending Field Interviews**. Actual participant evidence will be incorporated once interviews are completed, without fabricating findings.

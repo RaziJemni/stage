@@ -83,8 +83,4 @@ Ensemble des modules -> Tableau de bord Vayca et alertes opérationnelles
 | Potentiel d'extension vers d'autres marchés du Maghreb aux caractéristiques similaires | Risque d'altération de la confiance utilisateur en cas d'hallucinations ou d'inexactitudes du chatbot |
 | Intégration future de modules de réservation directe comme extension fonctionnelle | Évolution des éditeurs de PMS établis vers une meilleure localisation et accessibilité tarifaire |
 
-## Travaux de Validation Requis sur le Terrain (Ticket #34)
 
-L'étude de marché et l'analyse des besoins métiers nécessitent une consolidation empirique au moyen d'entretiens qualitatifs menés directement auprès des acteurs du terrain. Le Chapitre 03 (`docs/academic_fr/03_stakeholders_and_needs.md`) détaille le **Cadre d'Exploration Client et d'Entretiens de Terrain**, comprenant la définition des critères de recrutement des cohortes cibles (agences et propriétaires indépendants répartis entre Sousse, Tunis, Hammamet et Djerba), le protocole éthique conforme aux directives de l'INPDP, le guide d'entretien semi-directif articulé autour de 20 questions et la grille standardisée de recueil anonymisé.
-
-Le statut de cette section demeure **Protocole Établi et en Attente d'Exécution sur le Terrain**. Les données réelles recueillies auprès des participants seront intégrées à l'issue des campagnes d'entretiens, dans le respect de l'intégrité académique interdisant toute invention de données empiriques.

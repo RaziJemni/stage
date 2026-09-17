@@ -85,6 +85,7 @@
 | DEC-015 | 2026-07-28 | Acceptée | Le corpus documentaire constitue une base de référence vivante et évolutive, non un ensemble figé de dogmes immuables. | Les apprentissages de l'implémentation et les validations empiriques sur le terrain sont appelés à ajuster les spécifications. |
 | DEC-016 | 2026-08-22 | Acceptée | Ancrage systématique des réponses du modèle d'IA et traitement différé des flux de réponses. | Les règles de politique de sécurité et les données d'entreprise sont évaluées avant tout appel au modèle ; le simulateur garantit le déterminisme des tests. |
 | DEC-017 | 2026-08-28 | Acceptée | La vue de détail d'une propriété interroge directement les réservations réelles du calendrier en backend. | Élimine définitivement toute dépendance à des données fictives sur les vues authentifiées et garantit des états d'interface fidèles. |
+| DEC-018 | 2026-09-17 | Acceptée | Report des entretiens empiriques de terrain auprès des clients vers la feuille de route post-MVP (maintenu comme ticket ouvert #34). | Maintient la focalisation du MVP sur l'implémentation logicielle vérifiée et les tests automatisés, tout en conservant le cadre de recherche pour les pilotes opérationnels futurs. |
 
 ## Décisions Ouvertes
 
@@ -103,7 +104,7 @@
 
 ## Liste de Contrôle pour la Finalisation
 
-- [ ] Remplacer les hypothèses initiales par les données empiriques issues des entretiens de terrain et du pilote.
+- [x] Cadre d'exploration client et pilote post-MVP défini et tracé sous le ticket ouvert #34
 - [ ] Mettre en parfaite conformité le schéma relationnel de production et les migrations Alembic avec le chapitre de conception de données.
 - [ ] N'insérer de captures d'écran dans le rapport qu'à partir des écrans pleinement connectés aux API réelles.
 - [ ] Consigner les résultats métriques définitifs des suites de tests et les temps de réponse observés.
