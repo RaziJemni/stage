@@ -33,6 +33,9 @@ Outbound guest messaging and webhook ingestion are powered by a multi-provider W
 
 Mobile operations and native application requirements were evaluated in [ADR 0014](docs/decisions/0014-native-mobile-evaluation.md), establishing that building a separate dual-client codebase (Flutter/React Native) is unjustified for Vayca's target agency workflows. The platform provides standalone Progressive Web App (PWA) capabilities, including a W3C Web App Manifest (`manifest.webmanifest`), home-screen installability, mobile safe-area inset ergonomics (`env(safe-area-inset-bottom)`, `viewport-fit=cover`), touch delay elimination (`touch-action: manipulation`), and responsive installation prompts (`MobilePwaPrompt`) for Android and iOS Safari.
 
+The complete academic monograph and formal engineering specification (18 chapters, 100+ pages) is published in both English and French editions as standalone compiled PDFs ([`Vayca_Academic_Book_EN.pdf`](docs/academic/Vayca_Academic_Book_EN.pdf) and [`Vayca_Academic_Book_FR.pdf`](docs/academic_fr/Vayca_Academic_Book_FR.pdf)) with automated two-pass compilation, dynamic Table of Contents starting page numbers, and vector-rendered architectural diagrams.
+
+
 
 
 ## Install the Required Software

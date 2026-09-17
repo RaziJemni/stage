@@ -1,6 +1,12 @@
 /**
  * Vayca Academic Book Compiler
- * Assembles docs/academic/ chapters (01 to 18) into a unified academic monograph PDF.
+ * Assembles docs/academic/ or docs/academic_fr/ chapters (01 to 18) into a unified academic monograph PDF.
+ * Features:
+ *   - Supports English (--lang=en) and French (--lang=fr)
+ *   - Automatic two-pass compilation to resolve exact chapter starting page numbers in Table of Contents
+ *   - Preserves markdown line breaks (breaks: true) to prevent run-on metadata paragraphs
+ *   - Inline SVG rendering of all architectural, ER, UML, and sequence Mermaid diagrams
+ * 
  * Usage:
  *   node scripts/generate_academic_book.js           (Generates English edition by default)
  *   node scripts/generate_academic_book.js --lang=fr (Generates French edition)
@@ -9,25 +15,31 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import { Marked } from 'marked';
 import puppeteer from 'puppeteer-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = fs.existsSync('d:\\stage') ? 'd:\\stage' : path.resolve(__dirname, '..');
-const ACADEMIC_DIR = path.join(REPO_ROOT, 'docs', 'academic');
 
 const langArg = process.argv.find(a => a.startsWith('--lang='));
 const selectedLang = langArg ? langArg.split('=')[1].toLowerCase() : 'en';
 const isEn = selectedLang === 'en';
 
+const ACADEMIC_DIR = isEn
+  ? path.join(REPO_ROOT, 'docs', 'academic')
+  : path.join(REPO_ROOT, 'docs', 'academic_fr');
+
 const OUTPUT_HTML = isEn 
-  ? path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_EN.html')
-  : path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_FR.html');
+  ? path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_EN.html')
+  : path.join(REPO_ROOT, 'docs', 'academic_fr', 'Vayca_Academic_Book_FR.html');
 
 const OUTPUT_PDF = isEn
-  ? path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_EN.pdf')
-  : path.join(ACADEMIC_DIR, 'Vayca_Academic_Book_FR.pdf');
+  ? path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_EN.pdf')
+  : path.join(REPO_ROOT, 'docs', 'academic_fr', 'Vayca_Academic_Book_FR.pdf');
+
+const ARTIFACTS_DIR = 'C:\\Users\\razij\\.gemini\\antigravity\\brain\\9c753656-9188-4515-91b0-0d97761d1548';
 
 // Default paths for Chrome / Chromium on Windows / Linux / macOS
 function getChromeExecutable() {
@@ -70,7 +82,7 @@ const CHAPTER_FILES = [
 
 const marked = new Marked({
   gfm: true,
-  breaks: false,
+  breaks: true,
 });
 
 const renderer = {
@@ -182,22 +194,25 @@ function generateCoverHtml() {
   `;
 }
 
-function generateTocHtml(chapters) {
-  const chapterLabel = isEn ? 'Chapter' : 'Chapitre';
+function generateTocHtml(chapters, pageMap = {}) {
   const sectionBadge = isEn ? 'DOCUMENT STRUCTURE' : 'ORGANISATION DE L\'OUVRAGE';
   const tocHeading = isEn ? 'Table of Contents' : 'Table des Matières';
   const tocSubheading = isEn 
     ? 'Modular structure and sequential assembly order of the technical specification (18 chapters).'
     : 'Structure modulaire et logique d\'assemblage du rapport académique (18 chapitres).';
 
-  const items = chapters.map((c, i) => `
+  const items = chapters.map((c, i) => {
+    const chapterNum = i + 1;
+    const pageNum = pageMap[chapterNum] ? `Page ${pageMap[chapterNum]}` : `Page ${chapterNum}`;
+    return `
     <li class="toc-item">
-      <span class="toc-num">${String(i + 1).padStart(2, '0')}</span>
+      <span class="toc-num">${String(chapterNum).padStart(2, '0')}</span>
       <span class="toc-title">${c.title}</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">${chapterLabel} ${i + 1}</span>
+      <span class="toc-ref">${pageNum}</span>
     </li>
-  `).join('');
+    `;
+  }).join('');
 
   return `
   <div class="toc-page page-break">
@@ -434,6 +449,9 @@ function getCssStyles() {
       font-weight: 600;
       color: #1C1B18;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140mm;
     }
 
     .toc-dots {
@@ -443,10 +461,11 @@ function getCssStyles() {
     }
 
     .toc-ref {
-      font-size: 8.5pt;
-      color: #78716C;
-      font-weight: 500;
+      font-size: 9pt;
+      color: #0F3D5E;
+      font-weight: 700;
       white-space: nowrap;
+      font-variant-numeric: tabular-nums;
     }
 
     .chapter-wrapper {
@@ -635,31 +654,9 @@ function getCssStyles() {
   `;
 }
 
-async function buildAcademicBook() {
-  console.log(`--- Assembling Vayca Academic Book [Language: ${selectedLang.toUpperCase()}] ---`);
-
-  const chapters = [];
-
-  for (const filename of CHAPTER_FILES) {
-    const fullPath = path.join(ACADEMIC_DIR, filename);
-    if (!fs.existsSync(fullPath)) {
-      console.warn(`File not found: ${filename}`);
-      continue;
-    }
-
-    const rawContent = fs.readFileSync(fullPath, 'utf-8');
-    const titleMatch = rawContent.match(/^#\s+(.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : filename;
-    const contentWithoutH1 = rawContent.replace(/^#\s+.+$/m, '').trim();
-    const htmlBody = marked.parse(contentWithoutH1);
-
-    chapters.push({ filename, title, htmlBody });
-  }
-
-  console.log(`Parsed ${chapters.length} academic chapters.`);
-
+function renderHtmlDocument(chapters, pageMap = {}) {
   const coverHtml = generateCoverHtml();
-  const tocHtml = generateTocHtml(chapters);
+  const tocHtml = generateTocHtml(chapters, pageMap);
 
   const chapterBadgePrefix = isEn ? 'CHAPTER' : 'CHAPITRE';
   const specSuffix = isEn ? 'TECHNICAL SPECIFICATION' : 'SPÉCIFICATION TECHNIQUE';
@@ -676,7 +673,6 @@ async function buildAcademicBook() {
     </article>
   `).join('\n');
 
-  // Check if local mermaid.min.js is present in scratch
   let mermaidJsContent = '';
   const localMermaidPath = 'C:\\Users\\razij\\.gemini\\antigravity\\brain\\9c753656-9188-4515-91b0-0d97761d1548\\scratch\\mermaid.min.js';
   if (fs.existsSync(localMermaidPath)) {
@@ -691,7 +687,7 @@ async function buildAcademicBook() {
     ? 'Vayca — Academic Monograph & Technical Specification'
     : 'Vayca — Rapport de Conception Académique & Spécifications Techniques';
 
-  const fullHtml = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${isEn ? 'en' : 'fr'}">
 <head>
   <meta charset="UTF-8">
@@ -725,9 +721,36 @@ async function buildAcademicBook() {
   ${chaptersHtml}
 </body>
 </html>`;
+}
 
-  fs.writeFileSync(OUTPUT_HTML, fullHtml, 'utf-8');
-  console.log(`Saved HTML monograph: ${OUTPUT_HTML} (${(fullHtml.length / 1024).toFixed(1)} KB)`);
+async function buildAcademicBook() {
+  console.log(`\n======================================================`);
+  console.log(`--- Assembling Vayca Academic Book [Language: ${selectedLang.toUpperCase()}] ---`);
+  console.log(`Source directory: ${ACADEMIC_DIR}`);
+  console.log(`======================================================\n`);
+
+  const chapters = [];
+
+  for (const filename of CHAPTER_FILES) {
+    const fullPath = path.join(ACADEMIC_DIR, filename);
+    if (!fs.existsSync(fullPath)) {
+      console.warn(`File not found: ${filename}`);
+      continue;
+    }
+
+    const rawContent = fs.readFileSync(fullPath, 'utf-8');
+    const titleMatch = rawContent.match(/^#\s+(.+)$/m);
+    let title = titleMatch ? titleMatch[1].trim() : filename;
+    // Clean redundant prefix like "Chapitre 01 : " or "Chapter 01 : " so TOC and headers are clean
+    title = title.replace(/^(?:Chapitre|Chapter)\s+\d+\s*:\s*/i, '').trim();
+
+    const contentWithoutH1 = rawContent.replace(/^#\s+.+$/m, '').trim();
+    const htmlBody = marked.parse(contentWithoutH1);
+
+    chapters.push({ filename, title, htmlBody });
+  }
+
+  console.log(`Parsed ${chapters.length} academic chapters.`);
 
   const chromePath = getChromeExecutable();
   console.log(`Using Chrome binary: ${chromePath}`);
@@ -737,22 +760,6 @@ async function buildAcademicBook() {
     headless: true,
     args: ['--no-sandbox', '--disable-gpu', '--disable-setuid-sandbox', '--allow-file-access-from-files'],
   });
-
-  const page = await browser.newPage();
-  const fileUrl = 'file:///' + OUTPUT_HTML.replace(/\\/g, '/');
-
-  await page.goto(fileUrl, { waitUntil: 'load', timeout: 90000 });
-
-  try {
-    await page.waitForFunction('window.__MERMAID_READY__ === true', { timeout: 30000 });
-    console.log('Mermaid diagrams successfully rendered into SVG vectors.');
-  } catch (e) {
-    console.warn('Mermaid rendering timed out, proceeding.');
-  }
-
-  await new Promise(r => setTimeout(r, 2000));
-
-  console.log('Generating A4 PDF book...');
 
   const headerTitle = isEn
     ? 'VAYCA · Academic Monograph & Technical Specification'
@@ -766,8 +773,7 @@ async function buildAcademicBook() {
     ? 'Page <span class="pageNumber"></span> of <span class="totalPages"></span>'
     : 'Page <span class="pageNumber"></span> sur <span class="totalPages"></span>';
 
-  await page.pdf({
-    path: OUTPUT_PDF,
+  const pdfPrintOptions = {
     format: 'A4',
     printBackground: true,
     displayHeaderFooter: true,
@@ -789,23 +795,104 @@ async function buildAcademicBook() {
       left: '14mm',
       right: '14mm',
     },
-  });
+  };
 
+  // ----------------------------------------------------
+  // PASS 1: Generate initial PDF to discover exact chapter start pages
+  // ----------------------------------------------------
+  console.log('\n>>> Pass 1: Rendering layout to discover exact chapter starting page numbers...');
+  const tempPass1Html = path.join(ACADEMIC_DIR, `temp_pass1_${selectedLang}.html`);
+  const tempPass1Pdf = path.join(ACADEMIC_DIR, `temp_pass1_${selectedLang}.pdf`);
+
+  const initialHtml = renderHtmlDocument(chapters, {});
+  fs.writeFileSync(tempPass1Html, initialHtml, 'utf-8');
+
+  const page = await browser.newPage();
+  const fileUrlPass1 = 'file:///' + tempPass1Html.replace(/\\/g, '/');
+  await page.goto(fileUrlPass1, { waitUntil: 'load', timeout: 90000 });
+
+  try {
+    await page.waitForFunction('window.__MERMAID_READY__ === true', { timeout: 30000 });
+  } catch (e) {
+    console.warn('Pass 1: Mermaid rendering timed out, proceeding.');
+  }
+
+  await new Promise(r => setTimeout(r, 2000));
+  await page.pdf({ ...pdfPrintOptions, path: tempPass1Pdf });
+  console.log(`Pass 1 PDF generated: ${tempPass1Pdf}`);
+
+  // Extract starting page numbers using Python pypdf
+  const extractScript = path.join(REPO_ROOT, 'scripts', 'extract_toc_pages.py');
+  const pythonCmd = `python "${extractScript}" "${tempPass1Pdf}"`;
+  console.log(`Running page extraction: ${pythonCmd}`);
+  const extractionOutput = execSync(pythonCmd, { encoding: 'utf-8' }).trim();
+  const pageMap = JSON.parse(extractionOutput);
+
+  console.log('\n--- Discovered Chapter Starting Pages ---');
+  for (let i = 1; i <= chapters.length; i++) {
+    console.log(`  Chapter ${String(i).padStart(2, '0')}: Page ${pageMap[i]} ("${chapters[i - 1].title}")`);
+  }
+
+  // ----------------------------------------------------
+  // PASS 2: Re-render final document with exact TOC starting page numbers
+  // ----------------------------------------------------
+  console.log('\n>>> Pass 2: Re-rendering final monograph with verified TOC page numbers...');
+  const finalHtml = renderHtmlDocument(chapters, pageMap);
+  fs.writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
+
+  const fileUrlFinal = 'file:///' + OUTPUT_HTML.replace(/\\/g, '/');
+  await page.goto(fileUrlFinal, { waitUntil: 'load', timeout: 90000 });
+
+  try {
+    await page.waitForFunction('window.__MERMAID_READY__ === true', { timeout: 30000 });
+    console.log('Pass 2: Mermaid diagrams rendered.');
+  } catch (e) {
+    console.warn('Pass 2: Mermaid rendering timed out, proceeding.');
+  }
+
+  await new Promise(r => setTimeout(r, 2000));
+  await page.pdf({ ...pdfPrintOptions, path: OUTPUT_PDF });
   await browser.close();
 
-  // Also copy to canonical Vayca_Academic_Book.pdf if building English
+  // Clean up temporary Pass 1 artifacts
+  if (fs.existsSync(tempPass1Html)) fs.unlinkSync(tempPass1Html);
+  if (fs.existsSync(tempPass1Pdf)) fs.unlinkSync(tempPass1Pdf);
+
+  // Synchronize copies
   if (isEn) {
-    const canonicalPdf = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.pdf');
-    const canonicalHtml = path.join(ACADEMIC_DIR, 'Vayca_Academic_Book.html');
+    const canonicalPdf = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book.pdf');
+    const canonicalHtml = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book.html');
     fs.copyFileSync(OUTPUT_PDF, canonicalPdf);
     fs.copyFileSync(OUTPUT_HTML, canonicalHtml);
     console.log(`Synchronized canonical book: ${canonicalPdf}`);
+  } else {
+    // Also copy French book to docs/academic/ for unified access
+    const altPdf = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_FR.pdf');
+    const altHtml = path.join(REPO_ROOT, 'docs', 'academic', 'Vayca_Academic_Book_FR.html');
+    fs.copyFileSync(OUTPUT_PDF, altPdf);
+    fs.copyFileSync(OUTPUT_HTML, altHtml);
+    console.log(`Synchronized French copy to docs/academic: ${altPdf}`);
+  }
+
+  // Synchronize with Artifacts directory for immediate user download/inspection
+  if (fs.existsSync(ARTIFACTS_DIR)) {
+    const artifactTarget = isEn
+      ? path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book_EN.pdf')
+      : path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book_FR.pdf');
+    fs.copyFileSync(OUTPUT_PDF, artifactTarget);
+    if (isEn) {
+      fs.copyFileSync(OUTPUT_PDF, path.join(ARTIFACTS_DIR, 'Vayca_Academic_Book.pdf'));
+    }
+    console.log(`Synchronized artifact: ${artifactTarget}`);
   }
 
   const pdfStats = fs.statSync(OUTPUT_PDF);
+  console.log(`\n======================================================`);
   console.log(`Academic Book PDF successfully generated!`);
   console.log(`Location: ${OUTPUT_PDF}`);
   console.log(`Size: ${(pdfStats.size / (1024 * 1024)).toFixed(2)} MB`);
+  console.log(`Language: ${selectedLang.toUpperCase()}`);
+  console.log(`======================================================\n`);
 }
 
 buildAcademicBook().catch(err => {

@@ -63,9 +63,11 @@ The intended PDF assembly order is:
 
 ## PDF Generation and Official Export
 
-The 18 chapters are compiled into a unified, publication-ready academic book / internship report:
+The 18 chapters are compiled into unified, publication-ready academic monographs:
 
-- **English PDF Book:** [`Vayca_Academic_Book_EN.pdf`](Vayca_Academic_Book_EN.pdf) (canonical: [`Vayca_Academic_Book.pdf`](Vayca_Academic_Book.pdf)) — Complete 101-page monograph in English featuring an executive cover page, table of contents, A4 paged typography, vector SVG Mermaid diagrams, zebra-striped requirement tables, and dynamic running headers/footers with page numbering.
-- **Standalone Offline HTML Edition:** [`Vayca_Academic_Book_EN.html`](Vayca_Academic_Book_EN.html) (canonical: [`Vayca_Academic_Book.html`](Vayca_Academic_Book.html)) — Self-contained HTML edition viewable in any browser offline without a web server.
-- **Build Pipeline Script:** [`scripts/generate_academic_book.js`](../../scripts/generate_academic_book.js) — Node.js compilation pipeline converting Markdown chapters into semantic HTML and printing to PDF via headless Chromium/Puppeteer (`node scripts/generate_academic_book.js` for English, `--lang=fr` for French).
+- **English PDF Book:** [`Vayca_Academic_Book_EN.pdf`](Vayca_Academic_Book_EN.pdf) (canonical: [`Vayca_Academic_Book.pdf`](Vayca_Academic_Book.pdf)) — Complete 101-page monograph in English featuring an executive cover page, dynamic Table of Contents with exact chapter starting page numbers, A4 paged typography, vector SVG Mermaid diagrams, zebra-striped requirement tables, and dynamic running headers/footers with page numbering.
+- **French PDF Book:** [`Vayca_Academic_Book_FR.pdf`](../academic_fr/Vayca_Academic_Book_FR.pdf) (also accessible at [`Vayca_Academic_Book_FR.pdf`](Vayca_Academic_Book_FR.pdf)) — Complete formal French monograph (rapport de projet de fin d'études / PFE d'ingénieur en génie logiciel) covering all 18 chapters, with tailored French executive cover, dynamic Table des Matières, and French-annotated diagrams.
+- **Standalone Offline HTML Editions:** [`Vayca_Academic_Book_EN.html`](Vayca_Academic_Book_EN.html) and [`Vayca_Academic_Book_FR.html`](../academic_fr/Vayca_Academic_Book_FR.html) — Self-contained HTML editions viewable in any browser offline without a web server.
+- **Build Pipeline Script:** [`scripts/generate_academic_book.js`](../../scripts/generate_academic_book.js) and [`scripts/extract_toc_pages.py`](../../scripts/extract_toc_pages.py) — Automated two-pass Node.js + Python compilation pipeline converting Markdown chapters into semantic HTML and printing to PDF via headless Chromium/Puppeteer (`node scripts/generate_academic_book.js` for English, `--lang=fr` for French).
+
 
