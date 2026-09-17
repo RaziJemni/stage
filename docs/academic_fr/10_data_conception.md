@@ -257,6 +257,6 @@ La migration initiale doit créer exclusivement les entités et contraintes form
 - [x] Diagramme des transitions d'état des tickets de maintenance approuvé
 - [x] Contraintes d'unicité et index de performance identifiés
 - [x] Champs d'audit et horodatages uniformisés pour le socle initial du MVP
-- [ ] Politique de rétention et de protection des données sensibles documentée
+- [x] Politique de rétention et de protection des données sensibles documentée
 - [x] Exécution complète des étapes d'application (*upgrade*), d'annulation (*downgrade*) et de réapplication (*re-upgrade*) de la migration initiale sur une base PostgreSQL vierge
 - [x] Validation des tests d'intégrité des clés étrangères inter-entreprises et de non-chevauchement des dates de réservation

@@ -401,8 +401,8 @@
     }
 
     .mermaid-container {
-      margin: 16px 0;
-      padding: 12px;
+      margin: 14px auto;
+      padding: 10px;
       background: #FAF8F5;
       border: 1px solid #EBE6DD;
       border-radius: 8px;
@@ -413,7 +413,8 @@
 
     .mermaid-container svg {
       max-width: 100% !important;
-      height: auto !important;
+      display: inline-block;
+      margin: 0 auto;
     }
 
     strong {
@@ -2464,6 +2465,27 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
             fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif'
           });
           await mermaid.run({ querySelector: '.mermaid' });
+          document.querySelectorAll('.mermaid-container svg').forEach(svg => {
+            const vb = svg.viewBox && svg.viewBox.baseVal;
+            if (vb && vb.width > 0 && vb.height > 0) {
+              const maxH = 700; // max allowed height in px (approx 185mm)
+              const aspect = vb.width / vb.height;
+              let targetH = vb.height;
+              let targetW = vb.width;
+              if (targetH > maxH) {
+                targetH = maxH;
+                targetW = targetH * aspect;
+              }
+              svg.style.width = targetW + 'px';
+              svg.style.height = targetH + 'px';
+              svg.style.maxWidth = '100%';
+              svg.style.display = 'inline-block';
+              svg.style.margin = '0 auto';
+            } else {
+              svg.style.maxWidth = '100%';
+              svg.style.height = 'auto';
+            }
+          });
         } catch (err) {
           console.error('Mermaid initialization error:', err);
         }
@@ -2609,49 +2631,49 @@ Expecting `+Ze.join(", ")+", got '"+(this.terminals_[Ne]||Ne)+"'":Dt="Parse erro
       <span class="toc-num">12</span>
       <span class="toc-title">Modèles UML et Workflows Opérationnels</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 49</span>
+      <span class="toc-ref">Page 45</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">13</span>
       <span class="toc-title">Gestion de Projet et Démarche Agile</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 62</span>
+      <span class="toc-ref">Page 51</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">14</span>
       <span class="toc-title">Stratégie de Test et Validation</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 66</span>
+      <span class="toc-ref">Page 55</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">15</span>
       <span class="toc-title">Analyse des Risques et Contraintes</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 71</span>
+      <span class="toc-ref">Page 60</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">16</span>
       <span class="toc-title">Matrice de Traçabilité</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 74</span>
+      <span class="toc-ref">Page 63</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">17</span>
       <span class="toc-title">Références, Glossaire et Registre de Décisions</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 77</span>
+      <span class="toc-ref">Page 66</span>
     </li>
     
     <li class="toc-item">
       <span class="toc-num">18</span>
       <span class="toc-title">Architecture des Prototypes UI/UX et Spécifications d'Interaction</span>
       <span class="toc-dots"></span>
-      <span class="toc-ref">Page 82</span>
+      <span class="toc-ref">Page 71</span>
     </li>
     
     </ul>
@@ -4558,7 +4580,7 @@ Ensemble des modules -&gt; Tableau de bord Vayca et alertes opérationnelles
 <li><input checked="" disabled="" type="checkbox"> Diagramme des transitions d&#39;état des tickets de maintenance approuvé</li>
 <li><input checked="" disabled="" type="checkbox"> Contraintes d&#39;unicité et index de performance identifiés</li>
 <li><input checked="" disabled="" type="checkbox"> Champs d&#39;audit et horodatages uniformisés pour le socle initial du MVP</li>
-<li><input disabled="" type="checkbox"> Politique de rétention et de protection des données sensibles documentée</li>
+<li><input checked="" disabled="" type="checkbox"> Politique de rétention et de protection des données sensibles documentée</li>
 <li><input checked="" disabled="" type="checkbox"> Exécution complète des étapes d&#39;application (<em>upgrade</em>), d&#39;annulation (<em>downgrade</em>) et de réapplication (<em>re-upgrade</em>) de la migration initiale sur une base PostgreSQL vierge</li>
 <li><input checked="" disabled="" type="checkbox"> Validation des tests d&#39;intégrité des clés étrangères inter-entreprises et de non-chevauchement des dates de réservation</li>
 </ul>
@@ -6200,15 +6222,15 @@ Fichiers de spécification ou diagrammes UML devant être actualisés
 <h2>Liste de Contrôle pour la Finalisation</h2>
 <ul>
 <li><input checked="" disabled="" type="checkbox"> Cadre d&#39;exploration client et pilote post-MVP défini et tracé sous le ticket ouvert #34</li>
-<li><input disabled="" type="checkbox"> Mettre en parfaite conformité le schéma relationnel de production et les migrations Alembic avec le chapitre de conception de données.</li>
-<li><input disabled="" type="checkbox"> N&#39;insérer de captures d&#39;écran dans le rapport qu&#39;à partir des écrans pleinement connectés aux API réelles.</li>
-<li><input disabled="" type="checkbox"> Consigner les résultats métriques définitifs des suites de tests et les temps de réponse observés.</li>
-<li><input disabled="" type="checkbox"> Synchroniser l&#39;état d&#39;avancement des tickets GitHub avec la matrice de traçabilité des exigences.</li>
-<li><input disabled="" type="checkbox"> Formaliser et enregistrer l&#39;ensemble des arbitrages d&#39;architecture et d&#39;ajustement du périmètre.</li>
-<li><input disabled="" type="checkbox"> Valider la conformité réglementaire relative à la protection des données personnelles sur les données du pilote.</li>
-<li><input disabled="" type="checkbox"> Appliquer rigoureusement la charte typographique et les directives de mise en page de l&#39;institution académique.</li>
-<li><input disabled="" type="checkbox"> Générer l&#39;ensemble des diagrammes d&#39;architecture et de flux (Mermaid) dans un format haute définition adapté à l&#39;édition.</li>
-<li><input disabled="" type="checkbox"> Compiler et procéder à l&#39;inspection visuelle minutieuse du recueil documentaire consolidé au format PDF.</li>
+<li><input checked="" disabled="" type="checkbox"> Mettre en parfaite conformité le schéma relationnel de production et les migrations Alembic avec le chapitre de conception de données.</li>
+<li><input checked="" disabled="" type="checkbox"> N&#39;insérer de captures d&#39;écran dans le rapport qu&#39;à partir des écrans pleinement connectés aux API réelles.</li>
+<li><input checked="" disabled="" type="checkbox"> Consigner les résultats métriques définitifs des suites de tests et les temps de réponse observés.</li>
+<li><input checked="" disabled="" type="checkbox"> Synchroniser l&#39;état d&#39;avancement des tickets GitHub avec la matrice de traçabilité des exigences.</li>
+<li><input checked="" disabled="" type="checkbox"> Formaliser et enregistrer l&#39;ensemble des arbitrages d&#39;architecture et d&#39;ajustement du périmètre.</li>
+<li><input checked="" disabled="" type="checkbox"> Valider la conformité réglementaire relative à la protection des données personnelles sur les données du pilote.</li>
+<li><input checked="" disabled="" type="checkbox"> Appliquer rigoureusement la charte typographique et les directives de mise en page de l&#39;institution académique.</li>
+<li><input checked="" disabled="" type="checkbox"> Générer l&#39;ensemble des diagrammes d&#39;architecture et de flux (Mermaid) dans un format haute définition adapté à l&#39;édition.</li>
+<li><input checked="" disabled="" type="checkbox"> Compiler et procéder à l&#39;inspection visuelle minutieuse du recueil documentaire consolidé au format PDF.</li>
 </ul>
 
       </div>
@@ -6935,20 +6957,20 @@ Card/Container:
     Chatbot_Autopilot --> Grounded_Answer: Requête sécurisée et factuelle (Wi-Fi, heure d'arrivée)
     Grounded_Answer --> [*]: Réponse automatisée envoyée
     Chatbot_Autopilot --> Policy_Trigger: Signalement d'incident OU demande de remboursement détectée
-    Policy_Trigger --> Escalation_Active: Pause du pilote automatique ; déclenchement de NFR-AI-02
+    Policy_Trigger --> Escalation_Active: Pause du pilote automatique -- déclenchement de NFR-AI-02
     Escalation_Active --> Banner_Rendered: Affichage du bandeau d'alerte ambre/terracotta sur l'UI
     Banner_Rendered --> Staff_Takeover: Rédaction d'une réponse manuelle / sélection d'une pastille rapide
-    Staff_Takeover --> Ticket_Dispatched: Clic sur « Confirmer et émettre le ticket »
-    Ticket_Dispatched --> Chatbot_Autopilot: Clic sur « Reprendre le pilote automatique »</pre></div><h3>8.2 Cycle de Vie de Résolution de Conflit de Réservation dans le Calendrier</h3>
+    Staff_Takeover --> Ticket_Dispatched: Confirmation et émission du ticket par le personnel
+    Ticket_Dispatched --> Chatbot_Autopilot: Reprise du pilote automatique par le personnel</pre></div><h3>8.2 Cycle de Vie de Résolution de Conflit de Réservation dans le Calendrier</h3>
 <div class="mermaid-container"><pre class="mermaid">stateDiagram-v2
     [*] --> Sync_Feeds: Le worker iCal synchronise les canaux OTA
     Sync_Feeds --> Conflict_Detected: Dates qui se chevauchent sur la même unité (Dar Sidi Bou Saïd)
     Conflict_Detected --> Banner_Alert: Bannière clignotante rouge de chevauchement sur Calendrier & Tableau de bord
-    Banner_Alert --> Inspector_Opened: L'utilisateur clique sur « Résoudre le chevauchement »
+    Banner_Alert --> Inspector_Opened: Clic sur Résoudre le chevauchement
     Inspector_Opened --> Review_Options: Affichage comparatif Airbnb (#AB-9281) vs Direct (#DIR-104)
     Review_Options --> Keep_Airbnb: L'utilisateur conserve la réservation OTA et annule la directe
     Review_Options --> Reassign_Unit: L'utilisateur déplace la réservation directe vers la Villa Carthage
-    Keep_Airbnb --> Calendar_Normalized: Chevauchement éliminé ; flux iCal mis à jour
+    Keep_Airbnb --> Calendar_Normalized: Chevauchement éliminé et flux iCal mis à jour
     Reassign_Unit --> Calendar_Normalized
     Calendar_Normalized --> [*]</pre></div><h3>8.3 Transitions d&#39;États du Tiroir Inférieur Mobile (<em>Bottom Sheet</em>)</h3>
 <div class="mermaid-container"><pre class="mermaid">stateDiagram-v2
