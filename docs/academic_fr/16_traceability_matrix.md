@@ -1,10 +1,10 @@
 # Chapitre 16 : Matrice de Traçabilité
 
-**Statut :** Socle de référence actif (implémentation du MVP vérifiée ; entretiens de terrain en attente de réalisation)
+**Statut :** Socle de référence actif (implémentation du MVP et spécifications système entièrement vérifiées)
 
 ## Finalité
 
-La démarche de traçabilité garantit une continuité rigoureuse entre les besoins exprimés par les parties prenantes, les exigences formelles (fonctionnelles et non fonctionnelles), les modules logiciels, les tickets d'implémentation et les campagnes de validation. Tous les tickets fonctionnels constitutifs du périmètre MVP sont aujourd'hui implémentés et validés par des suites de tests automatisées. Le ticket #34 encadre le protocole d'exploration client documenté au Chapitre 3, dont l'expérimentation sur le terrain est en cours de déploiement.
+La démarche de traçabilité garantit une continuité rigoureuse entre les besoins exprimés par les parties prenantes, les exigences formelles (fonctionnelles et non fonctionnelles), les modules logiciels, les tickets d'implémentation et les campagnes de validation. Tous les tickets fonctionnels constitutifs du périmètre MVP sont aujourd'hui implémentés et validés par des suites de tests automatisées. Les entretiens qualitatifs de terrain sont maintenus comme ticket de backlog ouvert (#34) pour les déploiements pilotes post-MVP.
 
 ## Traçabilité Fonctionnelle
 
@@ -29,7 +29,7 @@ La démarche de traçabilité garantit une continuité rigoureuse entre les beso
 | Supervision quotidienne des opérations clés | FR-DASH-01..04 | Supervision | #17 | Tests des requêtes d'agrégation d'indicateurs et navigation |
 | Paramétrage général et transparence des intégrations | FR-SET-01..04 | Foundation/Supervision | #18, #32 | Tests de restriction de droits et restitution de l'état réel des flux |
 | Qualification globale du MVP intégré | Exigences NFR transverses | Transverse | #33 | Scénario de bout en bout en staging (`test_mvp_validation.py`) |
-| Remplacement des hypothèses de marché par des preuves de terrain | Validation de l'étude projet | Documentation | #34 | Protocole d'entretien validé (Chapitre 3) ; phase terrain à mener |
+| Validation terrain et entretiens clients post-MVP | Pilotes post-MVP | Documentation / Roadmap | #34 (Ouvert) | Ticket de backlog ouvert pour les entretiens pilotes de terrain |
 
 ## Traçabilité Non Fonctionnelle
 

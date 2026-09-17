@@ -8,8 +8,8 @@
  *   - Inline SVG rendering of all architectural, ER, UML, and sequence Mermaid diagrams
  * 
  * Usage:
- *   node scripts/generate_academic_book.js           (Generates English edition by default)
- *   node scripts/generate_academic_book.js --lang=fr (Generates French edition)
+ *   node compile_academic_book.js           (Generates English edition by default)
+ *   node compile_academic_book.js --lang=fr (Generates French edition)
  */
 
 import fs from 'fs';
@@ -21,7 +21,7 @@ import puppeteer from 'puppeteer-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = fs.existsSync('d:\\stage') ? 'd:\\stage' : path.resolve(__dirname, '..');
+const REPO_ROOT = 'd:\\stage';
 
 const langArg = process.argv.find(a => a.startsWith('--lang='));
 const selectedLang = langArg ? langArg.split('=')[1].toLowerCase() : 'en';
