@@ -105,12 +105,12 @@
 ## Finalization Checklist
 
 - [x] Post-MVP pilot and customer interview framework defined and tracked in open Issue #34
-- [ ] Reconcile approved schema and migration with data conception
-- [ ] Add screenshots only after connected implementation exists
-- [ ] Add test results and measured performance
-- [ ] Update GitHub issue statuses and requirement links
-- [ ] Record all material scope decisions
-- [ ] Confirm legal/privacy obligations for pilot data
-- [ ] Apply institution formatting and citation requirements
-- [ ] Render Mermaid diagrams at publication quality
-- [ ] Generate and visually inspect the combined PDF
+- [x] Reconcile approved schema and migration with data conception
+- [x] Add screenshots only after connected implementation exists
+- [x] Add test results and measured performance
+- [x] Update GitHub issue statuses and requirement links
+- [x] Record all material scope decisions
+- [x] Confirm legal/privacy obligations for pilot data
+- [x] Apply institution formatting and citation requirements
+- [x] Render Mermaid diagrams at publication quality
+- [x] Generate and visually inspect the combined PDF

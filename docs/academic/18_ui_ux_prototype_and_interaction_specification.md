@@ -463,11 +463,11 @@ stateDiagram-v2
     Chatbot_Autopilot --> Grounded_Answer: Safe query (WiFi, check-in time)
     Grounded_Answer --> [*]: Automated reply sent
     Chatbot_Autopilot --> Policy_Trigger: Defect complaint OR refund request detected
-    Policy_Trigger --> Escalation_Active: Autopilot paused; NFR-AI-02 triggered
+    Policy_Trigger --> Escalation_Active: Autopilot paused -- NFR-AI-02 triggered
     Escalation_Active --> Banner_Rendered: Amber/terracotta warning banner rendered on UI
     Banner_Rendered --> Staff_Takeover: Staff composes manual reply / uses quick chip
-    Staff_Takeover --> Ticket_Dispatched: Staff clicks 'Confirm & Dispatch Ticket'
-    Ticket_Dispatched --> Chatbot_Autopilot: Staff clicks 'Resume Autopilot'
+    Staff_Takeover --> Ticket_Dispatched: Staff confirms and dispatches ticket
+    Ticket_Dispatched --> Chatbot_Autopilot: Staff resumes autopilot
 ```
 
 ### 8.2 Calendar Booking Conflict Resolution Lifecycle
@@ -477,11 +477,11 @@ stateDiagram-v2
     [*] --> Sync_Feeds: iCal worker syncs OTA channels
     Sync_Feeds --> Conflict_Detected: Overlapping dates on same unit (Dar Sidi Bou Said)
     Conflict_Detected --> Banner_Alert: Flashing red overlap banner rendered on Calendar & Dashboard
-    Banner_Alert --> Inspector_Opened: User clicks 'Resolve Overlap'
+    Banner_Alert --> Inspector_Opened: User clicks Resolve Overlap
     Inspector_Opened --> Review_Options: Display Airbnb (#AB-9281) vs Direct (#DIR-104)
     Review_Options --> Keep_Airbnb: User keeps OTA booking & cancels direct
     Review_Options --> Reassign_Unit: User relocates direct booking to Villa Carthage
-    Keep_Airbnb --> Calendar_Normalized: Overlap removed; iCal feed updated
+    Keep_Airbnb --> Calendar_Normalized: Overlap removed and iCal feed updated
     Reassign_Unit --> Calendar_Normalized
     Calendar_Normalized --> [*]
 ```
